@@ -3,7 +3,7 @@
     Builds Beacon application as a single executable file.
 
 .DESCRIPTION
-    This script publishes the AutoPilot Log Search WPF application as a 
+    This script publishes the Beacon_FindInFiles WPF application as a 
     self-contained single executable file for Windows x64.
 
 .PARAMETER Configuration
@@ -46,7 +46,7 @@ param(
 
 # Script configuration
 $ErrorActionPreference = "Stop"
-$projectPath = "AutoPilot Log Search\AutoPilot Log Search.vbproj"
+$projectPath = "Beacon_FindInFiles\Beacon_FindInFiles.vbproj"
 $exeName = "Beacon.exe"
 
 # Display header
@@ -68,9 +68,9 @@ Write-Host "Project:       $projectPath" -ForegroundColor Green
 # Clean if requested
 if ($Clean) {
     Write-Host "`nCleaning previous builds..." -ForegroundColor Yellow
-    
-    $binPath = "AutoPilot Log Search\bin"
-    $objPath = "AutoPilot Log Search\obj"
+
+    $binPath = "Beacon_FindInFiles\bin"
+    $objPath = "Beacon_FindInFiles\obj"
     
     if (Test-Path $binPath) {
         Remove-Item $binPath -Recurse -Force
@@ -98,7 +98,7 @@ try {
 
 # Publish as single file
 Write-Host "`nPublishing single-file executable..." -ForegroundColor Yellow
-$publishPath = "AutoPilot Log Search\bin\$Configuration\net10.0-windows\$Platform\publish"
+$publishPath = "Beacon_FindInFiles\bin\$Configuration\net10.0-windows\$Platform\publish"
 
 try {
     dotnet publish $projectPath `
