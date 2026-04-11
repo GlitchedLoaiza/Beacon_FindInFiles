@@ -72,11 +72,23 @@
                      Margin="0,0,12,0"
                      IsEnabled="False"/>
 
-            <Button Grid.Row="0"
-                    Grid.Column="2"
-                    x:Name="Browse_btn"
-                    Content="Browse..."
-                    Margin="0,0,8,0"/>
+            <StackPanel Grid.Row="0"
+                        Grid.Column="2"
+                        Orientation="Horizontal"
+                        Margin="0,0,8,0">
+
+                <Button x:Name="BrowseFolder_btn"
+                        Content="📁 Folder"
+                        Width="90"
+                        Margin="0,0,6,0"
+                        ToolTip="Select a folder to scan recursively"/>
+
+                <Button x:Name="BrowseZip_btn"
+                        Content="📦 ZIP"
+                        Width="80"
+                        ToolTip="Select a ZIP archive to scan"/>
+
+            </StackPanel>
 
             <Button Grid.Row="0"
                     Grid.Column="3"
@@ -215,10 +227,26 @@
                                 BorderBrush="#D0D0D0"
                                 BorderThickness="0,1,0,0">
 
-                            <TextBlock x:Name="EventCounter_lbl"
-                                       FontWeight="SemiBold"
-                                       Text="Viewing 0 of 0 event(s)"
-                                       HorizontalAlignment="Right"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock x:Name="EventMatchCounter_lbl"
+                                           Grid.Column="0"
+                                           FontWeight="SemiBold"
+                                           Text="0 match(es) in this event"
+                                           HorizontalAlignment="Left"
+                                           VerticalAlignment="Center"/>
+
+                                <TextBlock x:Name="EventCounter_lbl"
+                                           Grid.Column="1"
+                                           FontWeight="SemiBold"
+                                           Text="Viewing 0 of 0 event(s)"
+                                           HorizontalAlignment="Right"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
                         </Border>
                     </Grid>
                 </GroupBox>
@@ -277,28 +305,41 @@
 
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock x:Name="Status_lbl"
+                           Grid.Column="0"
                            Text="Status: Ready"
-                           VerticalAlignment="Center"/>
+                           VerticalAlignment="Center"
+                           Margin="0,0,16,0"/>
+
+                <TextBlock x:Name="TimeElapsed_lbl"
+                           Grid.Column="1"
+                           Text="Time Elapsed: 00:00:00"
+                           VerticalAlignment="Center"
+                           Margin="0,0,16,0"
+                           Foreground="#555"
+                           Visibility="Collapsed"/>
 
                 <TextBlock x:Name="CurrentFile_lbl"
-                           Grid.Column="1"
+                           Grid.Column="2"
                            VerticalAlignment="Center"
-                           Margin="12,0,12,0"
-                           MaxWidth="520"
                            TextTrimming="CharacterEllipsis"
-                           Foreground="#666"/>
+                           Foreground="#666"
+                           Margin="60,0,12,0"/>
 
                 <ProgressBar x:Name="ScanProgress_pb"
-                             Grid.Column="2"
+                             Grid.Column="3"
                              Width="180"
                              Height="16"
-                             IsIndeterminate="True"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0"
+                             IsIndeterminate="False"
                              Visibility="Collapsed"/>
             </Grid>
         </Border>
