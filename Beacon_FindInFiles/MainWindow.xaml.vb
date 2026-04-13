@@ -128,6 +128,16 @@ Namespace Beacon
         ''' <summary>Tracks temporary EVTX files extracted from ZIPs for cleanup</summary>
         Private ReadOnly _tempToDelete As New List(Of String)
 
+        ' --- WebView2 state for HTML/XML preview ---
+        ''' <summary>Flag indicating if WebView2 is initialized</summary>
+        Private _webViewInitialized As Boolean = False
+
+        ''' <summary>Current search term index for WebView2 F3 navigation</summary>
+        Private _currentWebMatchIndex As Integer = 0
+
+        ''' <summary>Total matches found in current WebView2 content</summary>
+        Private _totalWebMatches As Integer = 0
+
         ' --- UI throttling for "Scanning file: ..." label ---
         ''' <summary>Stopwatch for measuring time between label updates</summary>
         Private ReadOnly _fileLabelStopwatch As Stopwatch = Stopwatch.StartNew()
@@ -223,7 +233,67 @@ Namespace Beacon
 
             ShowTextPreviewMode()
             ClearTextPreview()
+
+            ' Initialize WebView2 asynchronously - without blocking
+            InitializeWebView2Async()
         End Sub
+
+        ''' <summary>
+        ''' Initializes WebView2 control asynchronously (non-blocking)
+        ''' </summary>
+        Private Async Sub InitializeWebView2Async()
+            Try
+                Debug.WriteLine("========================================")
+                Debug.WriteLine("Starting WebView2 initialization...")
+
+                If WebPreview_wv2 Is Nothing Then
+                    Debug.WriteLine("✗ WebView2 control is null!")
+                    _webViewInitialized = False
+                    Return
+                End If
+
+                Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
+
+                _webViewInitialized = True
+                Debug.WriteLine("✓✓✓ WebView2 INITIALIZED SUCCESSFULLY ✓✓✓")
+                Debug.WriteLine($"_webViewInitialized = {_webViewInitialized}")
+                Debug.WriteLine("========================================")
+
+            Catch ex As Exception
+                _webViewInitialized = False
+                Debug.WriteLine("========================================")
+                Debug.WriteLine($"✗✗✗ WebView2 INITIALIZATION FAILED ✗✗✗")
+                Debug.WriteLine($"Error: {ex.Message}")
+                Debug.WriteLine("========================================")
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Ensures WebView2 is initialized before use (synchronous check with retry)
+        ''' </summary>
+        Private Async Function EnsureWebView2InitializedAsync() As Task(Of Boolean)
+            If _webViewInitialized Then
+                Debug.WriteLine("WebView2 already initialized")
+                Return True
+            End If
+
+            Try
+                Debug.WriteLine("WebView2 not initialized yet, initializing now...")
+                If WebPreview_wv2 Is Nothing Then
+                    Debug.WriteLine("✗ WebView2 control is null!")
+                    Return False
+                End If
+
+                Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
+                _webViewInitialized = True
+                Debug.WriteLine("✓ WebView2 initialized on-demand successfully")
+                Return True
+            Catch ex As Exception
+                Debug.WriteLine($"✗ WebView2 initialization failed: {ex.Message}")
+                _webViewInitialized = False
+                Return False
+            End Try
+        End Function
 
 #End Region
 
@@ -655,6 +725,11 @@ Namespace Beacon
             ClearTextPreview()
             ShowTextPreviewMode()
 
+            ' Clear WebView2 content
+            ClearWebPreview()
+            _currentWebMatchIndex = 0
+            _totalWebMatches = 0
+
             NextFile_btn.Visibility = Visibility.Collapsed
             FindNext_btn.Visibility = Visibility.Collapsed
             FindNextEvent_btn.Visibility = Visibility.Collapsed
@@ -969,18 +1044,51 @@ Namespace Beacon
             FindPreviousEvent_btn.Visibility = Visibility.Collapsed
             _currentTextFindStart = 0
             _currentEventMessageMatchIndex = 0
+            _currentWebMatchIndex = 0
+            _totalWebMatches = 0
 
             ' Load preview based on hit type
             Select Case hit.Kind
                 Case HitKind.DiskTextFile
-                    ShowTextPreviewMode()
-                    LoadTextFromDisk(hit.FilePath)
-                    FindNext_btn.Visibility = Visibility.Visible
+                    ' ROUTE BASED ON EXTENSION
+                    Dim ext = Path.GetExtension(hit.FilePath).ToLowerInvariant()
+                    Debug.WriteLine("========================================")
+                    Debug.WriteLine($"File selected: {hit.FilePath}")
+                    Debug.WriteLine($"Extension: {ext}")
+                    Debug.WriteLine($"Is HTML/XML: {ext = ".html" OrElse ext = ".xml"}")
+                    Debug.WriteLine("========================================")
+
+                    If ext = ".html" OrElse ext = ".xml" Then
+                        ' Use WebView2 engine for HTML/XML (will initialize if needed)
+                        Debug.WriteLine("→→→ ATTEMPTING WEBVIEW2 ENGINE")
+                        ShowWebPreviewMode()
+                        LoadWebContentFromDisk(hit.FilePath, ext)
+                        FindNext_btn.Visibility = Visibility.Visible
+                    Else
+                        ' Use RichTextBox engine for plain text
+                        Debug.WriteLine("→→→ USING RICHTEXTBOX ENGINE")
+                        ShowTextPreviewMode()
+                        LoadTextFromDisk(hit.FilePath)
+                        FindNext_btn.Visibility = Visibility.Visible
+                    End If
 
                 Case HitKind.ZipTextEntry
-                    ShowTextPreviewMode()
-                    LoadTextFromZip(hit.ZipPath, hit.ZipEntryName)
-                    FindNext_btn.Visibility = Visibility.Visible
+                    Dim ext = Path.GetExtension(hit.ZipEntryName).ToLowerInvariant()
+                    Debug.WriteLine($"ZIP entry selected: {hit.ZipPath} | {hit.ZipEntryName}, Extension: {ext}")
+
+                    If ext = ".html" OrElse ext = ".xml" Then
+                        ' Use WebView2 engine for HTML/XML (will initialize if needed)
+                        Debug.WriteLine("→→→ ATTEMPTING WEBVIEW2 ENGINE")
+                        ShowWebPreviewMode()
+                        LoadWebContentFromZip(hit.ZipPath, hit.ZipEntryName, ext)
+                        FindNext_btn.Visibility = Visibility.Visible
+                    Else
+                        ' Use RichTextBox engine for plain text
+                        Debug.WriteLine("→→→ USING RICHTEXTBOX ENGINE")
+                        ShowTextPreviewMode()
+                        LoadTextFromZip(hit.ZipPath, hit.ZipEntryName)
+                        FindNext_btn.Visibility = Visibility.Visible
+                    End If
 
                 Case HitKind.EvtxFileOnDisk, HitKind.EvtxFromZipTemp
                     ShowEventPreviewMode()
@@ -1046,6 +1154,286 @@ Namespace Beacon
             TextPreview_rtb.Document.Blocks.Clear()
         End Sub
 
+        ''' <summary>
+        ''' Clears WebView2 content to prevent black screen or lingering content
+        ''' </summary>
+        Private Sub ClearWebPreview()
+            If _webViewInitialized Then
+                Try
+                    WebPreview_wv2.NavigateToString("<html><body style='margin:0;padding:0;background:white;'></body></html>")
+                Catch ex As Exception
+                    Debug.WriteLine($"Error clearing WebView2: {ex.Message}")
+                End Try
+            End If
+        End Sub
+
+        ''' <summary>
+        ''' Loads HTML or XML file from disk into WebView2 with search highlighting
+        ''' </summary>
+        Private Async Sub LoadWebContentFromDisk(filePath As String, extension As String)
+            Debug.WriteLine($"LoadWebContentFromDisk called for: {filePath}")
+            Debug.WriteLine($"Current _webViewInitialized: {_webViewInitialized}")
+
+            ' Ensure WebView2 is initialized (will wait if needed)
+            Dim isReady = Await EnsureWebView2InitializedAsync()
+
+            If Not isReady Then
+                Debug.WriteLine("→→→ WebView2 initialization failed, falling back to text preview")
+                ' Fallback to text preview if WebView2 not available
+                ShowTextPreviewMode()
+                LoadTextFromDisk(filePath)
+                Status("HTML/XML shown as text - WebView2 unavailable")
+                Return
+            End If
+
+            Debug.WriteLine("→→→ WebView2 is ready, loading content...")
+            Try
+                Dim content = File.ReadAllText(filePath)
+                Await LoadWebContentAsync(content, extension)
+            Catch ex As Exception
+                Debug.WriteLine($"Error loading content: {ex.Message}")
+                ' On error, show error message in WebView
+                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading file:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Loads HTML or XML entry from ZIP into WebView2 with search highlighting
+        ''' </summary>
+        Private Async Sub LoadWebContentFromZip(zipPath As String, entryName As String, extension As String)
+            Debug.WriteLine($"LoadWebContentFromZip called for: {zipPath} | {entryName}")
+
+            ' Ensure WebView2 is initialized (will wait if needed)
+            Dim isReady = Await EnsureWebView2InitializedAsync()
+
+            If Not isReady Then
+                Debug.WriteLine("→→→ WebView2 initialization failed, falling back to text preview")
+                ' Fallback to text preview if WebView2 not available
+                ShowTextPreviewMode()
+                LoadTextFromZip(zipPath, entryName)
+                Status("HTML/XML shown as text - WebView2 unavailable")
+                Return
+            End If
+
+            Debug.WriteLine("→→→ WebView2 is ready, loading content from ZIP...")
+            Try
+                Using z = ZipFile.OpenRead(zipPath)
+                    Dim entry = z.GetEntry(entryName)
+                    If entry Is Nothing Then
+                        WebPreview_wv2.NavigateToString("<html><body><h3>Error: Entry not found in ZIP</h3></body></html>")
+                        Return
+                    End If
+
+                    Using s = entry.Open()
+                        Using sr As New StreamReader(s, detectEncodingFromByteOrderMarks:=True)
+                            Dim content = sr.ReadToEnd()
+                            Await LoadWebContentAsync(content, extension)
+                        End Using
+                    End Using
+                End Using
+            Catch ex As Exception
+                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading from ZIP:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Core method to load and highlight HTML/XML content in WebView2
+        ''' </summary>
+        Private Async Function LoadWebContentAsync(content As String, extension As String) As Task
+            Dim htmlToRender As String
+
+            If extension = ".xml" Then
+                ' Wrap XML in styled HTML viewer
+                htmlToRender = CreateXmlViewerHtml(content)
+            Else
+                ' HTML content - render directly
+                htmlToRender = content
+            End If
+
+            ' Navigate to content
+            WebPreview_wv2.NavigateToString(htmlToRender)
+
+            ' Wait for navigation to complete before highlighting
+            Await Task.Delay(300) ' Small delay to ensure DOM is ready
+
+            ' Apply search highlighting
+            Await HighlightSearchInWebViewAsync()
+        End Function
+
+        ''' <summary>
+        ''' Creates HTML wrapper for XML content with syntax highlighting and search support
+        ''' </summary>
+        Private Function CreateXmlViewerHtml(xmlContent As String) As String
+            ' Escape XML for safe display in HTML
+            Dim escapedXml = System.Security.SecurityElement.Escape(xmlContent)
+
+            Return $"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <style>
+        body {{
+            margin: 0;
+            padding: 12px;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            background: white;
+            color: #000;
+        }}
+        .xml-content {{
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.5;
+        }}
+        mark.search-highlight {{
+            background-color: #FFFF00;
+            color: #000;
+            font-weight: bold;
+            padding: 2px 0;
+        }}
+        mark.current-highlight {{
+            background-color: #FF9500;
+            color: #000;
+            font-weight: bold;
+            padding: 2px 0;
+        }}
+    </style>
+</head>
+<body>
+    <div class='xml-content' id='content'>{escapedXml}</div>
+</body>
+</html>"
+        End Function
+
+        ''' <summary>
+        ''' Injects JavaScript to highlight all search term occurrences in WebView2
+        ''' </summary>
+        Private Async Function HighlightSearchInWebViewAsync() As Task
+            Dim searchTerm = Search_txt.Text
+            If String.IsNullOrWhiteSpace(searchTerm) OrElse Not _webViewInitialized Then
+                _totalWebMatches = 0
+                Return
+            End If
+
+            Dim caseSensitive = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
+
+            ' Escape JavaScript string and regex special characters
+            Dim escapedTerm = searchTerm.Replace("\", "\\").Replace("'", "\'").Replace(vbLf, "\n").Replace(vbCr, "\r")
+            Dim regexFlags = If(caseSensitive, "g", "gi")
+
+            ' Build regex pattern, escaping special regex characters
+            Dim regexEscapedTerm = System.Text.RegularExpressions.Regex.Escape(searchTerm)
+
+            ' JavaScript to highlight all matches and count them
+            Dim script = $"
+(function() {{
+    // Remove existing highlights
+    document.querySelectorAll('mark.search-highlight, mark.current-highlight').forEach(function(el) {{
+        var parent = el.parentNode;
+        parent.replaceChild(document.createTextNode(el.textContent), el);
+        parent.normalize();
+    }});
+
+    var body = document.body;
+    var searchTerm = '{escapedTerm}';
+    var regex = new RegExp('({regexEscapedTerm})', '{regexFlags}');
+    var matchCount = 0;
+
+    // Recursive function to traverse and highlight text nodes
+    function highlightInNode(node) {{
+        if (node.nodeType === Node.TEXT_NODE) {{
+            var text = node.textContent;
+            var matches = text.match(regex);
+
+            if (matches && matches.length > 0) {{
+                var fragment = document.createDocumentFragment();
+                var lastIndex = 0;
+                var tempText = text;
+
+                tempText.replace(regex, function(match, ...args) {{
+                    var offset = args[args.length - 2]; // offset is second to last argument
+
+                    // Add text before match
+                    if (offset > lastIndex) {{
+                        fragment.appendChild(document.createTextNode(text.substring(lastIndex, offset)));
+                    }}
+
+                    // Add highlighted match
+                    var mark = document.createElement('mark');
+                    mark.className = 'search-highlight';
+                    mark.setAttribute('data-match-index', matchCount);
+                    mark.textContent = match;
+                    fragment.appendChild(mark);
+                    matchCount++;
+
+                    lastIndex = offset + match.length;
+                    return match;
+                }});
+
+                // Add remaining text
+                if (lastIndex < text.length) {{
+                    fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
+                }}
+
+                node.parentNode.replaceChild(fragment, node);
+            }}
+        }} else if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE' && node.tagName !== 'MARK') {{
+            Array.from(node.childNodes).forEach(highlightInNode);
+        }}
+    }}
+
+    highlightInNode(body);
+    return matchCount;
+}})();
+"
+
+            Try
+                Dim result = Await WebPreview_wv2.ExecuteScriptAsync(script)
+                ' Parse match count from result
+                If Integer.TryParse(result, _totalWebMatches) Then
+                    _currentWebMatchIndex = 0
+                    If _totalWebMatches > 0 Then
+                        ' Highlight first match
+                        Await HighlightWebMatchAtIndexAsync(0)
+                    End If
+                End If
+            Catch ex As Exception
+                _totalWebMatches = 0
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Highlights specific match index and scrolls it into view
+        ''' </summary>
+        Private Async Function HighlightWebMatchAtIndexAsync(index As Integer) As Task
+            If Not _webViewInitialized OrElse _totalWebMatches = 0 Then Return
+
+            Dim script = $"
+(function() {{
+    var marks = document.querySelectorAll('mark.search-highlight, mark.current-highlight');
+
+    // Remove current highlight from all marks
+    marks.forEach(function(mark) {{
+        mark.className = 'search-highlight';
+    }});
+
+    // Highlight the current match
+    if (marks.length > {index}) {{
+        var currentMark = marks[{index}];
+        currentMark.className = 'current-highlight';
+        currentMark.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+        return true;
+    }}
+    return false;
+}})();
+"
+
+            Try
+                Await WebPreview_wv2.ExecuteScriptAsync(script)
+            Catch
+            End Try
+        End Function
+
 #End Region
 
 #Region "Find Next (Text)"
@@ -1060,10 +1448,17 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
-        ''' Finds and highlights next occurrence of search term in text preview
+        ''' Finds and highlights next occurrence of search term in text preview or WebView2
         ''' Wraps to beginning if no more matches found
         ''' </summary>
         Private Sub FindNextInText()
+            ' Check if we're in WebView2 mode
+            If WebPreview_grp.Visibility = Visibility.Visible AndAlso _webViewInitialized Then
+                FindNextInWebView()
+                Return
+            End If
+
+            ' Original text preview logic
             Dim term = Search_txt.Text
             If String.IsNullOrWhiteSpace(term) Then Return
 
@@ -1091,6 +1486,30 @@ Namespace Beacon
 
             If Not _isScanning Then
                 Status(If(wrapped, "Wrapped to top", "Ready"))
+            End If
+        End Sub
+
+        ''' <summary>
+        ''' Navigates to next match in WebView2 content
+        ''' </summary>
+        Private Async Sub FindNextInWebView()
+            If _totalWebMatches = 0 Then
+                If Not _isScanning Then Status("No matches in preview")
+                Return
+            End If
+
+            _currentWebMatchIndex += 1
+
+            Dim wrapped As Boolean = False
+            If _currentWebMatchIndex >= _totalWebMatches Then
+                _currentWebMatchIndex = 0
+                wrapped = True
+            End If
+
+            Await HighlightWebMatchAtIndexAsync(_currentWebMatchIndex)
+
+            If Not _isScanning Then
+                Status(If(wrapped, $"Wrapped to top (match {_currentWebMatchIndex + 1} of {_totalWebMatches})", $"Match {_currentWebMatchIndex + 1} of {_totalWebMatches}"))
             End If
         End Sub
 
@@ -1401,17 +1820,34 @@ Namespace Beacon
 
 #Region "Preview Mode Switch"
 
-        ''' <summary>Shows text preview pane, hides EVTX preview</summary>
+        ''' <summary>Shows text preview pane, hides EVTX and Web previews</summary>
         Private Sub ShowTextPreviewMode()
             TextPreview_grp.Visibility = Visibility.Visible
             EventPreview_grp.Visibility = Visibility.Collapsed
+            WebPreview_grp.Visibility = Visibility.Collapsed
             EventCounter_lbl.Visibility = Visibility.Collapsed
+
+            ' Clear WebView2 to prevent black screen
+            ClearWebPreview()
         End Sub
 
+        ''' <summary>Shows EVTX preview pane, hides text and Web previews</summary>
         Private Sub ShowEventPreviewMode()
             TextPreview_grp.Visibility = Visibility.Collapsed
             EventPreview_grp.Visibility = Visibility.Visible
+            WebPreview_grp.Visibility = Visibility.Collapsed
             EventCounter_lbl.Visibility = Visibility.Visible
+
+            ' Clear WebView2 to prevent black screen
+            ClearWebPreview()
+        End Sub
+
+        ''' <summary>Shows web preview pane (HTML/XML), hides text and EVTX previews</summary>
+        Private Sub ShowWebPreviewMode()
+            TextPreview_grp.Visibility = Visibility.Collapsed
+            EventPreview_grp.Visibility = Visibility.Collapsed
+            WebPreview_grp.Visibility = Visibility.Visible
+            EventCounter_lbl.Visibility = Visibility.Collapsed
         End Sub
 
 #End Region
