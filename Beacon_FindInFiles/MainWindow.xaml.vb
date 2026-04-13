@@ -254,6 +254,15 @@ Namespace Beacon
 
                 Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
 
+                ' Configure WebView2 settings
+                With WebPreview_wv2.CoreWebView2.Settings
+                    .AreDefaultContextMenusEnabled = False  ' Disable right-click menu for security
+                    .IsScriptEnabled = True                  ' Enable JavaScript (required for interactive HTML)
+                    .AreDevToolsEnabled = False              ' Disable F12 dev tools
+                    .IsWebMessageEnabled = True              ' Allow script communication
+                    .IsStatusBarEnabled = False              ' Hide status bar
+                End With
+
                 _webViewInitialized = True
                 Debug.WriteLine("✓✓✓ WebView2 INITIALIZED SUCCESSFULLY ✓✓✓")
                 Debug.WriteLine($"_webViewInitialized = {_webViewInitialized}")
@@ -285,6 +294,16 @@ Namespace Beacon
                 End If
 
                 Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
+
+                ' Configure WebView2 settings
+                With WebPreview_wv2.CoreWebView2.Settings
+                    .AreDefaultContextMenusEnabled = False  ' Disable right-click menu for security
+                    .IsScriptEnabled = True                  ' Enable JavaScript (required for interactive HTML)
+                    .AreDevToolsEnabled = False              ' Disable F12 dev tools
+                    .IsWebMessageEnabled = True              ' Allow script communication
+                    .IsStatusBarEnabled = False              ' Hide status bar
+                End With
+
                 _webViewInitialized = True
                 Debug.WriteLine("✓ WebView2 initialized on-demand successfully")
                 Return True
@@ -819,7 +838,17 @@ Namespace Beacon
                 End If
 
                 If _supportedTextExt.Contains(ext) Then
-                    If Await TextFileContainsAsync(f, term, caseSensitive, ct) Then
+                    Dim containsTerm As Boolean
+
+                    ' For HTML/XML/JSON files, search only visible/data content (not tags/markup)
+                    If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
+                        containsTerm = Await HtmlXmlJsonFileContainsAsync(f, term, caseSensitive, ct)
+                    Else
+                        ' For plain text files, search entire content
+                        containsTerm = Await TextFileContainsAsync(f, term, caseSensitive, ct)
+                    End If
+
+                    If containsTerm Then
                         Dim relName = MakeRelativeDisplay(folder, f)
                         AddHit(New SearchHit With {
                             .DisplayName = relName,
@@ -859,7 +888,17 @@ Namespace Beacon
 
                     If _supportedTextExt.Contains(ext) Then
                         Using s = entry.Open()
-                            If Await StreamContainsAsync(s, term, caseSensitive, ct) Then
+                            Dim containsTerm As Boolean
+
+                            ' For HTML/XML/JSON files, search only visible/data content
+                            If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
+                                containsTerm = Await HtmlXmlJsonStreamContainsAsync(s, term, caseSensitive, ct)
+                            Else
+                                ' For plain text files, search entire content
+                                containsTerm = Await StreamContainsAsync(s, term, caseSensitive, ct)
+                            End If
+
+                            If containsTerm Then
                                 AddHit(New SearchHit With {
                                        .DisplayName = $"{Path.GetFileName(zipPath)} | {entry.FullName}",
                                        .Kind = HitKind.ZipTextEntry,
@@ -906,6 +945,9 @@ Namespace Beacon
         ''' Uses FileShare.ReadWrite to access locked files (e.g., active logs)
         ''' </summary>
         Private Async Function TextFileContainsAsync(filePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+            ' Empty search term should not match anything
+            If String.IsNullOrWhiteSpace(term) Then Return False
+
             Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
 
             Using fs As New FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
@@ -928,6 +970,9 @@ Namespace Beacon
         ''' Leaves stream open for caller to manage (leaveOpen:=True)
         ''' </summary>
         Private Async Function StreamContainsAsync(stream As Stream, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+            ' Empty search term should not match anything
+            If String.IsNullOrWhiteSpace(term) Then Return False
+
             Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
 
             Using sr As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True, bufferSize:=4096, leaveOpen:=True)
@@ -940,6 +985,68 @@ Namespace Beacon
             End Using
 
             Return False
+        End Function
+
+        ''' <summary>
+        ''' Checks if HTML/XML/JSON file contains search term in visible/data content only (strips tags/markup)
+        ''' </summary>
+        Private Async Function HtmlXmlJsonFileContainsAsync(filePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+            If String.IsNullOrWhiteSpace(term) Then Return False
+
+            Try
+                Using fs As New FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                    Using sr As New StreamReader(fs, detectEncodingFromByteOrderMarks:=True)
+                        Dim content = Await sr.ReadToEndAsync()
+                        Dim visibleText = ExtractVisibleText(content)
+
+                        Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
+                        Return visibleText.IndexOf(term, comparison) >= 0
+                    End Using
+                End Using
+            Catch
+                Return False
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Checks if HTML/XML/JSON stream contains search term in visible/data content only
+        ''' </summary>
+        Private Async Function HtmlXmlJsonStreamContainsAsync(stream As Stream, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+            If String.IsNullOrWhiteSpace(term) Then Return False
+
+            Try
+                Using sr As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True, bufferSize:=4096, leaveOpen:=True)
+                    Dim content = Await sr.ReadToEndAsync()
+                    Dim visibleText = ExtractVisibleText(content)
+
+                    Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
+                    Return visibleText.IndexOf(term, comparison) >= 0
+                End Using
+            Catch
+                Return False
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Extracts visible text from HTML/XML/JSON by removing tags and markup
+        ''' </summary>
+        Private Function ExtractVisibleText(content As String) As String
+            If String.IsNullOrEmpty(content) Then Return ""
+
+            ' Remove script and style tags and their content
+            content = System.Text.RegularExpressions.Regex.Replace(content, "<script[^>]*>.*?</script>", "", System.Text.RegularExpressions.RegexOptions.Singleline Or System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            content = System.Text.RegularExpressions.Regex.Replace(content, "<style[^>]*>.*?</style>", "", System.Text.RegularExpressions.RegexOptions.Singleline Or System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+
+            ' Remove all HTML/XML tags
+            content = System.Text.RegularExpressions.Regex.Replace(content, "<[^>]+>", " ")
+
+            ' Decode HTML entities (e.g., &amp; -> &, &lt; -> <)
+            content = System.Net.WebUtility.HtmlDecode(content)
+
+            ' Normalize whitespace
+            content = System.Text.RegularExpressions.Regex.Replace(content, "\s+", " ")
+
+            Return content.Trim()
         End Function
 
 #End Region
@@ -1055,11 +1162,11 @@ Namespace Beacon
                     Debug.WriteLine("========================================")
                     Debug.WriteLine($"File selected: {hit.FilePath}")
                     Debug.WriteLine($"Extension: {ext}")
-                    Debug.WriteLine($"Is HTML/XML: {ext = ".html" OrElse ext = ".xml"}")
+                    Debug.WriteLine($"Is HTML/XML/JSON: {ext = ".html" OrElse ext = ".xml" OrElse ext = ".json"}")
                     Debug.WriteLine("========================================")
 
-                    If ext = ".html" OrElse ext = ".xml" Then
-                        ' Use WebView2 engine for HTML/XML (will initialize if needed)
+                    If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
+                        ' Use WebView2 engine for HTML/XML/JSON (will initialize if needed)
                         Debug.WriteLine("→→→ ATTEMPTING WEBVIEW2 ENGINE")
                         ShowWebPreviewMode()
                         LoadWebContentFromDisk(hit.FilePath, ext)
@@ -1076,9 +1183,9 @@ Namespace Beacon
                     Dim ext = Path.GetExtension(hit.ZipEntryName).ToLowerInvariant()
                     Debug.WriteLine($"ZIP entry selected: {hit.ZipPath} | {hit.ZipEntryName}, Extension: {ext}")
 
-                    If ext = ".html" OrElse ext = ".xml" Then
-                        ' Use WebView2 engine for HTML/XML (will initialize if needed)
-                        Debug.WriteLine("→→→ ATTEMPTING WEBVIEW2 ENGINE")
+                    If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
+                        ' Use WebView2 engine for HTML/XML/JSON (will initialize if needed)
+                        Debug.WriteLine("→→→ ATTEMPTING WEBVIEW2 ENGINE FOR ZIP ENTRY")
                         ShowWebPreviewMode()
                         LoadWebContentFromZip(hit.ZipPath, hit.ZipEntryName, ext)
                         FindNext_btn.Visibility = Visibility.Visible
@@ -1188,8 +1295,20 @@ Namespace Beacon
 
             Debug.WriteLine("→→→ WebView2 is ready, loading content...")
             Try
-                Dim content = File.ReadAllText(filePath)
-                Await LoadWebContentAsync(content, extension)
+                ' For HTML files on disk, use Navigate() to preserve base URL for external resources
+                If extension = ".html" Then
+                    Dim fileUri = New Uri(filePath, UriKind.Absolute)
+                    Debug.WriteLine($"Loading HTML from URI: {fileUri}")
+                    WebPreview_wv2.Source = fileUri
+
+                    ' Wait for page to load before applying highlighting
+                    Await Task.Delay(1500)
+                    Await HighlightSearchInWebViewAsync()
+                Else
+                    ' For XML/JSON, wrap in viewer HTML and apply highlighting
+                    Dim content = File.ReadAllText(filePath)
+                    Await LoadWebContentAsync(content, extension)
+                End If
             Catch ex As Exception
                 Debug.WriteLine($"Error loading content: {ex.Message}")
                 ' On error, show error message in WebView
@@ -1237,7 +1356,7 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
-        ''' Core method to load and highlight HTML/XML content in WebView2
+        ''' Core method to load and highlight HTML/XML/JSON content in WebView2
         ''' </summary>
         Private Async Function LoadWebContentAsync(content As String, extension As String) As Task
             Dim htmlToRender As String
@@ -1245,6 +1364,9 @@ Namespace Beacon
             If extension = ".xml" Then
                 ' Wrap XML in styled HTML viewer
                 htmlToRender = CreateXmlViewerHtml(content)
+            ElseIf extension = ".json" Then
+                ' Wrap JSON in styled HTML viewer with syntax highlighting
+                htmlToRender = CreateJsonViewerHtml(content)
             Else
                 ' HTML content - render directly
                 htmlToRender = content
@@ -1301,6 +1423,72 @@ Namespace Beacon
 </head>
 <body>
     <div class='xml-content' id='content'>{escapedXml}</div>
+</body>
+</html>"
+        End Function
+
+        ''' <summary>
+        ''' Creates HTML wrapper for JSON content with syntax highlighting and search support
+        ''' </summary>
+        Private Function CreateJsonViewerHtml(jsonContent As String) As String
+            ' Pretty-print JSON if it appears to be minified
+            Dim formattedJson As String
+            Try
+                ' Try to parse and format JSON
+                Dim jsonObj = System.Text.Json.JsonDocument.Parse(jsonContent)
+                Dim options As New System.Text.Json.JsonSerializerOptions With {
+                    .WriteIndented = True
+                }
+                formattedJson = System.Text.Json.JsonSerializer.Serialize(jsonObj, options)
+            Catch
+                ' If parsing fails, use original content
+                formattedJson = jsonContent
+            End Try
+
+            ' Escape for HTML display
+            Dim escapedJson = System.Security.SecurityElement.Escape(formattedJson)
+
+            ' Apply basic syntax highlighting using HTML/CSS
+            ' Colorize: strings (orange), numbers (light green), booleans/null (blue), keys (light blue)
+            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""\s*:", "<span style='color:#9CDCFE'>""$1""</span>:") ' Keys
+            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""", "<span style='color:#CE9178'>""$1""</span>") ' String values
+            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(\d+\.?\d*)\b", "<span style='color:#B5CEA8'>$1</span>") ' Numbers
+            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(true|false|null)\b", "<span style='color:#569CD6'>$1</span>") ' Booleans/null
+
+            Return $"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <style>
+        body {{
+            margin: 0;
+            padding: 12px;
+            font-family: Consolas, 'Courier New', monospace;
+            font-size: 13px;
+            background: #1E1E1E;
+            color: #D4D4D4;
+        }}
+        .json-content {{
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.5;
+        }}
+        mark.search-highlight {{
+            background-color: #FFFF00;
+            color: #000;
+            font-weight: bold;
+            padding: 2px 0;
+        }}
+        mark.current-highlight {{
+            background-color: #FF9500;
+            color: #000;
+            font-weight: bold;
+            padding: 2px 0;
+        }}
+    </style>
+</head>
+<body>
+    <div class='json-content' id='content'>{escapedJson}</div>
 </body>
 </html>"
         End Function
