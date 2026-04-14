@@ -2,6 +2,7 @@
     x:Class="Beacon.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
     Title="Beacon: Find in Files"
     WindowState="Maximized"
     MinWidth="1000"
@@ -437,6 +438,13 @@
                             </Grid>
                         </Border>
                     </Grid>
+                <!-- WEB PREVIEW (HTML/XML) -->
+                <GroupBox Header="Preview (HTML/XML)"
+                          x:Name="WebPreview_grp"
+                          Visibility="Collapsed">
+
+                    <wv2:WebView2 x:Name="WebPreview_wv2"/>
+
                 </GroupBox>
             </Grid>
 
