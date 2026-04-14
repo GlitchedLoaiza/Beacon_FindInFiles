@@ -2797,7 +2797,11 @@ Namespace Beacon
             TextPreview_grp.Visibility = Visibility.Collapsed
             EventPreview_grp.Visibility = Visibility.Collapsed
             HarPreview_grp.Visibility = Visibility.Visible
+            WebPreview_grp.Visibility = Visibility.Collapsed
             EventCounter_lbl.Visibility = Visibility.Collapsed
+
+            ' Clear WebView2 to prevent black screen
+            ClearWebPreview()
         End Sub
 
 #End Region

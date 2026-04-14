@@ -438,6 +438,8 @@
                             </Grid>
                         </Border>
                     </Grid>
+                </GroupBox>
+
                 <!-- WEB PREVIEW (HTML/XML) -->
                 <GroupBox Header="Preview (HTML/XML)"
                           x:Name="WebPreview_grp"
