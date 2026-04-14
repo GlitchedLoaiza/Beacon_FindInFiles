@@ -1408,21 +1408,14 @@ Namespace Beacon
                 Case HitKind.DiskTextFile
                     ' ROUTE BASED ON EXTENSION
                     Dim ext = Path.GetExtension(hit.FilePath).ToLowerInvariant()
-                    Debug.WriteLine("========================================")
-                    Debug.WriteLine($"File selected: {hit.FilePath}")
-                    Debug.WriteLine($"Extension: {ext}")
-                    Debug.WriteLine($"Is HTML/XML/JSON: {ext = ".html" OrElse ext = ".xml" OrElse ext = ".json"}")
-                    Debug.WriteLine("========================================")
 
                     If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
                         ' Use WebView2 engine for HTML/XML/JSON (will initialize if needed)
-                        Debug.WriteLine("→→→ ATTEMPTING WEBVIEW2 ENGINE")
                         ShowWebPreviewMode()
                         LoadWebContentFromDisk(hit.FilePath, ext)
                         FindNext_btn.Visibility = Visibility.Visible
                     Else
                         ' Use RichTextBox engine for plain text
-                        Debug.WriteLine("→→→ USING RICHTEXTBOX ENGINE")
                         ShowTextPreviewMode()
                         LoadTextFromDisk(hit.FilePath)
                         FindNext_btn.Visibility = Visibility.Visible
@@ -1430,17 +1423,14 @@ Namespace Beacon
 
                 Case HitKind.ZipTextEntry
                     Dim ext = Path.GetExtension(hit.ZipEntryName).ToLowerInvariant()
-                    Debug.WriteLine($"ZIP entry selected: {hit.ZipPath} | {hit.ZipEntryName}, Extension: {ext}")
 
                     If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
                         ' Use WebView2 engine for HTML/XML/JSON (will initialize if needed)
-                        Debug.WriteLine("→→→ ATTEMPTING WEBVIEW2 ENGINE FOR ZIP ENTRY")
                         ShowWebPreviewMode()
                         LoadWebContentFromZip(hit.ZipPath, hit.ZipEntryName, ext)
                         FindNext_btn.Visibility = Visibility.Visible
                     Else
                         ' Use RichTextBox engine for plain text
-                        Debug.WriteLine("→→→ USING RICHTEXTBOX ENGINE")
                         ShowTextPreviewMode()
                         LoadTextFromZip(hit.ZipPath, hit.ZipEntryName)
                         FindNext_btn.Visibility = Visibility.Visible
@@ -1517,8 +1507,8 @@ Namespace Beacon
             If _webViewInitialized Then
                 Try
                     WebPreview_wv2.NavigateToString("<html><body style='margin:0;padding:0;background:white;'></body></html>")
-                Catch ex As Exception
-                    Debug.WriteLine($"Error clearing WebView2: {ex.Message}")
+                Catch
+                    ' Ignore errors clearing WebView2 preview
                 End Try
             End If
         End Sub
@@ -1527,14 +1517,10 @@ Namespace Beacon
         ''' Loads HTML or XML file from disk into WebView2 with search highlighting
         ''' </summary>
         Private Async Sub LoadWebContentFromDisk(filePath As String, extension As String)
-            Debug.WriteLine($"LoadWebContentFromDisk called for: {filePath}")
-            Debug.WriteLine($"Current _webViewInitialized: {_webViewInitialized}")
-
             ' Ensure WebView2 is initialized (will wait if needed)
             Dim isReady = Await EnsureWebView2InitializedAsync()
 
             If Not isReady Then
-                Debug.WriteLine("→→→ WebView2 initialization failed, falling back to text preview")
                 ' Fallback to text preview if WebView2 not available
                 ShowTextPreviewMode()
                 LoadTextFromDisk(filePath)
@@ -1542,7 +1528,6 @@ Namespace Beacon
                 Return
             End If
 
-            Debug.WriteLine("→→→ WebView2 is ready, loading content...")
             Try
                 ' For HTML files on disk, use Navigate() to preserve base URL for external resources
                 If extension = ".html" Then
@@ -1569,13 +1554,10 @@ Namespace Beacon
         ''' Loads HTML or XML entry from ZIP into WebView2 with search highlighting
         ''' </summary>
         Private Async Sub LoadWebContentFromZip(zipPath As String, entryName As String, extension As String)
-            Debug.WriteLine($"LoadWebContentFromZip called for: {zipPath} | {entryName}")
-
             ' Ensure WebView2 is initialized (will wait if needed)
             Dim isReady = Await EnsureWebView2InitializedAsync()
 
             If Not isReady Then
-                Debug.WriteLine("→→→ WebView2 initialization failed, falling back to text preview")
                 ' Fallback to text preview if WebView2 not available
                 ShowTextPreviewMode()
                 LoadTextFromZip(zipPath, entryName)
@@ -1583,7 +1565,6 @@ Namespace Beacon
                 Return
             End If
 
-            Debug.WriteLine("→→→ WebView2 is ready, loading content from ZIP...")
             Try
                 Using z = ZipFile.OpenRead(zipPath)
                     Dim entry = z.GetEntry(entryName)
