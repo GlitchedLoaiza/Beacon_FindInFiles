@@ -138,6 +138,9 @@ Namespace Beacon
         ''' <summary>Total matches found in current WebView2 content</summary>
         Private _totalWebMatches As Integer = 0
 
+        ''' <summary>WebView2 user data folder path (for cleanup on exit)</summary>
+        Private _webView2DataFolder As String = ""
+
         ' --- UI throttling for "Scanning file: ..." label ---
         ''' <summary>Stopwatch for measuring time between label updates</summary>
         Private ReadOnly _fileLabelStopwatch As Stopwatch = Stopwatch.StartNew()
@@ -179,6 +182,10 @@ Namespace Beacon
         ''' Constructor: Initializes UI controls, wires event handlers, and sets initial state.
         ''' </summary>
         Public Sub New()
+            Debug.WriteLine("========================================")
+            Debug.WriteLine("MainWindow constructor started")
+            Debug.WriteLine("========================================")
+
             InitializeComponent()
 
             ' Bind results collection to ListBox
@@ -204,6 +211,9 @@ Namespace Beacon
 
             ' Register global keyboard shortcut handler
             AddHandler Me.PreviewKeyDown, AddressOf MainWindow_PreviewKeyDown
+
+            ' Register window closing handler for cleanup
+            AddHandler Me.Closing, AddressOf MainWindow_Closing
 
             ' Setup UI throttling timer for filename display during scans
             _fileLabelTimer = New Threading.DispatcherTimer()
@@ -234,17 +244,34 @@ Namespace Beacon
             ShowTextPreviewMode()
             ClearTextPreview()
 
-            ' Initialize WebView2 asynchronously - without blocking
+            ' Initialize WebView2 after window is fully loaded (control must be in visual tree)
+            AddHandler Me.Loaded, AddressOf MainWindow_Loaded
+        End Sub
+
+        ''' <summary>
+        ''' Called when window is fully loaded - safe time to initialize WebView2
+        ''' </summary>
+        Private Sub MainWindow_Loaded(sender As Object, e As RoutedEventArgs)
+            Debug.WriteLine("========================================")
+            Debug.WriteLine("MainWindow_Loaded event fired!")
+            Debug.WriteLine("========================================")
+
+            ' Clean up any leftover WebView2 folders from previous sessions
+            CleanupOldWebView2Folders()
+
+            ' Initialize WebView2 asynchronously - control is now in visual tree
             InitializeWebView2Async()
         End Sub
 
         ''' <summary>
         ''' Initializes WebView2 control asynchronously (non-blocking)
+        ''' Uses default environment if already initialized, otherwise creates custom temp folder
         ''' </summary>
         Private Async Sub InitializeWebView2Async()
             Try
                 Debug.WriteLine("========================================")
                 Debug.WriteLine("Starting WebView2 initialization...")
+                Debug.WriteLine($"WebPreview_wv2 is null: {WebPreview_wv2 Is Nothing}")
 
                 If WebPreview_wv2 Is Nothing Then
                     Debug.WriteLine("✗ WebView2 control is null!")
@@ -252,7 +279,45 @@ Namespace Beacon
                     Return
                 End If
 
+                ' Check if WebView2 is already initialized (auto-initialized by WPF)
+                If WebPreview_wv2.CoreWebView2 IsNot Nothing Then
+                    Debug.WriteLine("✓ WebView2 already initialized by WPF (using default environment)")
+
+                    ' Get the data folder path from the existing environment
+                    Try
+                        _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
+                        Debug.WriteLine($"Using existing data folder: {_webView2DataFolder}")
+                    Catch
+                        Debug.WriteLine("Could not get existing data folder path")
+                    End Try
+
+                    ' Configure settings on already-initialized WebView2
+                    With WebPreview_wv2.CoreWebView2.Settings
+                        .AreDefaultContextMenusEnabled = False
+                        .IsScriptEnabled = True
+                        .AreDevToolsEnabled = False
+                        .IsWebMessageEnabled = True
+                        .IsStatusBarEnabled = False
+                    End With
+
+                    _webViewInitialized = True
+                    Debug.WriteLine("✓✓✓ Using existing WebView2 initialization ✓✓✓")
+                    Debug.WriteLine("========================================")
+                    Return
+                End If
+
+                ' Not initialized yet - try to initialize with default environment (let WPF handle location)
+                Debug.WriteLine("Initializing WebView2 with default environment...")
                 Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
+                Debug.WriteLine($"✓ WebView2 CoreWebView2 initialized: {WebPreview_wv2.CoreWebView2 IsNot Nothing}")
+
+                ' Get the data folder path
+                Try
+                    _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
+                    Debug.WriteLine($"Data folder: {_webView2DataFolder}")
+                Catch
+                    Debug.WriteLine("Could not get data folder path")
+                End Try
 
                 ' Configure WebView2 settings
                 With WebPreview_wv2.CoreWebView2.Settings
@@ -264,36 +329,79 @@ Namespace Beacon
                 End With
 
                 _webViewInitialized = True
-                Debug.WriteLine("✓✓✓ WebView2 INITIALIZED SUCCESSFULLY ✓✓✓")
-                Debug.WriteLine($"_webViewInitialized = {_webViewInitialized}")
+                Debug.WriteLine("✓✓✓ WebView2 initialized successfully ✓✓✓")
                 Debug.WriteLine("========================================")
 
             Catch ex As Exception
                 _webViewInitialized = False
                 Debug.WriteLine("========================================")
-                Debug.WriteLine($"✗✗✗ WebView2 INITIALIZATION FAILED ✗✗✗")
-                Debug.WriteLine($"Error: {ex.Message}")
+                Debug.WriteLine($"✗✗✗ WebView2 initialization FAILED ✗✗✗")
+                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}")
+                Debug.WriteLine($"Exception Message: {ex.Message}")
+                Debug.WriteLine($"Stack Trace: {ex.StackTrace}")
                 Debug.WriteLine("========================================")
             End Try
         End Sub
 
         ''' <summary>
         ''' Ensures WebView2 is initialized before use (synchronous check with retry)
+        ''' Uses default environment if already initialized, otherwise initializes with WPF default
         ''' </summary>
         Private Async Function EnsureWebView2InitializedAsync() As Task(Of Boolean)
             If _webViewInitialized Then
-                Debug.WriteLine("WebView2 already initialized")
+                Debug.WriteLine("WebView2 already initialized ✓")
                 Return True
             End If
 
             Try
+                Debug.WriteLine("========================================")
                 Debug.WriteLine("WebView2 not initialized yet, initializing now...")
+                Debug.WriteLine($"WebPreview_wv2 is null: {WebPreview_wv2 Is Nothing}")
+
                 If WebPreview_wv2 Is Nothing Then
                     Debug.WriteLine("✗ WebView2 control is null!")
                     Return False
                 End If
 
+                ' Check if WebView2 is already initialized (auto-initialized by WPF)
+                If WebPreview_wv2.CoreWebView2 IsNot Nothing Then
+                    Debug.WriteLine("✓ WebView2 already initialized by WPF (using default environment)")
+
+                    ' Get the data folder path from the existing environment
+                    Try
+                        _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
+                        Debug.WriteLine($"Using existing data folder: {_webView2DataFolder}")
+                    Catch
+                        Debug.WriteLine("Could not get existing data folder path")
+                    End Try
+
+                    ' Configure settings on already-initialized WebView2
+                    With WebPreview_wv2.CoreWebView2.Settings
+                        .AreDefaultContextMenusEnabled = False
+                        .IsScriptEnabled = True
+                        .AreDevToolsEnabled = False
+                        .IsWebMessageEnabled = True
+                        .IsStatusBarEnabled = False
+                    End With
+
+                    _webViewInitialized = True
+                    Debug.WriteLine("✓✓✓ Using existing WebView2 initialization ✓✓✓")
+                    Debug.WriteLine("========================================")
+                    Return True
+                End If
+
+                ' Not initialized yet - initialize with default environment (let WPF handle location)
+                Debug.WriteLine("Initializing WebView2 with default environment...")
                 Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
+                Debug.WriteLine($"✓ WebView2 CoreWebView2 initialized: {WebPreview_wv2.CoreWebView2 IsNot Nothing}")
+
+                ' Get the data folder path
+                Try
+                    _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
+                    Debug.WriteLine($"Data folder: {_webView2DataFolder}")
+                Catch
+                    Debug.WriteLine("Could not get data folder path")
+                End Try
 
                 ' Configure WebView2 settings
                 With WebPreview_wv2.CoreWebView2.Settings
@@ -305,14 +413,155 @@ Namespace Beacon
                 End With
 
                 _webViewInitialized = True
-                Debug.WriteLine("✓ WebView2 initialized on-demand successfully")
+                Debug.WriteLine("✓✓✓ WebView2 initialized on-demand successfully ✓✓✓")
+                Debug.WriteLine("========================================")
                 Return True
             Catch ex As Exception
-                Debug.WriteLine($"✗ WebView2 initialization failed: {ex.Message}")
+                Debug.WriteLine("========================================")
+                Debug.WriteLine($"✗✗✗ WebView2 initialization FAILED ✗✗✗")
+                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}")
+                Debug.WriteLine($"Exception Message: {ex.Message}")
+                Debug.WriteLine($"Stack Trace: {ex.StackTrace}")
+                Debug.WriteLine("========================================")
                 _webViewInitialized = False
                 Return False
             End Try
         End Function
+
+        ''' <summary>
+        ''' Flag to prevent recursive closing calls
+        ''' </summary>
+        Private _isClosing As Boolean = False
+
+        ''' <summary>
+        ''' Handles window closing event - cleanup temp files and attempt quick WebView2 folder cleanup
+        ''' Does NOT block application exit - leftover folders are cleaned on next startup
+        ''' </summary>
+        Private Sub MainWindow_Closing(sender As Object, e As ComponentModel.CancelEventArgs)
+            ' If we're already cleaning up, allow the close to proceed
+            If _isClosing Then
+                Return
+            End If
+
+            ' Cancel the close event so we can finish cleanup first
+            e.Cancel = True
+            _isClosing = True
+
+            Try
+                ' Dispose WebView2 to release file locks
+                If _webViewInitialized AndAlso WebPreview_wv2 IsNot Nothing Then
+                    Try
+                        Debug.WriteLine("Disposing WebView2...")
+
+                        ' Navigate to blank page to release current page resources
+                        If WebPreview_wv2.CoreWebView2 IsNot Nothing Then
+                            Try
+                                WebPreview_wv2.NavigateToString("about:blank")
+                                WebPreview_wv2.CoreWebView2.Stop()
+                            Catch
+                                ' Ignore errors stopping navigation
+                            End Try
+                        End If
+
+                        ' Clear source and dispose
+                        WebPreview_wv2.Source = Nothing
+                        WebPreview_wv2.Dispose()
+                        Debug.WriteLine("✓ WebView2 disposed")
+
+                    Catch ex As Exception
+                        Debug.WriteLine($"Warning: Error disposing WebView2: {ex.Message}")
+                    End Try
+                End If
+
+                ' Cleanup temp EVTX files
+                CleanupTemp()
+
+                ' QUICK attempt to delete WebView2 folder (don't block shutdown for long)
+                If Not String.IsNullOrEmpty(_webView2DataFolder) AndAlso Directory.Exists(_webView2DataFolder) Then
+                    Debug.WriteLine($"Attempting quick cleanup of WebView2 folder: {_webView2DataFolder}")
+
+                    ' Single quick attempt with minimal wait
+                    Try
+                        System.Threading.Thread.Sleep(300)
+                        Directory.Delete(_webView2DataFolder, True)
+                        Debug.WriteLine($"✓ Successfully deleted WebView2 folder")
+                    Catch
+                        Debug.WriteLine($"⚠ WebView2 folder still in use - will be cleaned up on next app launch")
+                    End Try
+                End If
+
+            Catch ex As Exception
+                Debug.WriteLine($"✗ Error during cleanup: {ex.Message}")
+            Finally
+                ' Shut down quickly - don't keep user waiting
+                Debug.WriteLine("Shutting down application...")
+                Application.Current.Shutdown()
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Cleans up old WebView2 folders from previous application sessions
+        ''' This runs on startup when browser processes aren't running, making cleanup reliable
+        ''' </summary>
+        Private Sub CleanupOldWebView2Folders()
+            Try
+                Debug.WriteLine("========================================")
+                Debug.WriteLine("Checking for old WebView2 folders to cleanup...")
+
+                ' Look for WebView2 folders in common locations
+                Dim possibleLocations As New List(Of String)
+
+                ' Check user's AppData\Local
+                Dim localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
+                If Not String.IsNullOrEmpty(localAppData) Then
+                    possibleLocations.Add(Path.Combine(localAppData, "Microsoft", "Edge", "User Data"))
+                    possibleLocations.Add(localAppData)
+                End If
+
+                ' Check temp folder
+                possibleLocations.Add(Path.GetTempPath())
+
+                Dim foldersDeleted = 0
+                For Each location In possibleLocations
+                    If Not Directory.Exists(location) Then Continue For
+
+                    Try
+                        ' Look for folders matching WebView2 pattern
+                        Dim webViewFolders = Directory.GetDirectories(location, "*WebView2*", SearchOption.TopDirectoryOnly)
+
+                        For Each folder In webViewFolders
+                            ' Check if it's from our app (contains "Beacon" or is old enough to be from previous session)
+                            Dim folderInfo As New DirectoryInfo(folder)
+                            Dim isOldEnough = (DateTime.Now - folderInfo.LastWriteTime).TotalMinutes > 5 ' Older than 5 minutes
+                            Dim isBeaconFolder = folder.Contains("Beacon", StringComparison.OrdinalIgnoreCase)
+
+                            If isBeaconFolder OrElse isOldEnough Then
+                                Try
+                                    Debug.WriteLine($"Deleting old WebView2 folder: {folder}")
+                                    Directory.Delete(folder, True)
+                                    foldersDeleted += 1
+                                    Debug.WriteLine($"✓ Deleted")
+                                Catch ex As Exception
+                                    Debug.WriteLine($"Could not delete {folder}: {ex.Message}")
+                                End Try
+                            End If
+                        Next
+                    Catch
+                        ' Continue checking other locations
+                    End Try
+                Next
+
+                If foldersDeleted > 0 Then
+                    Debug.WriteLine($"✓✓✓ Cleaned up {foldersDeleted} old WebView2 folder(s)")
+                Else
+                    Debug.WriteLine($"No old WebView2 folders found")
+                End If
+                Debug.WriteLine("========================================")
+
+            Catch ex As Exception
+                Debug.WriteLine($"Error during old folder cleanup: {ex.Message}")
+            End Try
+        End Sub
 
 #End Region
 

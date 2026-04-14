@@ -9,19 +9,33 @@
     <ApplicationIcon>beacon_no_bg.ico</ApplicationIcon>
     <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
     <AssemblyName>Beacon</AssemblyName>
+    <Version>1.5.1</Version>
+    <AssemblyVersion>1.5.1.0</AssemblyVersion>
+    <FileVersion>1.5.1.0</FileVersion>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>true</PublishReadyToRun>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <PublishTrimmed>false</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <ExcludeAssets>none</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <!-- Exclude XML documentation files from publish -->
+  <ItemGroup>
+    <Content Remove="**\*.xml" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="beacon icon.png" />
     <None Remove="beacon_no_bg.png" />
   </ItemGroup>
 
@@ -42,7 +56,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="beacon icon.png" />
     <Resource Include="beacon_no_bg.png" />
   </ItemGroup>
 
