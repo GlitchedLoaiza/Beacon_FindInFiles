@@ -7,27 +7,104 @@
     WindowState="Maximized"
     MinWidth="1000"
     MinHeight="700"
-    Background="#F3F3F3" Icon="/beacon_no_bg.png">
+    Icon="/beacon_no_bg.png">
 
     <!-- ========================= -->
-    <!-- GLOBAL STYLES             -->
+    <!-- THEME RESOURCES           -->
     <!-- ========================= -->
     <Window.Resources>
 
+        <!-- Light Theme Colors -->
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F3F3"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="White"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#E6E6E6"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#202020"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#666666"/>
+        <SolidColorBrush x:Key="TextTertiaryBrush" Color="#888888"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#0066CC"/>
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#F0F0F0"/>
+        <SolidColorBrush x:Key="ButtonHoverBrush" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="ButtonPressedBrush" Color="#D0D0D0"/>
+        <SolidColorBrush x:Key="InputBackgroundBrush" Color="White"/>
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#CCCCCC"/>
+
+        <!-- Modern Button Style -->
         <Style TargetType="Button">
             <Setter Property="Height" Value="36"/>
             <Setter Property="MinWidth" Value="90"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="14,6"/>
+            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
+        <!-- Modern TextBox Style -->
         <Style TargetType="TextBox">
             <Setter Property="Height" Value="32"/>
             <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
         </Style>
 
         <Style TargetType="CheckBox">
             <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+
+        <!-- Modern GroupBox Style -->
+        <Style TargetType="GroupBox">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+
+        <!-- Modern ListBox Style -->
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+        </Style>
+
+        <!-- Modern RichTextBox Style -->
+        <Style TargetType="RichTextBox">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
         </Style>
 
     </Window.Resources>
@@ -35,7 +112,7 @@
     <!-- ========================= -->
     <!-- ROOT GRID                 -->
     <!-- ========================= -->
-    <Grid>
+    <Grid Background="{DynamicResource WindowBackgroundBrush}">
 
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -64,6 +141,7 @@
             <TextBlock Grid.Row="0"
                        Grid.Column="0"
                        Text="Path:"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
                        VerticalAlignment="Center"
                        Margin="0,0,8,0"/>
 
@@ -101,6 +179,7 @@
             <TextBlock Grid.Row="1"
                        Grid.Column="0"
                        Text="Search for:"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
                        VerticalAlignment="Center"
                        Margin="0,10,8,0"/>
 
@@ -120,6 +199,16 @@
                           Content="Case sensitive"
                           VerticalAlignment="Center"
                           Margin="0,0,12,0"/>
+
+                <!-- Theme Toggle Button -->
+                <Button x:Name="ThemeToggle_btn"
+                        Content="🌙"
+                        Width="36"
+                        MinWidth="36"
+                        FontSize="16"
+                        Padding="0"
+                        Margin="0,0,12,0"
+                        ToolTip="Toggle Light/Dark theme"/>
 
                 <Button x:Name="Reset_btn"
                         Content="Reset (Ctrl+R)"
@@ -310,7 +399,7 @@
         <!-- STATUS BAR (FIXED)        -->
         <!-- ========================= -->
         <Border Grid.Row="2"
-                Background="#E6E6E6"
+                Background="{DynamicResource StatusBarBackgroundBrush}"
                 Padding="8">
 
             <Grid>
@@ -325,22 +414,23 @@
                 <TextBlock x:Name="Status_lbl"
                            Grid.Column="0"
                            Text="Status: Ready"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            VerticalAlignment="Center"
                            Margin="0,0,16,0"/>
 
                 <TextBlock x:Name="TimeElapsed_lbl"
                            Grid.Column="1"
                            Text="Time Elapsed: 00:00:00"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            VerticalAlignment="Center"
                            Margin="0,0,16,0"
-                           Foreground="#555"
                            Visibility="Collapsed"/>
 
                 <TextBlock x:Name="CurrentFile_lbl"
                            Grid.Column="2"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis"
-                           Foreground="#666"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            Margin="60,0,12,0"/>
 
                 <ProgressBar x:Name="ScanProgress_pb"
@@ -361,13 +451,13 @@
                                NavigateUri="https://github.com/GlitchedLoaiza/Beacon_FindInFiles/discussions"
                                RequestNavigate="Feedback_lnk_RequestNavigate"
                                FontSize="11"
-                               Foreground="#888888"
                                TextDecorations="None">
                         <Hyperlink.Style>
                             <Style TargetType="Hyperlink">
+                                <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}"/>
                                 <Style.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Foreground" Value="#0066CC"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
                                         <Setter Property="TextDecorations" Value="Underline"/>
                                     </Trigger>
                                 </Style.Triggers>

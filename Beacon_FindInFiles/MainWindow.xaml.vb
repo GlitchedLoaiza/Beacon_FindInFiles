@@ -171,6 +171,9 @@ Namespace Beacon
         ''' <summary>Number of files scanned so far</summary>
         Private _filesScanned As Integer = 0
 
+        ''' <summary>Current theme mode (True = Dark, False = Light)</summary>
+        Private _isDarkMode As Boolean = False
+
 #End Region
 
 #Region "Init"
@@ -204,6 +207,9 @@ Namespace Beacon
             AddHandler FindNext_btn.Click, AddressOf FindNext_btn_Click
             AddHandler FindNextEvent_btn.Click, AddressOf FindNextEvent_btn_Click
             AddHandler FindPreviousEvent_btn.Click, AddressOf FindPreviousEvent_btn_Click
+
+            ' Wire theme toggle handler
+            AddHandler ThemeToggle_btn.Click, AddressOf ThemeToggle_btn_Click
 
             ' Wire input change handlers for button state updates
             AddHandler Path_txt.TextChanged, AddressOf AnyInputChanged
@@ -244,8 +250,129 @@ Namespace Beacon
             ShowTextPreviewMode()
             ClearTextPreview()
 
+            ' Initialize dark mode based on system preferences
+            InitializeTheme()
+
             ' Initialize WebView2 after window is fully loaded (control must be in visual tree)
             AddHandler Me.Loaded, AddressOf MainWindow_Loaded
+        End Sub
+
+        ''' <summary>
+        ''' Initializes theme based on Windows system preferences
+        ''' </summary>
+        Private Sub InitializeTheme()
+            Try
+                ' Detect Windows theme using Registry
+                Dim isDarkModeEnabled = IsWindowsDarkModeEnabled()
+
+                ' Apply the detected theme
+                If isDarkModeEnabled Then
+                    ApplyDarkTheme()
+                Else
+                    ApplyLightTheme()
+                End If
+
+                Debug.WriteLine($"Theme initialized: {If(_isDarkMode, "Dark", "Light")} mode")
+            Catch ex As Exception
+                Debug.WriteLine($"Error initializing theme, using Light mode: {ex.Message}")
+                ApplyLightTheme()
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Detects if Windows is using dark mode via Registry
+        ''' </summary>
+        Private Function IsWindowsDarkModeEnabled() As Boolean
+            Try
+                Using key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey("Software\Microsoft\Windows\CurrentVersion\Themes\Personalize")
+                    If key IsNot Nothing Then
+                        Dim value = key.GetValue("AppsUseLightTheme")
+                        If value IsNot Nothing Then
+                            ' Value = 0 means Dark Mode, 1 means Light Mode
+                            Return CInt(value) = 0
+                        End If
+                    End If
+                End Using
+            Catch
+                ' If registry read fails, default to Light mode
+            End Try
+
+            Return False
+        End Function
+
+        ''' <summary>
+        ''' Handles theme toggle button click - switches between Light and Dark themes
+        ''' </summary>
+        Private Sub ThemeToggle_btn_Click(sender As Object, e As RoutedEventArgs)
+            Try
+                If _isDarkMode Then
+                    ApplyLightTheme()
+                Else
+                    ApplyDarkTheme()
+                End If
+
+                Debug.WriteLine($"Theme manually switched to: {If(_isDarkMode, "Dark", "Light")} mode")
+            Catch ex As Exception
+                Debug.WriteLine($"Error switching theme: {ex.Message}")
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Applies dark theme colors to the application
+        ''' </summary>
+        Private Sub ApplyDarkTheme()
+            _isDarkMode = True
+
+            ' Update theme button
+            ThemeToggle_btn.Content = "☀️"
+            ThemeToggle_btn.ToolTip = "Switch to Light theme"
+
+            ' Apply dark theme color palette
+            Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))    ' #202020
+            Resources("CardBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))      ' #2B2B2B
+            Resources("CardBorderBrush") = New SolidColorBrush(Color.FromRgb(&H3F, &H3F, &H3F))         ' #3F3F3F
+            Resources("StatusBarBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H1A, &H1A, &H1A)) ' #1A1A1A
+            Resources("TextPrimaryBrush") = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0))        ' #E0E0E0
+            Resources("TextSecondaryBrush") = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0))      ' #B0B0B0
+            Resources("TextTertiaryBrush") = New SolidColorBrush(Color.FromRgb(&H80, &H80, &H80))       ' #808080
+            Resources("AccentBrush") = New SolidColorBrush(Color.FromRgb(&H60, &HCF, &HFF))             ' #60CFFF (Light Blue)
+            Resources("ButtonBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H3A, &H3A, &H3A))   ' #3A3A3A
+            Resources("ButtonHoverBrush") = New SolidColorBrush(Color.FromRgb(&H45, &H45, &H45))        ' #454545
+            Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))      ' #505050
+            Resources("InputBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))    ' #2B2B2B
+            Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))        ' #505050
+
+            ' Update event level color for better dark mode visibility
+            EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HFF, &H60, &H60)) ' Lighter red for dark mode
+        End Sub
+
+        ''' <summary>
+        ''' Applies light theme colors to the application
+        ''' </summary>
+        Private Sub ApplyLightTheme()
+            _isDarkMode = False
+
+            ' Update theme button
+            ThemeToggle_btn.Content = "🌙"
+            ThemeToggle_btn.ToolTip = "Switch to Dark theme"
+
+            ' Apply light theme color palette (original colors)
+            Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HF3, &HF3, &HF3))    ' #F3F3F3
+            Resources("CardBackgroundBrush") = New SolidColorBrush(Colors.White)
+            Resources("CardBorderBrush") = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0))         ' #E0E0E0
+            Resources("StatusBarBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HE6, &HE6, &HE6)) ' #E6E6E6
+            Resources("TextPrimaryBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))        ' #202020
+            Resources("TextSecondaryBrush") = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66))      ' #666666
+            Resources("TextTertiaryBrush") = New SolidColorBrush(Color.FromRgb(&H88, &H88, &H88))       ' #888888
+            Resources("AccentBrush") = New SolidColorBrush(Color.FromRgb(&H0, &H66, &HCC))              ' #0066CC
+            Resources("ButtonBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HF0, &HF0, &HF0))   ' #F0F0F0
+            Resources("ButtonHoverBrush") = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0))        ' #E0E0E0
+            Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&HD0, &HD0, &HD0))      ' #D0D0D0
+            Resources("InputBackgroundBrush") = New SolidColorBrush(Colors.White)
+            Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&HCC, &HCC, &HCC))        ' #CCCCCC
+
+            ' Restore original event level color
+            EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HC0, &H0, &H0)) ' Original dark red
         End Sub
 
         ''' <summary>
