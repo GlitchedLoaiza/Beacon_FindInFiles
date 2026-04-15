@@ -319,6 +319,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
                 <TextBlock x:Name="Status_lbl"
@@ -351,6 +352,30 @@
                              Value="0"
                              IsIndeterminate="False"
                              Visibility="Collapsed"/>
+
+                <!-- Discrete Feedback Link -->
+                <TextBlock Grid.Column="4"
+                           VerticalAlignment="Center"
+                           Margin="16,0,0,0">
+                    <Hyperlink x:Name="Feedback_lnk"
+                               NavigateUri="https://github.com/GlitchedLoaiza/Beacon_FindInFiles/discussions"
+                               RequestNavigate="Feedback_lnk_RequestNavigate"
+                               FontSize="11"
+                               Foreground="#888888"
+                               TextDecorations="None">
+                        <Hyperlink.Style>
+                            <Style TargetType="Hyperlink">
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Foreground" Value="#0066CC"/>
+                                        <Setter Property="TextDecorations" Value="Underline"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Hyperlink.Style>
+                        💬 Feedback
+                    </Hyperlink>
+                </TextBlock>
             </Grid>
         </Border>
 

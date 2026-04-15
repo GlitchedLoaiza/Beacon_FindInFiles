@@ -249,6 +249,18 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
+        ''' Handles feedback hyperlink click - opens GitHub discussions in default browser
+        ''' </summary>
+        Private Sub Feedback_lnk_RequestNavigate(sender As Object, e As System.Windows.Navigation.RequestNavigateEventArgs)
+            Try
+                Process.Start(New ProcessStartInfo(e.Uri.AbsoluteUri) With {.UseShellExecute = True})
+                e.Handled = True
+            Catch ex As Exception
+                MessageBox.Show($"Could not open browser: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Warning)
+            End Try
+        End Sub
+
+        ''' <summary>
         ''' Called when window is fully loaded - safe time to initialize WebView2
         ''' </summary>
         Private Sub MainWindow_Loaded(sender As Object, e As RoutedEventArgs)
