@@ -379,6 +379,7 @@ Namespace Beacon
             Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))      ' #505050
             Resources("InputBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))    ' #2B2B2B
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))        ' #505050
+            Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H1E, &H1E, &H1E))     ' #1E1E1E
 
             ' Update event level color for better dark mode visibility
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HFF, &H60, &H60)) ' Lighter red for dark mode
@@ -408,6 +409,7 @@ Namespace Beacon
             Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&HD0, &HD0, &HD0))      ' #D0D0D0
             Resources("InputBackgroundBrush") = New SolidColorBrush(Colors.White)
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&HCC, &HCC, &HCC))        ' #CCCCCC
+            Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HFA, &HFA, &HFA))     ' #FAFAFA
 
             ' Restore original event level color
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HC0, &H0, &H0)) ' Original dark red
@@ -2024,20 +2026,9 @@ Namespace Beacon
             End If
 
             Try
-                ' For HTML files on disk, use Navigate() to preserve base URL for external resources
-                If extension = ".html" Then
-                    Dim fileUri = New Uri(filePath, UriKind.Absolute)
-                    Debug.WriteLine($"Loading HTML from URI: {fileUri}")
-                    WebPreview_wv2.Source = fileUri
-
-                    ' Wait for page to load before applying highlighting
-                    Await Task.Delay(1500)
-                    Await HighlightSearchInWebViewAsync()
-                Else
-                    ' For XML/JSON, wrap in viewer HTML and apply highlighting
-                    Dim content = File.ReadAllText(filePath)
-                    Await LoadWebContentAsync(content, extension)
-                End If
+                ' Read file content and wrap with theme-aware CSS
+                Dim content = File.ReadAllText(filePath)
+                Await LoadWebContentAsync(content, extension)
             Catch ex As Exception
                 Debug.WriteLine($"Error loading content: {ex.Message}")
                 ' On error, show error message in WebView
@@ -2093,8 +2084,8 @@ Namespace Beacon
                 ' Wrap JSON in styled HTML viewer with syntax highlighting
                 htmlToRender = CreateJsonViewerHtml(content)
             Else
-                ' HTML content - render directly
-                htmlToRender = content
+                ' HTML content - inject theme-aware CSS to ensure good contrast
+                htmlToRender = InjectThemeAwareCSS(content)
             End If
 
             ' Navigate to content
@@ -2108,11 +2099,111 @@ Namespace Beacon
         End Function
 
         ''' <summary>
+        ''' Injects theme-aware CSS into HTML content to ensure good contrast in both light and dark modes
+        ''' </summary>
+        Private Function InjectThemeAwareCSS(htmlContent As String) As String
+            ' Determine colors based on current theme
+            Dim bgColor = If(_isDarkMode, "#1E1E1E", "#FFFFFF")
+            Dim textColor = If(_isDarkMode, "#E0E0E0", "#202020")
+            Dim linkColor = If(_isDarkMode, "#60CFFF", "#0066CC")
+            Dim borderColor = If(_isDarkMode, "#3F3F3F", "#CCCCCC")
+
+            ' CSS to inject - uses !important to override existing styles
+            Dim themeCSS = $"
+<style id='beacon-theme-override'>
+    /* Force readable colors for better contrast */
+    body {{
+        background-color: {bgColor} !important;
+        color: {textColor} !important;
+    }}
+
+    /* Ensure all text elements have good contrast */
+    div, span, p, td, th, li, dt, dd, label, h1, h2, h3, h4, h5, h6 {{
+        color: {textColor} !important;
+    }}
+
+    /* Style tables for better visibility */
+    table {{
+        border-color: {borderColor} !important;
+    }}
+
+    td, th {{
+        border-color: {borderColor} !important;
+        background-color: transparent !important;
+    }}
+
+    /* Style links */
+    a {{
+        color: {linkColor} !important;
+    }}
+
+    /* Ensure input fields are visible */
+    input, textarea, select {{
+        background-color: {If(_isDarkMode, "#2B2B2B", "#FFFFFF")} !important;
+        color: {textColor} !important;
+        border-color: {borderColor} !important;
+    }}
+
+    /* Style code blocks */
+    pre, code {{
+        background-color: {If(_isDarkMode, "#252525", "#F5F5F5")} !important;
+        color: {textColor} !important;
+        border-color: {borderColor} !important;
+    }}
+
+    /* Search highlighting (maintain high visibility) */
+    mark.search-highlight {{
+        background-color: #FFFF00 !important;
+        color: #000 !important;
+        font-weight: bold;
+        padding: 2px 0;
+    }}
+
+    mark.current-highlight {{
+        background-color: #FF9500 !important;
+        color: #000 !important;
+        font-weight: bold;
+        padding: 2px 0;
+    }}
+</style>
+"
+
+            ' Try to inject CSS into <head> if it exists, otherwise prepend to content
+            Dim headEndIndex = htmlContent.IndexOf("</head>", StringComparison.OrdinalIgnoreCase)
+
+            If headEndIndex > 0 Then
+                ' Insert before </head>
+                Return htmlContent.Insert(headEndIndex, themeCSS)
+            Else
+                ' Check if <html> tag exists
+                Dim htmlStartIndex = htmlContent.IndexOf("<html", StringComparison.OrdinalIgnoreCase)
+
+                If htmlStartIndex >= 0 Then
+                    ' Find the end of <html> tag
+                    Dim htmlTagEndIndex = htmlContent.IndexOf(">", htmlStartIndex)
+
+                    If htmlTagEndIndex > 0 Then
+                        ' Insert <head> with CSS after <html>
+                        Dim headSection = $"<head><meta charset='utf-8'>{themeCSS}</head>"
+                        Return htmlContent.Insert(htmlTagEndIndex + 1, headSection)
+                    End If
+                End If
+
+                ' No proper HTML structure, wrap entire content
+                Return $"<!DOCTYPE html><html><head><meta charset='utf-8'>{themeCSS}</head><body>{htmlContent}</body></html>"
+            End If
+        End Function
+
+        ''' <summary>
         ''' Creates HTML wrapper for XML content with syntax highlighting and search support
         ''' </summary>
         Private Function CreateXmlViewerHtml(xmlContent As String) As String
             ' Escape XML for safe display in HTML
             Dim escapedXml = System.Security.SecurityElement.Escape(xmlContent)
+
+            ' Adapt styling based on current theme
+            Dim bgColor = If(_isDarkMode, "#1E1E1E", "white")
+            Dim textColor = If(_isDarkMode, "#D4D4D4", "#000")
 
             Return $"<!DOCTYPE html>
 <html>
@@ -2124,8 +2215,8 @@ Namespace Beacon
             padding: 12px;
             font-family: Consolas, 'Courier New', monospace;
             font-size: 13px;
-            background: white;
-            color: #000;
+            background: {bgColor};
+            color: {textColor};
         }}
         .xml-content {{
             white-space: pre-wrap;
@@ -2173,12 +2264,24 @@ Namespace Beacon
             ' Escape for HTML display
             Dim escapedJson = System.Security.SecurityElement.Escape(formattedJson)
 
-            ' Apply basic syntax highlighting using HTML/CSS
-            ' Colorize: strings (orange), numbers (light green), booleans/null (blue), keys (light blue)
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""\s*:", "<span style='color:#9CDCFE'>""$1""</span>:") ' Keys
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""", "<span style='color:#CE9178'>""$1""</span>") ' String values
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(\d+\.?\d*)\b", "<span style='color:#B5CEA8'>$1</span>") ' Numbers
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(true|false|null)\b", "<span style='color:#569CD6'>$1</span>") ' Booleans/null
+            ' Apply basic syntax highlighting using HTML/CSS with theme-aware colors
+            If _isDarkMode Then
+                ' Dark mode: Use VS Code dark theme colors
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""\s*:", "<span style='color:#9CDCFE'>""$1""</span>:") ' Keys (light blue)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""", "<span style='color:#CE9178'>""$1""</span>") ' String values (orange)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(\d+\.?\d*)\b", "<span style='color:#B5CEA8'>$1</span>") ' Numbers (light green)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(true|false|null)\b", "<span style='color:#569CD6'>$1</span>") ' Booleans/null (blue)
+            Else
+                ' Light mode: Use darker colors for better contrast
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""\s*:", "<span style='color:#0451A5'>""$1""</span>:") ' Keys (blue)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""", "<span style='color:#A31515'>""$1""</span>") ' String values (red)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(\d+\.?\d*)\b", "<span style='color:#098658'>$1</span>") ' Numbers (green)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(true|false|null)\b", "<span style='color:#0000FF'>$1</span>") ' Booleans/null (blue)
+            End If
+
+            ' Adapt styling based on current theme
+            Dim bgColor = If(_isDarkMode, "#1E1E1E", "white")
+            Dim textColor = If(_isDarkMode, "#D4D4D4", "#000")
 
             Return $"<!DOCTYPE html>
 <html>
@@ -2190,8 +2293,8 @@ Namespace Beacon
             padding: 12px;
             font-family: Consolas, 'Courier New', monospace;
             font-size: 13px;
-            background: #1E1E1E;
-            color: #D4D4D4;
+            background: {bgColor};
+            color: {textColor};
         }}
         .json-content {{
             white-space: pre-wrap;

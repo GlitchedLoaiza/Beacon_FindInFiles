@@ -28,6 +28,7 @@
         <SolidColorBrush x:Key="ButtonPressedBrush" Color="#D0D0D0"/>
         <SolidColorBrush x:Key="InputBackgroundBrush" Color="White"/>
         <SolidColorBrush x:Key="InputBorderBrush" Color="#CCCCCC"/>
+        <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#FAFAFA"/>
 
         <!-- Modern Button Style -->
         <Style TargetType="Button">
@@ -442,7 +443,7 @@
                                                FontFamily="Consolas"
                                                FontSize="11"
                                                TextWrapping="Wrap"
-                                               Background="#FAFAFA"
+                                               Background="{DynamicResource CodeBackgroundBrush}"
                                                Padding="8"/>
                                 </ScrollViewer>
 
@@ -458,7 +459,7 @@
                                                FontFamily="Consolas"
                                                FontSize="11"
                                                TextWrapping="Wrap"
-                                               Background="#FAFAFA"
+                                               Background="{DynamicResource CodeBackgroundBrush}"
                                                Padding="8"/>
                                 </ScrollViewer>
 
@@ -476,7 +477,7 @@
                                                FontFamily="Consolas"
                                                FontSize="11"
                                                TextWrapping="Wrap"
-                                               Background="#FAFAFA"
+                                               Background="{DynamicResource CodeBackgroundBrush}"
                                                Padding="8"/>
                                 </ScrollViewer>
 
@@ -491,7 +492,7 @@
                                                FontFamily="Consolas"
                                                FontSize="11"
                                                TextWrapping="Wrap"
-                                               Background="#FAFAFA"
+                                               Background="{DynamicResource CodeBackgroundBrush}"
                                                Padding="8"/>
                                 </ScrollViewer>
 
