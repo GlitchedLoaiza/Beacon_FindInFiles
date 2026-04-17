@@ -28,6 +28,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <ExcludeAssets>none</ExcludeAssets>
     </PackageReference>
+    <PackageReference Include="SharpCompress" Version="0.38.0" />
   </ItemGroup>
 
   <!-- Exclude XML documentation files from publish -->

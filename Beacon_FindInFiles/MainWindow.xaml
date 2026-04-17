@@ -163,9 +163,9 @@
                         ToolTip="Select a folder to scan recursively"/>
 
                 <Button x:Name="BrowseZip_btn"
-                        Content="📦 ZIP"
-                        Width="80"
-                        ToolTip="Select a ZIP archive to scan"/>
+                        Content="📦 Archive"
+                        Width="100"
+                        ToolTip="Select an archive to scan (ZIP, 7Z, RAR, TAR, GZ, etc.)"/>
 
             </StackPanel>
 
