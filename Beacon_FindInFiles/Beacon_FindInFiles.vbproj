@@ -24,6 +24,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="7-Zip.CommandLine" Version="25.1.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <ExcludeAssets>none</ExcludeAssets>
@@ -88,5 +89,15 @@
       <LastGenOutput>Settings.Designer.vb</LastGenOutput>
     </None>
   </ItemGroup>
+
+  <!-- Copy 7za.exe from NuGet package to output directory -->
+  <Target Name="Copy7Zip" AfterTargets="Build">
+    <PropertyGroup>
+      <SevenZipSource>$(USERPROFILE)\.nuget\packages\7-zip.commandline\25.1.0\tools\x64\7za.exe</SevenZipSource>
+      <SevenZipDest>$(OutDir)7za.exe</SevenZipDest>
+    </PropertyGroup>
+    <Copy SourceFiles="$(SevenZipSource)" DestinationFiles="$(SevenZipDest)" SkipUnchangedFiles="true" Condition="Exists('$(SevenZipSource)')" />
+    <Message Text="Copied 7za.exe to output directory" Importance="high" Condition="Exists('$(SevenZipSource)')" />
+  </Target>
 
 </Project>
