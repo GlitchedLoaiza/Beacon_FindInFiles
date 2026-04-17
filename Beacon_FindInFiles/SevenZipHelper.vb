@@ -1,11 +1,71 @@
 Imports System.IO
 Imports System.Diagnostics
+Imports System.Reflection
 
 ''' <summary>
 ''' Helper class for extracting CAB files using 7-Zip command line tool
-''' Uses the 7-Zip.CommandLine NuGet package (includes 7z.exe in output directory)
+''' Extracts embedded 7za.exe from resources at runtime
 ''' </summary>
 Public Class SevenZipHelper
+
+    Private Shared _extractedSevenZipPath As String = Nothing
+    Private Shared ReadOnly _lockObject As New Object()
+
+    ''' <summary>
+    ''' Extracts embedded 7za.exe to a temporary location (once per application run)
+    ''' </summary>
+    ''' <returns>Path to extracted 7za.exe, or Nothing if extraction failed</returns>
+    Private Shared Function EnsureSevenZipExtracted() As String
+        SyncLock _lockObject
+            ' If already extracted, return cached path
+            If Not String.IsNullOrEmpty(_extractedSevenZipPath) AndAlso File.Exists(_extractedSevenZipPath) Then
+                Return _extractedSevenZipPath
+            End If
+
+            Try
+                ' Try to extract 7za.exe from embedded resources
+                Dim assembly As Assembly = Assembly.GetExecutingAssembly()
+                Dim resourceName As String = assembly.GetManifestResourceNames().FirstOrDefault(Function(r) r.EndsWith("7za.exe"))
+
+                If String.IsNullOrEmpty(resourceName) Then
+                    Debug.WriteLine("ERROR: 7za.exe not found in embedded resources")
+                    Debug.WriteLine("Available resources: " & String.Join(", ", assembly.GetManifestResourceNames()))
+                    Return Nothing
+                End If
+
+                ' Extract to temp directory
+                Dim tempDir = Path.Combine(Path.GetTempPath(), "Beacon_7zip")
+                Directory.CreateDirectory(tempDir)
+
+                _extractedSevenZipPath = Path.Combine(tempDir, "7za.exe")
+
+                ' Only extract if not already present
+                If Not File.Exists(_extractedSevenZipPath) Then
+                    Using resourceStream = assembly.GetManifestResourceStream(resourceName)
+                        If resourceStream Is Nothing Then
+                            Debug.WriteLine("ERROR: Could not open resource stream for " & resourceName)
+                            Return Nothing
+                        End If
+
+                        Using fileStream As New FileStream(_extractedSevenZipPath, FileMode.Create, FileAccess.Write)
+                            resourceStream.CopyTo(fileStream)
+                        End Using
+                    End Using
+
+                    Debug.WriteLine("✓ Extracted 7za.exe to: " & _extractedSevenZipPath)
+                Else
+                    Debug.WriteLine("✓ Using existing 7za.exe at: " & _extractedSevenZipPath)
+                End If
+
+                Return _extractedSevenZipPath
+
+            Catch ex As Exception
+                Debug.WriteLine("ERROR extracting 7za.exe: " & ex.Message)
+                Debug.WriteLine("Stack trace: " & ex.StackTrace)
+                Return Nothing
+            End Try
+        End SyncLock
+    End Function
 
     ''' <summary>
     ''' Extracts a CAB file to the specified output directory using 7z.exe
@@ -18,33 +78,15 @@ Public Class SevenZipHelper
             ' Ensure output directory exists
             Directory.CreateDirectory(outputDir)
 
-            ' 7za.exe is included in the NuGet package and copied to output directory via build target
-            Dim sevenZipPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "7za.exe")
+            ' Get path to 7za.exe (extracted from embedded resources)
+            Dim sevenZipPath As String = EnsureSevenZipExtracted()
 
-            ' Fallback: check in x64 subdirectory
-            If Not File.Exists(sevenZipPath) Then
-                sevenZipPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "x64", "7za.exe")
-            End If
-
-            ' Fallback: check in tools subdirectory
-            If Not File.Exists(sevenZipPath) Then
-                sevenZipPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "x64", "7za.exe")
-            End If
-
-            ' Fallback: try NuGet packages folder directly (for debugging)
-            If Not File.Exists(sevenZipPath) Then
-                Dim nugetPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages", "7-zip.commandline", "25.1.0", "tools", "x64", "7za.exe")
-                If File.Exists(nugetPath) Then
-                    sevenZipPath = nugetPath
-                End If
-            End If
-
-            If Not File.Exists(sevenZipPath) Then
-                Debug.WriteLine($"ERROR: 7za.exe not found. Expected at: {sevenZipPath}")
+            If String.IsNullOrEmpty(sevenZipPath) OrElse Not File.Exists(sevenZipPath) Then
+                Debug.WriteLine("ERROR: 7za.exe not available")
                 Return False
             End If
 
-            Debug.WriteLine($"Using 7z.exe from: {sevenZipPath}")
+            Debug.WriteLine("Using 7za.exe from: " & sevenZipPath)
 
             ' Build process start info
             ' x = extract with full paths
@@ -59,7 +101,7 @@ Public Class SevenZipHelper
                 .RedirectStandardError = True
             }
 
-            Debug.WriteLine($"Executing: {psi.FileName} {psi.Arguments}")
+            Debug.WriteLine("Executing: " & psi.FileName & " " & psi.Arguments)
 
             Dim process As Process = Process.Start(psi)
             Using process
@@ -71,7 +113,7 @@ Public Class SevenZipHelper
                     Debug.WriteLine("7z extraction successful")
                     Return True
                 Else
-                    Debug.WriteLine($"7z extraction failed with exit code {process.ExitCode}")
+                    Debug.WriteLine("7z extraction failed with exit code " & process.ExitCode.ToString())
                     If Not String.IsNullOrEmpty(errorOutput) Then
                         Debug.WriteLine("Error output: " & errorOutput)
                     End If
@@ -80,8 +122,8 @@ Public Class SevenZipHelper
             End Using
 
         Catch ex As Exception
-            Debug.WriteLine($"Exception during CAB extraction: {ex.Message}")
-            Debug.WriteLine($"Stack trace: {ex.StackTrace}")
+            Debug.WriteLine("Exception during CAB extraction: " & ex.Message)
+            Debug.WriteLine("Stack trace: " & ex.StackTrace)
             Return False
         End Try
     End Function
@@ -95,26 +137,11 @@ Public Class SevenZipHelper
         Dim files As New List(Of String)
 
         Try
-            Dim sevenZipPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "7za.exe")
+            ' Get path to 7za.exe (extracted from embedded resources)
+            Dim sevenZipPath As String = EnsureSevenZipExtracted()
 
-            If Not File.Exists(sevenZipPath) Then
-                sevenZipPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "x64", "7za.exe")
-            End If
-
-            If Not File.Exists(sevenZipPath) Then
-                sevenZipPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools", "x64", "7za.exe")
-            End If
-
-            ' Fallback: try NuGet packages folder directly (for debugging)
-            If Not File.Exists(sevenZipPath) Then
-                Dim nugetPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages", "7-zip.commandline", "25.1.0", "tools", "x64", "7za.exe")
-                If File.Exists(nugetPath) Then
-                    sevenZipPath = nugetPath
-                End If
-            End If
-
-            If Not File.Exists(sevenZipPath) Then
-                Debug.WriteLine("ERROR: 7za.exe not found for listing")
+            If String.IsNullOrEmpty(sevenZipPath) OrElse Not File.Exists(sevenZipPath) Then
+                Debug.WriteLine("ERROR: 7za.exe not available for listing")
                 Return files
             End If
 
@@ -168,7 +195,7 @@ Public Class SevenZipHelper
             End Using
 
         Catch ex As Exception
-            Debug.WriteLine($"Exception listing CAB files: {ex.Message}")
+            Debug.WriteLine("Exception listing CAB files: " & ex.Message)
         End Try
 
         Return files

@@ -90,14 +90,19 @@
     </None>
   </ItemGroup>
 
-  <!-- Copy 7za.exe from NuGet package to output directory -->
-  <Target Name="Copy7Zip" AfterTargets="Build">
+  <!-- Embed 7za.exe as resource for single-file publish -->
+  <ItemGroup>
+    <EmbeddedResource Include="7za.exe" Condition="Exists('7za.exe')" />
+  </ItemGroup>
+
+  <!-- Copy 7za.exe from NuGet package to project directory for embedding -->
+  <Target Name="Copy7ZipForEmbedding" BeforeTargets="BeforeBuild">
     <PropertyGroup>
       <SevenZipSource>$(USERPROFILE)\.nuget\packages\7-zip.commandline\25.1.0\tools\x64\7za.exe</SevenZipSource>
-      <SevenZipDest>$(OutDir)7za.exe</SevenZipDest>
+      <SevenZipDest>$(MSBuildProjectDirectory)\7za.exe</SevenZipDest>
     </PropertyGroup>
-    <Copy SourceFiles="$(SevenZipSource)" DestinationFiles="$(SevenZipDest)" SkipUnchangedFiles="true" Condition="Exists('$(SevenZipSource)')" />
-    <Message Text="Copied 7za.exe to output directory" Importance="high" Condition="Exists('$(SevenZipSource)')" />
+    <Copy SourceFiles="$(SevenZipSource)" DestinationFiles="$(SevenZipDest)" SkipUnchangedFiles="true" Condition="Exists('$(SevenZipSource)') And !Exists('$(SevenZipDest)')" />
+    <Message Text="Copied 7za.exe to project directory for embedding" Importance="high" Condition="Exists('$(SevenZipSource)')" />
   </Target>
 
 </Project>
