@@ -1400,43 +1400,6 @@ Namespace Beacon
             If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
                 Debug.WriteLine($"Found nested archive: {entry.Key} at depth {depth}, extracting and scanning...")
 
-                            If containsTerm Then
-                                AddHit(New SearchHit With {
-                                       .DisplayName = $"{Path.GetFileName(zipPath)} | {entry.FullName}",
-                                       .Kind = HitKind.ZipTextEntry,
-                                       .ZipPath = zipPath,
-                                       .ZipEntryName = entry.FullName
-                                })
-                            End If
-                        End Using
-
-                    ElseIf _supportedHarExt.Contains(ext) Then
-                        Using s = entry.Open()
-                            Dim har = Await HarCollectMatchesFromStreamAsync(s, term, caseSensitive, ct)
-                            If har IsNot Nothing Then
-                                har.Kind = HitKind.HarFromZip
-                                har.ZipPath = zipPath
-                                har.ZipEntryName = entry.FullName
-                                har.DisplayName = $"{Path.GetFileName(zipPath)} | {entry.FullName}"
-                                AddHit(har)
-                            End If
-                        End Using
-
-                    ElseIf _supportedEvtxExt.Contains(ext) Then
-                        ' EventLogReader requires file path, extract to temp
-                        Dim tempEvtx = ExtractEntryToTemp(entry)
-                        Dim ev = Await EvtxCollectMatchesAsync(tempEvtx, term, caseSensitive, ct)
-
-                        If ev IsNot Nothing Then
-                            ev.Kind = HitKind.EvtxFromZipTemp
-                            ev.ZipPath = zipPath
-                            ev.ZipEntryName = entry.FullName
-                            ev.TempEvtxPath = tempEvtx
-                            ev.DisplayName = $"{Path.GetFileName(zipPath)} | {entry.FullName}"
-                            AddHit(ev)
-                        Else
-                            SafeDelete(tempEvtx)
-                        End If
                 ' Extract nested archive to temp
                 Dim tempNestedArchive = ExtractArchiveEntryToTemp(entry, archivePath)
 
@@ -2330,25 +2293,6 @@ Namespace Beacon
                 ' Read file content and wrap with theme-aware CSS
                 Dim content = File.ReadAllText(filePath)
                 Await LoadWebContentAsync(content, extension)
-                ' For HTML files on disk, use Navigate() to preserve base URL for external resources
-                If extension = ".html" Then
-                    Dim fileUri = New Uri(filePath, UriKind.Absolute)
-                    Debug.WriteLine($"Loading HTML from URI: {fileUri}")
-                    WebPreview_wv2.Source = fileUri
-
-                    ' Wait for page to load before applying theme override and highlighting
-                    Await Task.Delay(1500)
-
-                    ' Inject theme-aware CSS to ensure readability in dark mode
-                    Await InjectThemeOverrideCssAsync()
-
-                    ' Then apply search highlighting
-                    Await HighlightSearchInWebViewAsync()
-                Else
-                    ' For XML/JSON, wrap in viewer HTML and apply highlighting
-                    Dim content = File.ReadAllText(filePath)
-                    Await LoadWebContentAsync(content, extension)
-                End If
             Catch ex As Exception
                 Debug.WriteLine($"Error loading content: {ex.Message}")
                 ' On error, show error message in WebView
