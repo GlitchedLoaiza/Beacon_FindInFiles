@@ -130,9 +130,11 @@ Public Class SevenZipHelper
 
     ''' <summary>
     ''' Lists files in a CAB archive without extracting them
+    ''' Parses 7-Zip list output format: Date Time Attr Size Name (5 parts minimum)
+    ''' Filters out directories (end with \) and summary lines (contain "files"/"folders" keywords)
     ''' </summary>
     ''' <param name="cabPath">Full path to the CAB file</param>
-    ''' <returns>List of file names in the archive</returns>
+    ''' <returns>List of file names (relative paths) in the archive</returns>
     Public Shared Function ListCabFiles(cabPath As String) As List(Of String)
         Dim files As New List(Of String)
 
@@ -180,12 +182,18 @@ Public Class SevenZipHelper
 
                         ' Parse file entries (skip directories)
                         If inFileList AndAlso Not String.IsNullOrWhiteSpace(line) Then
-                            ' 7z list format: Date Time Attr Size Compressed Name
-                            ' We just want the Name (last column)
+                            ' 7z list format: Date Time Attr Size Name
+                            ' We want the Name (starting from 5th column, index 4)
                             Dim parts = line.Split(New Char() {" "c}, StringSplitOptions.RemoveEmptyEntries)
-                            If parts.Length >= 6 Then
-                                Dim fileName = String.Join(" ", parts.Skip(5))
-                                If Not String.IsNullOrEmpty(fileName) AndAlso Not fileName.EndsWith("\") Then
+                            ' Files have at least 5 parts: Date, Time, Attr, Size, Name
+                            If parts.Length >= 5 Then
+                                ' Extract filename (everything from index 4 onwards)
+                                Dim fileName = String.Join(" ", parts.Skip(4))
+                                ' Skip if it's a directory (ends with \) or summary line (contains digits followed by "files")
+                                If Not String.IsNullOrEmpty(fileName) AndAlso 
+                                   Not fileName.EndsWith("\") AndAlso 
+                                   Not fileName.EndsWith("files") AndAlso
+                                   Not fileName.EndsWith("folders") Then
                                     files.Add(fileName)
                                 End If
                             End If

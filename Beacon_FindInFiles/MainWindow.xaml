@@ -196,10 +196,18 @@
                         HorizontalAlignment="Right"
                         Margin="0,10,0,0">
 
-                <CheckBox x:Name="CaseSensitive_chk"
-                          Content="Case sensitive"
-                          VerticalAlignment="Center"
-                          Margin="0,0,12,0"/>
+                <StackPanel Orientation="Vertical"
+                            Margin="0,0,12,0">
+                    <CheckBox x:Name="CaseSensitive_chk"
+                              Content="Case sensitive"
+                              VerticalAlignment="Center"
+                              Margin="0,0,0,4"/>
+
+                    <CheckBox x:Name="ExactMatch_chk"
+                              Content="Exact match"
+                              VerticalAlignment="Center"
+                              IsChecked="False"/>
+                </StackPanel>
 
                 <!-- Theme Toggle Button -->
                 <Button x:Name="ThemeToggle_btn"

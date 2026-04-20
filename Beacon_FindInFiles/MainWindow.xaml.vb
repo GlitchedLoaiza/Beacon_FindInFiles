@@ -23,17 +23,21 @@ Imports SharpCompress.Common
 ' This software was developed by Loaiza (luislo@microsoft)
 ' 
 ' Purpose: Searches for text patterns across multiple file types including:
-'   - Plain text files (.txt, .log, .json, .xml, .csv, .html, .reg)
-'   - Windows Event Log files (.evtx)
+'   - Plain text files (.txt, .log, .json, .xml, .csv, .html, .reg, .ini, .cfg, .config, .nfo)
+'   - Windows Event Log files (.evtx) with graceful handling of missing DLLs
 '   - HAR (HTTP Archive) log files
-'   - ZIP archives (recursively scans entries)
+'   - Compressed archives (ZIP, 7Z, RAR, TAR, GZ, BZ2, CAB - up to 1 level nesting)
 '
 ' Features:
-'   - Real-time text highlighting in preview
-'   - Keyboard shortcuts (F3, Ctrl+Down, Ctrl+R, Enter, Esc)
-'   - Cancellable async scanning with progress indication
-'   - Case-sensitive/insensitive search
-'   - EVTX event message parsing with inline highlighting
+'   - Real-time text highlighting in RichTextBox preview
+'   - WebView2 rendering for HTML/XML/JSON files
+'   - Light/Dark theme toggle matching Windows system preferences
+'   - Keyboard shortcuts (F3/Shift+F3, Ctrl+Down, Ctrl+R, Enter, Esc)
+'   - Cancellable async scanning with accurate progress tracking
+'   - Case-sensitive/insensitive search with exact match (word boundary) support
+'   - EVTX event navigation with warning messages for missing message DLLs
+'   - HAR request/response preview with navigation controls
+'   - Optimized performance: async UI updates, minimal LOH pressure
 ' ============================================================================
 
 Namespace Beacon
@@ -260,6 +264,8 @@ Namespace Beacon
             ' Wire input change handlers for button state updates
             AddHandler Path_txt.TextChanged, AddressOf AnyInputChanged
             AddHandler Search_txt.TextChanged, AddressOf AnyInputChanged
+            AddHandler ExactMatch_chk.Checked, AddressOf AnyInputChanged
+            AddHandler ExactMatch_chk.Unchecked, AddressOf AnyInputChanged
 
             ' Register global keyboard shortcut handler
             AddHandler Me.PreviewKeyDown, AddressOf MainWindow_PreviewKeyDown
@@ -870,10 +876,10 @@ Namespace Beacon
         ' ====================================================================
 
         ''' <summary>
-        ''' Triggered when Path_txt or Search_txt content changes.
+        ''' Triggered when Path_txt, Search_txt, or checkbox state changes.
         ''' Re-evaluates button enable states.
         ''' </summary>
-        Private Sub AnyInputChanged(sender As Object, e As TextChangedEventArgs)
+        Private Sub AnyInputChanged(sender As Object, e As RoutedEventArgs)
             UpdateButtonsState()
         End Sub
 
@@ -894,6 +900,7 @@ Namespace Beacon
                 Path_txt.IsEnabled = False
                 Search_txt.IsEnabled = False
                 CaseSensitive_chk.IsEnabled = False
+                ExactMatch_chk.IsEnabled = False
                 Return
             End If
 
@@ -921,6 +928,7 @@ Namespace Beacon
             Path_txt.IsEnabled = False
             Search_txt.IsEnabled = True
             CaseSensitive_chk.IsEnabled = True
+            ExactMatch_chk.IsEnabled = True
         End Sub
 
 #End Region
@@ -1111,6 +1119,7 @@ Namespace Beacon
             Dim p = Path_txt.Text.Trim()
             Dim term = Search_txt.Text
             Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
+            Dim exactMatch = ExactMatch_chk.IsChecked.GetValueOrDefault(False)
             Dim ct = _scanCts.Token
 
             ' Capture scan root folder for relative display
@@ -1125,7 +1134,7 @@ Namespace Beacon
                              ElseIf File.Exists(p) AndAlso _supportedArchiveExt.Contains(Path.GetExtension(p)) Then
                                  _totalFilesToScan = CountFilesInArchive(p)
                              End If
-                         Catch
+                         Catch ex As Exception
                              _totalFilesToScan = 0
                          End Try
                      End Sub)
@@ -1137,13 +1146,13 @@ Namespace Beacon
                          Try
                              ' Route to appropriate scan method based on source type
                              If Directory.Exists(p) Then
-                                 Await ScanFolderAsync(p, term, cs, ct)
+                                 Await ScanFolderAsync(p, term, cs, exactMatch, ct)
                              ElseIf File.Exists(p) AndAlso _supportedArchiveExt.Contains(Path.GetExtension(p)) Then
                                  ' CAB files use 7-Zip extraction
                                  If Path.GetExtension(p).Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
-                                     Await ScanCabArchiveAsync(p, term, cs, ct, depth:=0)
+                                     Await ScanCabArchiveAsync(p, term, cs, exactMatch, ct, depth:=0)
                                  Else
-                                     Await ScanArchiveAsync(p, term, cs, ct, depth:=0)
+                                     Await ScanArchiveAsync(p, term, cs, exactMatch, ct, depth:=0)
                                  End If
                              End If
                          Catch ex As OperationCanceledException
@@ -1153,6 +1162,9 @@ Namespace Beacon
                          Catch ex As Exception
                              Dispatcher.Invoke(Sub() Status("Error: " & ex.Message))
                          Finally
+                             ' Allow pending UI updates to complete before showing final status
+                             Task.Delay(50).Wait()
+
                              Dispatcher.Invoke(Sub()
                                                    _isScanning = False
                                                    ShowProgress(False)
@@ -1206,6 +1218,7 @@ Namespace Beacon
             Path_txt.Text = ""
             Search_txt.Text = ""
             CaseSensitive_chk.IsChecked = False
+            ExactMatch_chk.IsChecked = False
 
             ' Clear results and selection
             _hits.Clear()
@@ -1284,17 +1297,19 @@ Namespace Beacon
 #Region "Scan Helpers"
 
         ''' <summary>
-        ''' Recursively scans a folder for text files, ZIPs, and EVTX files
-        ''' Processes nested ZIPs and extracts EVTX files from archives for scanning
+        ''' Recursively scans a folder for searchable files and archives
+        ''' Supports: Text files, EVTX logs, HAR files, and nested archives (ZIP, 7Z, RAR, TAR, GZ, CAB)
+        ''' Progress tracking: Increments file counter AFTER archive scanning to avoid double-counting
         ''' </summary>
-        Private Async Function ScanFolderAsync(folder As String, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task
+        ''' <param name="folder">Root folder path to scan recursively</param>
+        ''' <param name="term">Search term to find</param>
+        ''' <param name="caseSensitive">Whether to perform case-sensitive search</param>
+        ''' <param name="exactMatch">Whether to use word boundary matching</param>
+        ''' <param name="ct">Cancellation token for aborting scan</param>
+        Private Async Function ScanFolderAsync(folder As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken) As Task
             ' Enumerate all files recursively
             For Each f In Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
                 If ct.IsCancellationRequested Then Exit For
-
-                ' Increment file counter and update progress
-                _filesScanned += 1
-                UpdateScanProgress()
 
                 ' Show relative path (more useful than just file name)
                 Dim relScanning = MakeRelativeDisplay(folder, f)
@@ -1303,25 +1318,32 @@ Namespace Beacon
                 Dim ext = Path.GetExtension(f)
 
                 ' Handle nested archives recursively
+                ' Note: Archive files are counted individually when their contents are scanned,
+                ' so we don't increment _filesScanned here to avoid double-counting
                 If _supportedArchiveExt.Contains(ext) Then
                     ' CAB files use 7-Zip extraction
                     If ext.Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
-                        Await ScanCabArchiveAsync(f, term, caseSensitive, ct, depth:=0)
+                        Await ScanCabArchiveAsync(f, term, caseSensitive, exactMatch, ct, depth:=0)
                     Else
-                        Await ScanArchiveAsync(f, term, caseSensitive, ct, depth:=0)
+                        Await ScanArchiveAsync(f, term, caseSensitive, exactMatch, ct, depth:=0)
                     End If
                     Continue For
                 End If
+
+                ' Increment file counter and update progress
+                ' (only for non-archive files since archive contents are counted separately)
+                _filesScanned += 1
+                UpdateScanProgress()
 
                 If _supportedTextExt.Contains(ext) Then
                     Dim containsTerm As Boolean
 
                     ' For HTML/XML/JSON files, search only visible/data content (not tags/markup)
                     If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
-                        containsTerm = Await HtmlXmlJsonFileContainsAsync(f, term, caseSensitive, ct)
+                        containsTerm = Await HtmlXmlJsonFileContainsAsync(f, term, caseSensitive, exactMatch, ct)
                     Else
                         ' For plain text files, search entire content
-                        containsTerm = Await TextFileContainsAsync(f, term, caseSensitive, ct)
+                        containsTerm = Await TextFileContainsAsync(f, term, caseSensitive, exactMatch, ct)
                     End If
 
                     If containsTerm Then
@@ -1334,14 +1356,14 @@ Namespace Beacon
                     End If
 
                 ElseIf _supportedHarExt.Contains(ext) Then
-                    Dim har = Await HarCollectMatchesAsync(f, term, caseSensitive, ct)
+                    Dim har = Await HarCollectMatchesAsync(f, term, caseSensitive, exactMatch, ct)
                     If har IsNot Nothing Then
                         har.DisplayName = MakeRelativeDisplay(folder, f)
                         AddHit(har)
                     End If
 
                 ElseIf _supportedEvtxExt.Contains(ext) Then
-                    Dim ev = Await EvtxCollectMatchesAsync(f, term, caseSensitive, ct)
+                    Dim ev = Await EvtxCollectMatchesAsync(f, term, caseSensitive, exactMatch, ct)
                     If ev IsNot Nothing Then
                         ev.DisplayName = MakeRelativeDisplay(folder, f)
                         AddHit(ev)
@@ -1358,14 +1380,14 @@ Namespace Beacon
         ''' </summary>
         ''' <param name="depth">Current nesting depth (0 = top-level archive, 1 = nested archive)</param>
         ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
-        Private Async Function ScanArchiveAsync(archivePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
+        Private Async Function ScanArchiveAsync(archivePath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
             Try
                 Debug.WriteLine($"=== Starting scan of {Path.GetFileName(archivePath)} (depth {depth}) ===")
 
                 Using archive = OpenArchive(archivePath)
                     Debug.WriteLine($"Archive opened successfully, {archive.Entries.Count()} total entries")
                     For Each entry In archive.Entries.Where(Function(e) Not e.IsDirectory)
-                        Await ProcessArchiveEntry(entry, archivePath, term, caseSensitive, ct, depth, parentArchiveName)
+                        Await ProcessArchiveEntry(entry, archivePath, term, caseSensitive, exactMatch, ct, depth, parentArchiveName)
                         If ct.IsCancellationRequested Then Exit For
                     Next
                 End Using
@@ -1384,12 +1406,8 @@ Namespace Beacon
         ''' </summary>
         ''' <param name="depth">Current nesting depth (0 = top-level archive, 1 = nested archive)</param>
         ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
-        Private Async Function ProcessArchiveEntry(entry As IArchiveEntry, archivePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
+        Private Async Function ProcessArchiveEntry(entry As IArchiveEntry, archivePath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
             If String.IsNullOrEmpty(entry.Key) Then Return
-
-            ' Increment file counter and update progress
-            _filesScanned += 1
-            UpdateScanProgress()
 
             ' Show "archive.ext | path/to/file.ext" format
             ThrottledSetCurrentFileDisplay($"{Path.GetFileName(archivePath)} | {entry.Key}")
@@ -1397,6 +1415,8 @@ Namespace Beacon
             Dim ext = Path.GetExtension(entry.Key)
 
             ' Handle nested archives (only if depth allows - max 1 level deep)
+            ' Note: Nested archive entries are counted when their contents are scanned,
+            ' so we don't increment _filesScanned here to avoid double-counting
             If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
                 Debug.WriteLine($"Found nested archive: {entry.Key} at depth {depth}, extracting and scanning...")
 
@@ -1409,9 +1429,9 @@ Namespace Beacon
                 Try
                     ' Scan the nested archive with increased depth and archive chain
                     If ext.Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
-                        Await ScanCabArchiveAsync(tempNestedArchive, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain)
+                        Await ScanCabArchiveAsync(tempNestedArchive, term, caseSensitive, exactMatch, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain)
                     Else
-                        Await ScanArchiveAsync(tempNestedArchive, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain)
+                        Await ScanArchiveAsync(tempNestedArchive, term, caseSensitive, exactMatch, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain)
                     End If
                 Finally
                     ' Clean up extracted nested archive
@@ -1421,16 +1441,21 @@ Namespace Beacon
                 Return
             End If
 
+            ' Increment file counter and update progress
+            ' (only for non-archive entries since archive contents are counted separately)
+            _filesScanned += 1
+            UpdateScanProgress()
+
             If _supportedTextExt.Contains(ext) Then
                 Using entryStream = entry.OpenEntryStream()
                     Dim containsTerm As Boolean
 
                     ' For HTML/XML/JSON files, search only visible/data content
                     If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
-                        containsTerm = Await HtmlXmlJsonStreamContainsAsync(entryStream, term, caseSensitive, ct)
+                        containsTerm = Await HtmlXmlJsonStreamContainsAsync(entryStream, term, caseSensitive, exactMatch, ct)
                     Else
                         ' For plain text files, search entire content
-                        containsTerm = Await StreamContainsAsync(entryStream, term, caseSensitive, ct)
+                        containsTerm = Await StreamContainsAsync(entryStream, term, caseSensitive, exactMatch, ct)
                     End If
 
                     If containsTerm Then
@@ -1451,7 +1476,7 @@ Namespace Beacon
             ElseIf _supportedEvtxExt.Contains(ext) Then
                 ' EventLogReader requires file path, extract to temp
                 Dim tempEvtx = ExtractArchiveEntryToTemp(entry, archivePath)
-                Dim ev = Await EvtxCollectMatchesAsync(tempEvtx, term, caseSensitive, ct)
+                Dim ev = Await EvtxCollectMatchesAsync(tempEvtx, term, caseSensitive, exactMatch, ct)
 
                 If ev IsNot Nothing Then
                     ' Build display name with parent archive chain
@@ -1476,7 +1501,7 @@ Namespace Beacon
         ''' </summary>
         ''' <param name="depth">Current nesting depth (0 = top-level archive, 1 = nested archive)</param>
         ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
-        Private Async Function ScanCabArchiveAsync(cabPath As String, term As String, caseSensitive As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
+        Private Async Function ScanCabArchiveAsync(cabPath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
             Await Task.Run(Sub()
                                Try
                                    Debug.WriteLine($"=== Starting CAB scan using 7-Zip: {Path.GetFileName(cabPath)} (depth {depth}) ===")
@@ -1504,15 +1529,14 @@ Namespace Beacon
                                        For Each filePath In extractedFiles
                                            If ct.IsCancellationRequested Then Exit For
 
-                                           _filesScanned += 1
-                                           UpdateScanProgress()
-
                                            Dim relativePath = filePath.Substring(tempExtractDir.Length + 1)
                                            ThrottledSetCurrentFileDisplay($"{Path.GetFileName(cabPath)} | {relativePath}")
 
                                            Dim ext = Path.GetExtension(filePath)
 
                                            ' Handle nested archives (only if depth allows - max 1 level deep)
+                                           ' Note: Nested archive entries are counted when their contents are scanned,
+                                           ' so we don't increment _filesScanned here to avoid double-counting
                                            If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
                                                Debug.WriteLine($"Found nested archive in CAB: {relativePath} at depth {depth}, scanning...")
 
@@ -1521,21 +1545,26 @@ Namespace Beacon
 
                                                ' Scan the nested archive with increased depth and archive chain
                                                If ext.Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
-                                                   ScanCabArchiveAsync(filePath, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain).Wait()
+                                                   ScanCabArchiveAsync(filePath, term, caseSensitive, exactMatch, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain).Wait()
                                                Else
-                                                   ScanArchiveAsync(filePath, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain).Wait()
+                                                   ScanArchiveAsync(filePath, term, caseSensitive, exactMatch, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain).Wait()
                                                End If
 
                                                Continue For
                                            End If
 
+                                           ' Increment file counter and update progress
+                                           ' (only for non-archive files since archive contents are counted separately)
+                                           _filesScanned += 1
+                                           UpdateScanProgress()
+
                                            If _supportedTextExt.Contains(ext) Then
                                                Dim containsTerm As Boolean
 
                                                If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
-                                                   containsTerm = HtmlXmlJsonFileContainsAsync(filePath, term, caseSensitive, ct).Result
+                                                   containsTerm = HtmlXmlJsonFileContainsAsync(filePath, term, caseSensitive, exactMatch, ct).Result
                                                Else
-                                                   containsTerm = TextFileContainsAsync(filePath, term, caseSensitive, ct).Result
+                                                   containsTerm = TextFileContainsAsync(filePath, term, caseSensitive, exactMatch, ct).Result
                                                End If
 
                                                If containsTerm Then
@@ -1553,9 +1582,11 @@ Namespace Beacon
                                                End If
 
                                            ElseIf _supportedEvtxExt.Contains(ext) Then
-                                               Dim ev = EvtxCollectMatchesAsync(filePath, term, caseSensitive, ct).Result
+                                               Debug.WriteLine($"[CAB] Processing EVTX file: {relativePath}")
+                                               Dim ev = EvtxCollectMatchesAsync(filePath, term, caseSensitive, exactMatch, ct).Result
 
                                                If ev IsNot Nothing Then
+                                                   Debug.WriteLine($"[CAB] ✓ EVTX SearchHit returned with {ev.MatchingEvents.Count} event(s)")
                                                    ' Build display name with parent archive chain
                                                    ev.DisplayName = If(String.IsNullOrEmpty(parentArchiveName),
                                                                       $"{Path.GetFileName(cabPath)} | {relativePath}",
@@ -1564,8 +1595,12 @@ Namespace Beacon
                                                    ev.ZipPath = cabPath
                                                    ev.ZipEntryName = relativePath
                                                    ev.TempEvtxPath = filePath
+                                                   Debug.WriteLine($"[CAB] Calling AddHit for EVTX: {ev.DisplayName}")
                                                    AddHit(ev)
                                                    _tempToDelete.Add(filePath) ' Track for cleanup
+                                                   Debug.WriteLine($"[CAB] ✓✓✓ AddHit completed successfully")
+                                               Else
+                                                   Debug.WriteLine($"[CAB] ✗ EVTX SearchHit is Nothing - no matching events found")
                                                End If
                                            End If
                                        Next
@@ -1597,10 +1632,10 @@ Namespace Beacon
 
         ''' <summary>
         ''' Thread-safe addition of search result to UI-bound collection
-        ''' Marshals to UI thread via Dispatcher
+        ''' Marshals to UI thread asynchronously via Dispatcher (non-blocking)
         ''' </summary>
         Private Sub AddHit(hit As SearchHit)
-            Dispatcher.Invoke(Sub() _hits.Add(hit))
+            Dispatcher.BeginInvoke(Sub() _hits.Add(hit))
         End Sub
 
 #End Region
@@ -1611,7 +1646,7 @@ Namespace Beacon
         ''' Checks if file contains search term using line-by-line streaming
         ''' Uses FileShare.ReadWrite to access locked files (e.g., active logs)
         ''' </summary>
-        Private Async Function TextFileContainsAsync(filePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+        Private Async Function TextFileContainsAsync(filePath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken) As Task(Of Boolean)
             ' Empty search term should not match anything
             If String.IsNullOrWhiteSpace(term) Then Return False
 
@@ -1624,7 +1659,14 @@ Namespace Beacon
                         If ct.IsCancellationRequested Then Return False
                         Dim line = Await sr.ReadLineAsync()
                         If line Is Nothing Then Exit While
-                        If line.IndexOf(term, comparison) >= 0 Then Return True
+
+                        If exactMatch Then
+                            ' Exact match: use word boundaries
+                            If ContainsExactMatch(line, term, caseSensitive) Then Return True
+                        Else
+                            ' Partial match: simple contains
+                            If line.IndexOf(term, comparison) >= 0 Then Return True
+                        End If
                     End While
                 End Using
             End Using
@@ -1636,7 +1678,7 @@ Namespace Beacon
         ''' Checks if stream contains search term (used for ZIP entry scanning)
         ''' Leaves stream open for caller to manage (leaveOpen:=True)
         ''' </summary>
-        Private Async Function StreamContainsAsync(stream As Stream, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+        Private Async Function StreamContainsAsync(stream As Stream, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken) As Task(Of Boolean)
             ' Empty search term should not match anything
             If String.IsNullOrWhiteSpace(term) Then Return False
 
@@ -1647,7 +1689,14 @@ Namespace Beacon
                     If ct.IsCancellationRequested Then Return False
                     Dim line = Await sr.ReadLineAsync()
                     If line Is Nothing Then Exit While
-                    If line.IndexOf(term, comparison) >= 0 Then Return True
+
+                    If exactMatch Then
+                        ' Exact match: use word boundaries
+                        If ContainsExactMatch(line, term, caseSensitive) Then Return True
+                    Else
+                        ' Partial match: simple contains
+                        If line.IndexOf(term, comparison) >= 0 Then Return True
+                    End If
                 End While
             End Using
 
@@ -1657,7 +1706,7 @@ Namespace Beacon
         ''' <summary>
         ''' Checks if HTML/XML/JSON file contains search term in visible/data content only (strips tags/markup)
         ''' </summary>
-        Private Async Function HtmlXmlJsonFileContainsAsync(filePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+        Private Async Function HtmlXmlJsonFileContainsAsync(filePath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken) As Task(Of Boolean)
             If String.IsNullOrWhiteSpace(term) Then Return False
 
             Try
@@ -1666,8 +1715,12 @@ Namespace Beacon
                         Dim content = Await sr.ReadToEndAsync()
                         Dim visibleText = ExtractVisibleText(content)
 
-                        Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
-                        Return visibleText.IndexOf(term, comparison) >= 0
+                        If exactMatch Then
+                            Return ContainsExactMatch(visibleText, term, caseSensitive)
+                        Else
+                            Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
+                            Return visibleText.IndexOf(term, comparison) >= 0
+                        End If
                     End Using
                 End Using
             Catch
@@ -1678,7 +1731,7 @@ Namespace Beacon
         ''' <summary>
         ''' Checks if HTML/XML/JSON stream contains search term in visible/data content only
         ''' </summary>
-        Private Async Function HtmlXmlJsonStreamContainsAsync(stream As Stream, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task(Of Boolean)
+        Private Async Function HtmlXmlJsonStreamContainsAsync(stream As Stream, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken) As Task(Of Boolean)
             If String.IsNullOrWhiteSpace(term) Then Return False
 
             Try
@@ -1686,8 +1739,12 @@ Namespace Beacon
                     Dim content = Await sr.ReadToEndAsync()
                     Dim visibleText = ExtractVisibleText(content)
 
-                    Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
-                    Return visibleText.IndexOf(term, comparison) >= 0
+                    If exactMatch Then
+                        Return ContainsExactMatch(visibleText, term, caseSensitive)
+                    Else
+                        Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
+                        Return visibleText.IndexOf(term, comparison) >= 0
+                    End If
                 End Using
             Catch
                 Return False
@@ -1716,19 +1773,62 @@ Namespace Beacon
             Return content.Trim()
         End Function
 
+        ''' <summary>
+        ''' Checks if text contains an exact match of the search term (whole word match)
+        ''' Uses word boundaries to ensure the term is not part of a larger word
+        ''' </summary>
+        ''' <param name="text">Text to search in</param>
+        ''' <param name="term">Search term to find</param>
+        ''' <param name="caseSensitive">Whether to perform case-sensitive matching</param>
+        ''' <returns>True if exact match found, False otherwise</returns>
+        Private Function ContainsExactMatch(text As String, term As String, caseSensitive As Boolean) As Boolean
+            If String.IsNullOrEmpty(text) OrElse String.IsNullOrEmpty(term) Then Return False
+
+            Try
+                ' Escape regex special characters in the search term
+                Dim escapedTerm = System.Text.RegularExpressions.Regex.Escape(term)
+
+                ' Build regex pattern with word boundaries (\b)
+                ' \b matches position between word and non-word character
+                Dim pattern = $"\b{escapedTerm}\b"
+
+                ' Set regex options based on case sensitivity
+                Dim options = System.Text.RegularExpressions.RegexOptions.None
+                If Not caseSensitive Then
+                    options = System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                End If
+
+                ' Perform regex match
+                Dim regex As New System.Text.RegularExpressions.Regex(pattern, options)
+                Return regex.IsMatch(text)
+            Catch
+                ' If regex fails (e.g., invalid pattern), fall back to simple contains
+                Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
+                Return text.IndexOf(term, comparison) >= 0
+            End Try
+        End Function
+
 #End Region
 
 #Region "EVTX Search (Cancellation-safe)"
 
         ''' <summary>
-        ''' Scans EVTX file for events containing search term
+        ''' Scans EVTX file for events containing search term with graceful DLL handling
         ''' OPTIMIZATION: Pre-filters using XML representation before expensive FormatDescription() call
         ''' This yields 2-10x performance improvement for EVTX scanning
+        ''' RESILIENCE: Safely handles missing message DLLs (LevelDisplayName, ProviderName)
         ''' Limits to 300 matches per file to prevent memory issues
         ''' </summary>
+        ''' <param name="evtxPath">Path to the EVTX file</param>
+        ''' <param name="term">Search term to find</param>
+        ''' <param name="caseSensitive">Whether to perform case-sensitive search</param>
+        ''' <param name="exactMatch">Whether to use word boundary matching</param>
+        ''' <param name="ct">Cancellation token for aborting scan</param>
+        ''' <returns>SearchHit containing matching events, or Nothing if no matches</returns>
         Private Async Function EvtxCollectMatchesAsync(evtxPath As String,
                                                      term As String,
                                                      caseSensitive As Boolean,
+                                                     exactMatch As Boolean,
                                                      ct As CancellationToken) As Task(Of SearchHit)
 
             Try
@@ -1763,41 +1863,118 @@ Namespace Beacon
                                                       End Try
 
                                                       ' Quick pre-filter: if search term not in XML, it won't be in formatted message either
+                                                      ' Note: This is a fast substring check to avoid expensive FormatDescription() calls
                                                       If String.IsNullOrEmpty(xmlString) OrElse xmlString.IndexOf(term, comparison) < 0 Then
                                                           Continue While
                                                       End If
 
-                                                      ' Term found in XML, now get the formatted message (expensive but necessary)
+                                                      ' At this point, we KNOW the XML contains the search term (pre-filter passed)
+                                                      ' Now try to get the formatted message
                                                       Dim msg As String = ""
+                                                      Dim msgFailed As Boolean = False
+                                                      Dim useFallback As Boolean = False
+                                                      Dim hasMatch As Boolean = False
+
                                                       Try
                                                           msg = rec.FormatDescription()
-                                                      Catch
-                                                          msg = ""
+                                                          ' FormatDescription can return Nothing or empty string when DLLs are missing
+                                                          If String.IsNullOrEmpty(msg) Then
+                                                              msgFailed = True
+                                                              useFallback = True
+                                                          Else
+                                                              ' Check if the formatted message contains the search term
+                                                              If exactMatch Then
+                                                                  hasMatch = ContainsExactMatch(msg, term, caseSensitive)
+                                                              Else
+                                                                  hasMatch = msg.IndexOf(term, comparison) >= 0
+                                                              End If
+
+                                                              ' If formatted message doesn't contain the term, fall back to XML
+                                                              If Not hasMatch Then
+                                                                  useFallback = True
+                                                              End If
+                                                          End If
+                                                      Catch ex As Exception
+                                                          ' Exception thrown when message DLLs are completely missing
+                                                          msgFailed = True
+                                                          useFallback = True
                                                       End Try
 
-                                                      If Not String.IsNullOrEmpty(msg) AndAlso msg.IndexOf(term, comparison) >= 0 Then
+                                                      ' Use fallback message with raw XML when:
+                                                      ' 1. Formatting failed (DLL missing), OR
+                                                      ' 2. Formatted message doesn't contain the search term (term only in raw XML)
+                                                      If useFallback Then
+                                                          ' Build fallback message with XML
+                                                          If msgFailed Then
+                                                              msg = "⚠️ Warning: Message unavailable - required DLL not found." & vbCrLf &
+                                                                    "Event data may not render correctly. Showing raw XML data below:" & vbCrLf & vbCrLf &
+                                                                    xmlString
+                                                          Else
+                                                              msg = "ℹ️ Note: Search term found in raw event data (XML), not in formatted message." & vbCrLf &
+                                                                    "Showing raw XML data below:" & vbCrLf & vbCrLf &
+                                                                        xmlString
+                                                          End If
+
+                                                          ' IMPORTANT: Re-validate match against the complete fallback message (including XML)
+                                                          ' This ensures exact match rules are respected
+                                                          If exactMatch Then
+                                                              hasMatch = ContainsExactMatch(msg, term, caseSensitive)
+                                                          Else
+                                                              hasMatch = msg.IndexOf(term, comparison) >= 0
+                                                          End If
+                                                      End If
+
+                                                      ' Only add if it actually matches (respects exact match rules)
+                                                      If hasMatch Then
+                                                          ' Safely get properties that may throw when DLLs are missing
+                                                          Dim eventLevel As String = "Unknown"
+                                                          Dim eventProvider As String = "Unknown"
+
+                                                          Try
+                                                              eventLevel = rec.LevelDisplayName
+                                                              If String.IsNullOrEmpty(eventLevel) Then eventLevel = "Unknown"
+                                                          Catch
+                                                              ' LevelDisplayName throws when DLL is missing
+                                                              eventLevel = "Unknown"
+                                                          End Try
+
+                                                          Try
+                                                              eventProvider = rec.ProviderName
+                                                              If String.IsNullOrEmpty(eventProvider) Then eventProvider = "Unknown"
+                                                          Catch
+                                                              ' ProviderName may also throw
+                                                              eventProvider = "Unknown"
+                                                          End Try
+
                                                           hit.MatchingEvents.Add(New EventSummary With {
-                                                              .Level = rec.LevelDisplayName,
-                                                              .Provider = rec.ProviderName,
-                                                              .EventId = rec.Id,
-                                                              .TimeCreated = rec.TimeCreated,
-                                                              .Message = msg
-                                                              })
+                                                               .Level = eventLevel,
+                                                               .Provider = eventProvider,
+                                                               .EventId = rec.Id,
+                                                               .TimeCreated = rec.TimeCreated,
+                                                               .Message = msg
+                                                               })
 
                                                           ' Limit matches per file to prevent memory exhaustion
-                                                          If hit.MatchingEvents.Count >= 300 Then Exit While
+                                                          If hit.MatchingEvents.Count >= 300 Then
+                                                              Exit While
+                                                          End If
                                                       End If
                                                   End Using
                                               End While
                                           End Using
 
-                                          If hit.MatchingEvents.Count > 0 Then Return hit
+                                          If hit.MatchingEvents.Count > 0 Then
+                                              Return hit
+                                          End If
+
                                           Return Nothing
 
                                       End Function)
             Catch ex As OperationCanceledException
                 Return Nothing
             Catch ex As TaskCanceledException
+                Return Nothing
+            Catch ex As Exception
                 Return Nothing
             End Try
         End Function
@@ -1814,10 +1991,11 @@ Namespace Beacon
         Private Async Function HarCollectMatchesAsync(harPath As String,
                                                        term As String,
                                                        caseSensitive As Boolean,
+                                                       exactMatch As Boolean,
                                                        ct As CancellationToken) As Task(Of SearchHit)
             Try
                 Using fs As New FileStream(harPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-                    Return Await HarCollectMatchesFromStreamAsync(fs, term, caseSensitive, ct, harPath)
+                    Return Await HarCollectMatchesFromStreamAsync(fs, term, caseSensitive, exactMatch, ct, harPath)
                 End Using
             Catch ex As Exception
                 Return Nothing
@@ -1831,6 +2009,7 @@ Namespace Beacon
         Private Async Function HarCollectMatchesFromStreamAsync(stream As Stream,
                                                                  term As String,
                                                                  caseSensitive As Boolean,
+                                                                 exactMatch As Boolean,
                                                                  ct As CancellationToken,
                                                                  Optional filePath As String = Nothing) As Task(Of SearchHit)
             Try
@@ -1870,46 +2049,76 @@ Namespace Beacon
                                                       Dim matchFound As Boolean = False
 
                                                       ' HTTP Method
-                                                      If harReq.Method IsNot Nothing AndAlso harReq.Method.IndexOf(term, comparison) >= 0 Then
-                                                          matchFound = True
+                                                      If harReq.Method IsNot Nothing Then
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(harReq.Method, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If harReq.Method.IndexOf(term, comparison) >= 0 Then matchFound = True
+                                                          End If
                                                       End If
 
                                                       ' URL
-                                                      If Not matchFound AndAlso harReq.Url IsNot Nothing AndAlso harReq.Url.IndexOf(term, comparison) >= 0 Then
-                                                          matchFound = True
+                                                      If Not matchFound AndAlso harReq.Url IsNot Nothing Then
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(harReq.Url, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If harReq.Url.IndexOf(term, comparison) >= 0 Then matchFound = True
+                                                          End If
                                                       End If
 
                                                       ' Status Code (as string)
                                                       If Not matchFound AndAlso harReq.StatusCode > 0 Then
                                                           Dim statusStr = harReq.StatusCode.ToString()
-                                                          If statusStr.IndexOf(term, comparison) >= 0 Then
-                                                              matchFound = True
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(statusStr, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If statusStr.IndexOf(term, comparison) >= 0 Then matchFound = True
                                                           End If
                                                       End If
 
                                                       ' Status Text
-                                                      If Not matchFound AndAlso harReq.StatusText IsNot Nothing AndAlso harReq.StatusText.IndexOf(term, comparison) >= 0 Then
-                                                          matchFound = True
+                                                      If Not matchFound AndAlso harReq.StatusText IsNot Nothing Then
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(harReq.StatusText, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If harReq.StatusText.IndexOf(term, comparison) >= 0 Then matchFound = True
+                                                          End If
                                                       End If
 
                                                       ' Request Headers
-                                                      If Not matchFound AndAlso harReq.RequestHeaders IsNot Nothing AndAlso harReq.RequestHeaders.IndexOf(term, comparison) >= 0 Then
-                                                          matchFound = True
+                                                      If Not matchFound AndAlso harReq.RequestHeaders IsNot Nothing Then
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(harReq.RequestHeaders, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If harReq.RequestHeaders.IndexOf(term, comparison) >= 0 Then matchFound = True
+                                                          End If
                                                       End If
 
                                                       ' Response Headers
-                                                      If Not matchFound AndAlso harReq.ResponseHeaders IsNot Nothing AndAlso harReq.ResponseHeaders.IndexOf(term, comparison) >= 0 Then
-                                                          matchFound = True
+                                                      If Not matchFound AndAlso harReq.ResponseHeaders IsNot Nothing Then
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(harReq.ResponseHeaders, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If harReq.ResponseHeaders.IndexOf(term, comparison) >= 0 Then matchFound = True
+                                                          End If
                                                       End If
 
                                                       ' Request Body
-                                                      If Not matchFound AndAlso harReq.RequestBody IsNot Nothing AndAlso harReq.RequestBody.IndexOf(term, comparison) >= 0 Then
-                                                          matchFound = True
+                                                      If Not matchFound AndAlso harReq.RequestBody IsNot Nothing Then
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(harReq.RequestBody, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If harReq.RequestBody.IndexOf(term, comparison) >= 0 Then matchFound = True
+                                                          End If
                                                       End If
 
                                                       ' Response Body
-                                                      If Not matchFound AndAlso harReq.ResponseBody IsNot Nothing AndAlso harReq.ResponseBody.IndexOf(term, comparison) >= 0 Then
-                                                          matchFound = True
+                                                      If Not matchFound AndAlso harReq.ResponseBody IsNot Nothing Then
+                                                          If exactMatch Then
+                                                              If ContainsExactMatch(harReq.ResponseBody, term, caseSensitive) Then matchFound = True
+                                                          Else
+                                                              If harReq.ResponseBody.IndexOf(term, comparison) >= 0 Then matchFound = True
+                                                          End If
                                                       End If
 
                                                       If matchFound Then
@@ -3502,11 +3711,32 @@ Namespace Beacon
 
         ''' <summary>
         ''' Counts total files in a folder recursively (for progress calculation)
+        ''' Archives are counted as their contents, not as single files
         ''' </summary>
         Private Function CountFilesInFolder(folder As String) As Integer
             Try
-                Return Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories).Count()
-            Catch
+                Dim totalCount As Integer = 0
+
+                For Each filePath In Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
+                    Dim ext = Path.GetExtension(filePath)
+
+                    ' If it's an archive, count its contents instead of counting it as 1 file
+                    If _supportedArchiveExt.Contains(ext) Then
+                        Try
+                            Dim archiveCount = CountFilesInArchive(filePath)
+                            totalCount += archiveCount
+                        Catch ex As Exception
+                            ' If we can't count archive contents, count it as 1 file
+                            totalCount += 1
+                        End Try
+                    Else
+                        ' Regular file - count as 1
+                        totalCount += 1
+                    End If
+                Next
+
+                Return totalCount
+            Catch ex As Exception
                 Return 0
             End Try
         End Function
@@ -3529,14 +3759,32 @@ Namespace Beacon
         ''' <summary>
         ''' Counts total entries in an archive file (for progress calculation)
         ''' Supports ZIP, 7Z, RAR, TAR, CAB and other formats
+        ''' Recursively counts nested archives up to 1 level deep
         ''' </summary>
-        Private Function CountFilesInArchive(archivePath As String) As Integer
+        Private Function CountFilesInArchive(archivePath As String, Optional depth As Integer = 0) As Integer
             Try
+                Dim totalCount As Integer = 0
+
                 ' CAB files use 7-Zip listing
                 If Path.GetExtension(archivePath).Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
                     Try
                         Dim files = SevenZipHelper.ListCabFiles(archivePath)
-                        Return files.Count
+
+                        ' Count each file, recursively counting nested archives
+                        For Each fileName In files
+                            Dim ext = Path.GetExtension(fileName)
+
+                            ' If nested archive and depth allows (max 1 level)
+                            If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
+                                ' We'd need to extract it to count contents, but that's expensive
+                                ' For now, estimate nested archives as 5 files each
+                                totalCount += 5
+                            Else
+                                totalCount += 1
+                            End If
+                        Next
+
+                        Return totalCount
                     Catch ex As Exception
                         Debug.WriteLine($"Failed to count CAB files using 7-Zip: {ex.Message}")
                         Return 0
@@ -3545,7 +3793,31 @@ Namespace Beacon
 
                 ' Other archives use SharpCompress
                 Using archive = OpenArchive(archivePath)
-                    Return archive.Entries.Where(Function(e) Not e.IsDirectory AndAlso Not String.IsNullOrEmpty(e.Key)).Count()
+                    For Each entry In archive.Entries
+                        If entry.IsDirectory OrElse String.IsNullOrEmpty(entry.Key) Then Continue For
+
+                        Dim ext = Path.GetExtension(entry.Key)
+
+                        ' If nested archive and depth allows (max 1 level)
+                        If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
+                            ' Extract nested archive to temp and count its contents
+                            Try
+                                Dim tempNested = ExtractArchiveEntryToTemp(entry, archivePath)
+                                Try
+                                    totalCount += CountFilesInArchive(tempNested, depth + 1)
+                                Finally
+                                    SafeDelete(tempNested)
+                                End Try
+                            Catch
+                                ' If extraction fails, estimate as 5 files
+                                totalCount += 5
+                            End Try
+                        Else
+                            totalCount += 1
+                        End If
+                    Next
+
+                    Return totalCount
                 End Using
             Catch ex As Exception
                 Debug.WriteLine($"Failed to count files in archive {Path.GetFileName(archivePath)}: {ex.Message}")

@@ -1,0 +1,104 @@
+<Window x:Class="Beacon.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Beacon Splash"
+        Width="500" Height="264"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        Topmost="True"
+        WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <Storyboard x:Key="FadeOutStoryboard">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                             To="0" Duration="0:0:0.35" />
+        </Storyboard>
+
+        <!-- FIX: Use proper easing function -->
+        <QuadraticEase x:Key="EaseInOut" EasingMode="EaseInOut"/>
+
+        <Storyboard x:Key="LupeSweep" RepeatBehavior="Forever" AutoReverse="True">
+            <DoubleAnimation Storyboard.TargetName="LupeTranslate"
+                             Storyboard.TargetProperty="X"
+                             From="-40" To="420" Duration="0:0:2.6"
+                             EasingFunction="{StaticResource EaseInOut}" />
+        </Storyboard>
+    </Window.Resources>
+
+    <Border CornerRadius="16" SnapsToDevicePixels="True">
+        <Grid>
+            <!-- Semi-transparent themed background -->
+            <Rectangle>
+                <Rectangle.Fill>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#00131E2E" Offset="0"/>
+                        <GradientStop Color="#7A0A2244" Offset="1"/>
+                    </LinearGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+
+            <!-- Subtle "data plane" overlay -->
+            <Rectangle Opacity="0.20">
+                <Rectangle.Fill>
+                    <RadialGradientBrush Center="0.35,0.25" RadiusX="0.9" RadiusY="0.9">
+                        <GradientStop Color="#AA2A74D6" Offset="0"/>
+                        <GradientStop Color="#001B2A3A" Offset="1"/>
+                    </RadialGradientBrush>
+                </Rectangle.Fill>
+            </Rectangle>
+
+            <!-- LOG LAYER -->
+            <Canvas x:Name="LogCanvas" ClipToBounds="True" Margin="18,18,18,62" />
+
+            <!-- PARTICLE LAYER -->
+            <Canvas x:Name="ParticleCanvas" ClipToBounds="True" Margin="18,18,18,62" />
+
+            <!-- LUPE LAYER -->
+            <Canvas x:Name="LupeCanvas" ClipToBounds="True" Margin="18,18,18,62">
+                <Canvas.RenderTransform>
+                    <TranslateTransform x:Name="LupeTranslate" X="0" Y="0"/>
+                </Canvas.RenderTransform>
+
+                <Ellipse Width="36" Height="36"
+                         Stroke="#CCFFFFFF" StrokeThickness="2"
+                         Fill="#22000000"
+                         Canvas.Left="0" Canvas.Top="108"/>
+
+                <Line X1="28" Y1="138" X2="46" Y2="156"
+                      Stroke="#CCFFFFFF" StrokeThickness="3"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                
+                <Line X1="8" Y1="126" X2="28" Y2="126"
+                      Stroke="#66A7D9FF" StrokeThickness="2"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+            </Canvas>
+
+            <!-- TOP LOGO -->
+            <Image Source="beacon_no_bg.png"
+                   Width="120"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Margin="0,18,0,0"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+
+            <!-- TITLE / SUBTITLE -->
+            <StackPanel VerticalAlignment="Bottom" Margin="0,0,0,14">
+                <TextBlock Text="Beacon"
+                           FontFamily="Segoe UI"
+                           FontSize="36"
+                           FontWeight="Bold"
+                           Foreground="#F2FFFFFF"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Find in files..."
+                           FontFamily="Segoe UI"
+                           FontSize="16"
+                           Foreground="#C8D6ECFF"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
