@@ -1,4 +1,4 @@
-# Beacon: Find in Files - Advanced Log Search Utility
+# Beacon: Find in Files v2.0 - Advanced Log Search Utility
 
 ![Version](https://img.shields.io/badge/version-2.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -43,6 +43,20 @@ A powerful Windows desktop application for searching text patterns across multip
 3. Run `Beacon_FindInFiles.exe`
 
 **No installation required** - the application is self-contained with all dependencies bundled (including .NET 10 runtime and 7za.exe for CAB support).
+
+## ⚠️ Windows SmartScreen Warning
+
+Due to code signing costs for open-source projects, this release uses a self-signed certificate. Windows may show a "Windows protected your PC" warning.
+
+**To run the application:**
+1. Click "More info"
+2. Click "Run anyway"
+
+**Verify authenticity:**
+- **SHA-256**: `[Will be added after build]`
+- Compare with official release hash on GitHub
+
+We're working on obtaining a trusted certificate for future releases.
 
 ### Option 2: Build from Source
 ```sh
@@ -147,6 +161,26 @@ Manually toggle themes using the `🌙`/`☀️` button in the top-right corner.
 
 - **Archive Depth**: Maximum 1 level of nested archives
 - **Match Limits**: 300 matches per EVTX/HAR file to prevent memory issues
+
+## ❓ FAQ
+
+**Q: Why does Windows SmartScreen/Defender block the app?**  
+A: Self-signed executable triggers SmartScreen warnings. Verify SHA-256 hash matches the official release and click "Run anyway". We're working on obtaining a trusted code signing certificate.
+
+**Q: Does this require .NET 10 installation?**  
+A: No - self-contained deployment includes the .NET 10 runtime.
+
+**Q: Can I scan network drives?**  
+A: Yes, but performance depends on network speed and latency.
+
+**Q: What is the maximum file size supported?**  
+A: No hard limit, but very large files (>1GB) may slow down scanning. Archives are processed efficiently with streaming.
+
+**Q: Why can't I find matches in EVTX files?**  
+A: Ensure you're searching for exact event ID numbers or message content. Some events may require message DLLs to display properly (fallback to raw XML is automatic).
+
+**Q: Does this work on Windows 10?**  
+A: The application is optimized for Windows 11. Windows 10 may work but requires separate WebView2 Runtime installation for HTML/XML preview.
 
 ## 🤝 Contributing & Feedback
 
