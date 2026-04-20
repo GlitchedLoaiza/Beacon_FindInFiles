@@ -3,6 +3,8 @@ Imports System.Windows.Media.Animation
 Imports System.Windows.Controls
 Imports System.Windows.Media
 Imports System.Windows.Shapes
+Imports System.Linq
+Imports System.Diagnostics
 
 Namespace Beacon
 
@@ -217,9 +219,42 @@ Namespace Beacon
         End Sub
 
         Private Sub ShowMainAndClose()
-            Dim mw As New MainWindow()
+            ' SIMPLEST APPROACH: Find existing MainWindow (VB.NET auto-creates it), or create new one
+            ' Don't try to close anything - just use what exists!
+
+            Dim mw As MainWindow = Nothing
+
+            ' Check if VB.NET already auto-created a MainWindow
+            For Each win As Window In Application.Current.Windows
+                If TypeOf win Is MainWindow Then
+                    mw = CType(win, MainWindow)
+                    Debug.WriteLine("Found existing auto-created MainWindow - reusing it!")
+                    Exit For
+                End If
+            Next
+
+            ' If no MainWindow exists, create one
+            If mw Is Nothing Then
+                mw = New MainWindow()
+                Debug.WriteLine("No existing MainWindow found, created new one")
+            End If
+
+            ' Set it as THE MainWindow
+            Application.Current.MainWindow = mw
+
+            ' Wire up manual shutdown when MainWindow closes (since we're in OnExplicitShutdown mode)
+            AddHandler mw.Closed, Sub(s, e)
+                                       Debug.WriteLine("MainWindow closed, calling Shutdown()")
+                                       Application.Current.Shutdown()
+                                   End Sub
+
+            ' Show MainWindow
             mw.Show()
+            Debug.WriteLine("MainWindow shown")
+
+            ' Close splash screen
             Me.Close()
+            Debug.WriteLine("Splash closed")
         End Sub
 
     End Class

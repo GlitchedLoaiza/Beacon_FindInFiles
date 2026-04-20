@@ -4,7 +4,11 @@
     ' can be handled in this file.
 
     Private Sub Application_Startup(sender As Object, e As StartupEventArgs) Handles Me.Startup
-        ' Show splash screen instead of main window
+        ' SIMPLEST APPROACH: Stay in OnExplicitShutdown mode forever
+        ' Manually handle shutdown when MainWindow closes
+        Me.ShutdownMode = ShutdownMode.OnExplicitShutdown
+
+        ' Show splash screen
         Dim splash As New Beacon.SplashWindow()
         splash.Show()
     End Sub
