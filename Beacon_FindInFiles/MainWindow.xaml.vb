@@ -13,6 +13,9 @@ Imports System.Diagnostics
 Imports System.Diagnostics.Eventing.Reader
 Imports WinForms = System.Windows.Forms
 Imports System.Text.Json
+Imports SharpCompress.Archives
+Imports SharpCompress.Readers
+Imports SharpCompress.Common
 
 ' ============================================================================
 ' Beacon: Find in Files - Advanced Log Search Utility
@@ -50,10 +53,12 @@ Namespace Beacon
         Private Enum HitKind
             DiskTextFile        ' Regular text file on disk
             ZipTextEntry        ' Text file inside a ZIP archive
+            CabTextEntry        ' Text file inside a CAB archive
             EvtxFileOnDisk      ' Event log file on disk
             EvtxFromZipTemp     ' Event log extracted from ZIP to temp location
             HarFileOnDisk       ' HAR log file on disk
             HarFromZip          ' HAR log file from ZIP
+            EvtxFromCabTemp     ' Event log extracted from CAB to temp location
         End Enum
 
         ''' <summary>
@@ -146,7 +151,7 @@ Namespace Beacon
 
         ''' <summary>File extensions recognized as searchable text files</summary>
         Private ReadOnly _supportedTextExt As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
-            ".txt", ".log", ".json", ".xml", ".csv", ".html", ".reg"
+            ".txt", ".log", ".json", ".xml", ".csv", ".html", ".reg", ".ini", ".cfg", ".config", ".nfo"
         }
 
         ''' <summary>File extensions recognized as HAR (HTTP Archive) files</summary>
@@ -159,7 +164,12 @@ Namespace Beacon
             ".evtx"
         }
 
-        ''' <summary>Tracks temporary EVTX files extracted from ZIPs for cleanup</summary>
+        ''' <summary>File extensions recognized as archive files (for recursive scanning)</summary>
+        Private ReadOnly _supportedArchiveExt As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
+            ".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".tgz", ".tbz", ".tbz2", ".tar.gz", ".tar.bz2", ".tar.xz", ".txz", ".cab"
+        }
+
+        ''' <summary>Tracks temporary EVTX files extracted from archives for cleanup</summary>
         Private ReadOnly _tempToDelete As New List(Of String)
 
         ' --- WebView2 state for HTML/XML preview ---
@@ -381,8 +391,14 @@ Namespace Beacon
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))        ' #505050
             Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H1E, &H1E, &H1E))     ' #1E1E1E
 
-            ' Update event level color for better dark mode visibility
+            ' Update event preview text colors for dark mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HFF, &H60, &H60)) ' Lighter red for dark mode
+            EventId_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0))    ' Light gray
+            EventProvider_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0)) ' Light gray
+            EventTime_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0))  ' Medium gray
+            EventMessage_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0)) ' Light gray
+            EventCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0)) ' Medium gray
+            EventMatchCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0)) ' Medium gray
         End Sub
 
         ''' <summary>
@@ -411,8 +427,14 @@ Namespace Beacon
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&HCC, &HCC, &HCC))        ' #CCCCCC
             Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HFA, &HFA, &HFA))     ' #FAFAFA
 
-            ' Restore original event level color
+            ' Restore event preview text colors for light mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HC0, &H0, &H0)) ' Original dark red
+            EventId_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))  ' Dark gray
+            EventProvider_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20)) ' Dark gray
+            EventTime_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66)) ' Medium gray
+            EventMessage_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20)) ' Dark gray
+            EventCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66)) ' Medium gray
+            EventMatchCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66)) ' Medium gray
         End Sub
 
         ''' <summary>
@@ -878,10 +900,10 @@ Namespace Beacon
             Dim p = Path_txt.Text.Trim()
             Dim term = Search_txt.Text
 
-            ' Scan enabled when path is valid (folder or ZIP) AND search term provided
+            ' Scan enabled when path is valid (folder or archive) AND search term provided
             Dim pathValid As Boolean =
                 Directory.Exists(p) OrElse
-                (File.Exists(p) AndAlso String.Equals(Path.GetExtension(p), ".zip", StringComparison.OrdinalIgnoreCase))
+                (File.Exists(p) AndAlso _supportedArchiveExt.Contains(Path.GetExtension(p)))
 
             Dim termValid As Boolean = Not String.IsNullOrWhiteSpace(term)
 
@@ -917,13 +939,13 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
-        ''' Prompts user to select a ZIP file to scan
+        ''' Prompts user to select an archive file to scan
         ''' </summary>
         Private Sub BrowseZip_btn_Click(sender As Object, e As RoutedEventArgs)
             Dim ofd As New OpenFileDialog() With {
-                .Filter = "ZIP files (*.zip)|*.zip|All files (*.*)|*.*",
+                .Filter = "Archive files|*.zip;*.7z;*.rar;*.tar;*.gz;*.bz2;*.tgz;*.tbz;*.tbz2;*.tar.gz;*.tar.bz2;*.tar.xz;*.txz;*.cab|ZIP files (*.zip)|*.zip|7-Zip files (*.7z)|*.7z|RAR files (*.rar)|*.rar|TAR files|*.tar;*.tar.gz;*.tar.bz2;*.tar.xz;*.tgz;*.tbz;*.tbz2;*.txz|GZIP files (*.gz)|*.gz|BZIP2 files (*.bz2)|*.bz2|CAB files (*.cab)|*.cab",
                 .Multiselect = False,
-                .Title = "Select ZIP archive to scan"
+                .Title = "Select archive to scan"
             }
             If ofd.ShowDialog() = True Then
                 Path_txt.Text = ofd.FileName
@@ -1100,8 +1122,8 @@ Namespace Beacon
                          Try
                              If Directory.Exists(p) Then
                                  _totalFilesToScan = CountFilesInFolder(p)
-                             ElseIf File.Exists(p) AndAlso Path.GetExtension(p).Equals(".zip", StringComparison.OrdinalIgnoreCase) Then
-                                 _totalFilesToScan = CountFilesInZip(p)
+                             ElseIf File.Exists(p) AndAlso _supportedArchiveExt.Contains(Path.GetExtension(p)) Then
+                                 _totalFilesToScan = CountFilesInArchive(p)
                              End If
                          Catch
                              _totalFilesToScan = 0
@@ -1116,8 +1138,13 @@ Namespace Beacon
                              ' Route to appropriate scan method based on source type
                              If Directory.Exists(p) Then
                                  Await ScanFolderAsync(p, term, cs, ct)
-                             ElseIf File.Exists(p) AndAlso Path.GetExtension(p).Equals(".zip", StringComparison.OrdinalIgnoreCase) Then
-                                 Await ScanZipAsync(p, term, cs, ct)
+                             ElseIf File.Exists(p) AndAlso _supportedArchiveExt.Contains(Path.GetExtension(p)) Then
+                                 ' CAB files use 7-Zip extraction
+                                 If Path.GetExtension(p).Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
+                                     Await ScanCabArchiveAsync(p, term, cs, ct, depth:=0)
+                                 Else
+                                     Await ScanArchiveAsync(p, term, cs, ct, depth:=0)
+                                 End If
                              End If
                          Catch ex As OperationCanceledException
                              wasCancelled = True
@@ -1275,9 +1302,14 @@ Namespace Beacon
 
                 Dim ext = Path.GetExtension(f)
 
-                ' Handle nested ZIPs recursively
-                If ext.Equals(".zip", StringComparison.OrdinalIgnoreCase) Then
-                    Await ScanZipAsync(f, term, caseSensitive, ct)
+                ' Handle nested archives recursively
+                If _supportedArchiveExt.Contains(ext) Then
+                    ' CAB files use 7-Zip extraction
+                    If ext.Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
+                        Await ScanCabArchiveAsync(f, term, caseSensitive, ct, depth:=0)
+                    Else
+                        Await ScanArchiveAsync(f, term, caseSensitive, ct, depth:=0)
+                    End If
                     Continue For
                 End If
 
@@ -1319,35 +1351,54 @@ Namespace Beacon
         End Function
 
         ''' <summary>
-        ''' Scans all entries in a ZIP archive for text and EVTX files
+        ''' Scans all entries in an archive (ZIP, 7Z, RAR, TAR, etc.) for text and EVTX files
         ''' Extracts EVTX files to temp storage for EventLogReader access
+        ''' Uses SharpCompress for multi-format archive support (ZIP, 7Z, RAR, TAR, GZ, BZ2)
+        ''' Supports one level of nested archives (e.g., ZIP inside ZIP)
         ''' </summary>
-        Private Async Function ScanZipAsync(zipPath As String, term As String, caseSensitive As Boolean, ct As CancellationToken) As Task
-            Using z = ZipFile.OpenRead(zipPath)
-                For Each entry In z.Entries
-                    If ct.IsCancellationRequested Then Exit For
-                    If String.IsNullOrEmpty(entry.Name) Then Continue For
+        ''' <param name="depth">Current nesting depth (0 = top-level archive, 1 = nested archive)</param>
+        ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
+        Private Async Function ScanArchiveAsync(archivePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
+            Try
+                Debug.WriteLine($"=== Starting scan of {Path.GetFileName(archivePath)} (depth {depth}) ===")
 
-                    ' Increment file counter and update progress
-                    _filesScanned += 1
-                    UpdateScanProgress()
+                Using archive = OpenArchive(archivePath)
+                    Debug.WriteLine($"Archive opened successfully, {archive.Entries.Count()} total entries")
+                    For Each entry In archive.Entries.Where(Function(e) Not e.IsDirectory)
+                        Await ProcessArchiveEntry(entry, archivePath, term, caseSensitive, ct, depth, parentArchiveName)
+                        If ct.IsCancellationRequested Then Exit For
+                    Next
+                End Using
+                Debug.WriteLine($"Archive scan completed successfully for {Path.GetFileName(archivePath)}")
+            Catch ex As Exception
+                ' Archive might be corrupted or unsupported format, log and continue
+                Debug.WriteLine($"ERROR scanning archive {Path.GetFileName(archivePath)}: {ex.Message}")
+                Debug.WriteLine($"Stack trace: {ex.StackTrace}")
+                Dispatcher.Invoke(Sub() Status($"Error reading archive {Path.GetFileName(archivePath)}: {ex.Message}"))
+            End Try
+        End Function
 
-                    ' Show "archive.zip | path/to/file.ext" format
-                    ThrottledSetCurrentFileDisplay($"{Path.GetFileName(zipPath)} | {entry.FullName}")
+        ''' <summary>
+        ''' Processes a single archive entry (Archive API version)
+        ''' Supports nested archives up to 1 level deep
+        ''' </summary>
+        ''' <param name="depth">Current nesting depth (0 = top-level archive, 1 = nested archive)</param>
+        ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
+        Private Async Function ProcessArchiveEntry(entry As IArchiveEntry, archivePath As String, term As String, caseSensitive As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
+            If String.IsNullOrEmpty(entry.Key) Then Return
 
-                    Dim ext = Path.GetExtension(entry.FullName)
+            ' Increment file counter and update progress
+            _filesScanned += 1
+            UpdateScanProgress()
 
-                    If _supportedTextExt.Contains(ext) Then
-                        Using s = entry.Open()
-                            Dim containsTerm As Boolean
+            ' Show "archive.ext | path/to/file.ext" format
+            ThrottledSetCurrentFileDisplay($"{Path.GetFileName(archivePath)} | {entry.Key}")
 
-                            ' For HTML/XML/JSON files, search only visible/data content
-                            If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
-                                containsTerm = Await HtmlXmlJsonStreamContainsAsync(s, term, caseSensitive, ct)
-                            Else
-                                ' For plain text files, search entire content
-                                containsTerm = Await StreamContainsAsync(s, term, caseSensitive, ct)
-                            End If
+            Dim ext = Path.GetExtension(entry.Key)
+
+            ' Handle nested archives (only if depth allows - max 1 level deep)
+            If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
+                Debug.WriteLine($"Found nested archive: {entry.Key} at depth {depth}, extracting and scanning...")
 
                             If containsTerm Then
                                 AddHit(New SearchHit With {
@@ -1386,9 +1437,199 @@ Namespace Beacon
                         Else
                             SafeDelete(tempEvtx)
                         End If
+                ' Extract nested archive to temp
+                Dim tempNestedArchive = ExtractArchiveEntryToTemp(entry, archivePath)
+
+                ' Build archive chain for nested display (e.g., "diagnostic.zip » reports.cab")
+                Dim nestedArchiveChain = parentArchiveName & Path.GetFileName(archivePath) & " » "
+
+                Try
+                    ' Scan the nested archive with increased depth and archive chain
+                    If ext.Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
+                        Await ScanCabArchiveAsync(tempNestedArchive, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain)
+                    Else
+                        Await ScanArchiveAsync(tempNestedArchive, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain)
                     End If
-                Next
-            End Using
+                Finally
+                    ' Clean up extracted nested archive
+                    SafeDelete(tempNestedArchive)
+                End Try
+
+                Return
+            End If
+
+            If _supportedTextExt.Contains(ext) Then
+                Using entryStream = entry.OpenEntryStream()
+                    Dim containsTerm As Boolean
+
+                    ' For HTML/XML/JSON files, search only visible/data content
+                    If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
+                        containsTerm = Await HtmlXmlJsonStreamContainsAsync(entryStream, term, caseSensitive, ct)
+                    Else
+                        ' For plain text files, search entire content
+                        containsTerm = Await StreamContainsAsync(entryStream, term, caseSensitive, ct)
+                    End If
+
+                    If containsTerm Then
+                        ' Build display name with parent archive chain (e.g., "diagnostic.zip » reports.cab | data.log")
+                        Dim displayName = If(String.IsNullOrEmpty(parentArchiveName),
+                                            $"{Path.GetFileName(archivePath)} | {entry.Key}",
+                                            $"{parentArchiveName}{Path.GetFileName(archivePath)} | {entry.Key}")
+
+                        AddHit(New SearchHit With {
+                               .DisplayName = displayName,
+                               .Kind = HitKind.ZipTextEntry,
+                               .ZipPath = archivePath,
+                               .ZipEntryName = entry.Key
+                        })
+                    End If
+                End Using
+
+            ElseIf _supportedEvtxExt.Contains(ext) Then
+                ' EventLogReader requires file path, extract to temp
+                Dim tempEvtx = ExtractArchiveEntryToTemp(entry, archivePath)
+                Dim ev = Await EvtxCollectMatchesAsync(tempEvtx, term, caseSensitive, ct)
+
+                If ev IsNot Nothing Then
+                    ' Build display name with parent archive chain
+                    ev.DisplayName = If(String.IsNullOrEmpty(parentArchiveName),
+                                       $"{Path.GetFileName(archivePath)} | {entry.Key}",
+                                       $"{parentArchiveName}{Path.GetFileName(archivePath)} | {entry.Key}")
+                    ev.Kind = HitKind.EvtxFromZipTemp
+                    ev.ZipPath = archivePath
+                    ev.ZipEntryName = entry.Key
+                    ev.TempEvtxPath = tempEvtx
+                    AddHit(ev)
+                Else
+                    SafeDelete(tempEvtx)
+                End If
+            End If
+        End Function
+
+        ''' <summary>
+        ''' Scans CAB archive using 7-Zip command line tool (simple and reliable)
+        ''' Extracts to temp directory, scans files, then cleans up
+        ''' Supports one level of nested archives (e.g., ZIP inside CAB)
+        ''' </summary>
+        ''' <param name="depth">Current nesting depth (0 = top-level archive, 1 = nested archive)</param>
+        ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
+        Private Async Function ScanCabArchiveAsync(cabPath As String, term As String, caseSensitive As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
+            Await Task.Run(Sub()
+                               Try
+                                   Debug.WriteLine($"=== Starting CAB scan using 7-Zip: {Path.GetFileName(cabPath)} (depth {depth}) ===")
+
+                                   ' Extract CAB to temp directory using 7-Zip
+                                   Dim tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabExtract_" & Guid.NewGuid().ToString("N"))
+                                   Directory.CreateDirectory(tempExtractDir)
+
+                                   Try
+                                       ' Extract using 7-Zip command line
+                                       Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir)
+
+                                       If Not success Then
+                                           Debug.WriteLine($"CAB extraction failed for {Path.GetFileName(cabPath)}")
+                                           Dispatcher.Invoke(Sub() Status($"Error extracting CAB {Path.GetFileName(cabPath)}"))
+                                           Return
+                                       End If
+
+                                       Debug.WriteLine($"CAB extracted to: {tempExtractDir}")
+
+                                       ' Scan extracted files
+                                       Dim extractedFiles = Directory.GetFiles(tempExtractDir, "*.*", SearchOption.AllDirectories)
+                                       Debug.WriteLine($"CAB contains {extractedFiles.Length} file(s)")
+
+                                       For Each filePath In extractedFiles
+                                           If ct.IsCancellationRequested Then Exit For
+
+                                           _filesScanned += 1
+                                           UpdateScanProgress()
+
+                                           Dim relativePath = filePath.Substring(tempExtractDir.Length + 1)
+                                           ThrottledSetCurrentFileDisplay($"{Path.GetFileName(cabPath)} | {relativePath}")
+
+                                           Dim ext = Path.GetExtension(filePath)
+
+                                           ' Handle nested archives (only if depth allows - max 1 level deep)
+                                           If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
+                                               Debug.WriteLine($"Found nested archive in CAB: {relativePath} at depth {depth}, scanning...")
+
+                                               ' Build archive chain for nested display (e.g., "diagnostic.cab » logs.zip")
+                                               Dim nestedArchiveChain = parentArchiveName & Path.GetFileName(cabPath) & " » "
+
+                                               ' Scan the nested archive with increased depth and archive chain
+                                               If ext.Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
+                                                   ScanCabArchiveAsync(filePath, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain).Wait()
+                                               Else
+                                                   ScanArchiveAsync(filePath, term, caseSensitive, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain).Wait()
+                                               End If
+
+                                               Continue For
+                                           End If
+
+                                           If _supportedTextExt.Contains(ext) Then
+                                               Dim containsTerm As Boolean
+
+                                               If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
+                                                   containsTerm = HtmlXmlJsonFileContainsAsync(filePath, term, caseSensitive, ct).Result
+                                               Else
+                                                   containsTerm = TextFileContainsAsync(filePath, term, caseSensitive, ct).Result
+                                               End If
+
+                                               If containsTerm Then
+                                                   ' Build display name with parent archive chain (e.g., "diagnostic.zip » reports.cab | data.log")
+                                                   Dim displayName = If(String.IsNullOrEmpty(parentArchiveName),
+                                                                       $"{Path.GetFileName(cabPath)} | {relativePath}",
+                                                                       $"{parentArchiveName}{Path.GetFileName(cabPath)} | {relativePath}")
+
+                                                   AddHit(New SearchHit With {
+                                                          .DisplayName = displayName,
+                                                          .Kind = HitKind.CabTextEntry,
+                                                          .ZipPath = cabPath,
+                                                          .ZipEntryName = relativePath
+                                                   })
+                                               End If
+
+                                           ElseIf _supportedEvtxExt.Contains(ext) Then
+                                               Dim ev = EvtxCollectMatchesAsync(filePath, term, caseSensitive, ct).Result
+
+                                               If ev IsNot Nothing Then
+                                                   ' Build display name with parent archive chain
+                                                   ev.DisplayName = If(String.IsNullOrEmpty(parentArchiveName),
+                                                                      $"{Path.GetFileName(cabPath)} | {relativePath}",
+                                                                      $"{parentArchiveName}{Path.GetFileName(cabPath)} | {relativePath}")
+                                                   ev.Kind = HitKind.EvtxFromCabTemp
+                                                   ev.ZipPath = cabPath
+                                                   ev.ZipEntryName = relativePath
+                                                   ev.TempEvtxPath = filePath
+                                                   AddHit(ev)
+                                                   _tempToDelete.Add(filePath) ' Track for cleanup
+                                               End If
+                                           End If
+                                       Next
+
+                                       Debug.WriteLine($"CAB scan completed")
+
+                                   Finally
+                                       ' Cleanup temp directory (except EVTX files we're tracking)
+                                       Try
+                                           For Each file In Directory.GetFiles(tempExtractDir, "*.*", SearchOption.AllDirectories)
+                                               If Not _tempToDelete.Contains(file) Then
+                                                   SafeDelete(file)
+                                               End If
+                                           Next
+                                           ' Try to remove directory (will fail if EVTX files still there, which is fine)
+                                           Directory.Delete(tempExtractDir, True)
+                                       Catch
+                                           ' Ignore cleanup errors
+                                       End Try
+                                   End Try
+
+                               Catch ex As Exception
+                                   Debug.WriteLine($"ERROR scanning CAB {Path.GetFileName(cabPath)}: {ex.Message}")
+                                   Debug.WriteLine($"Stack trace: {ex.StackTrace}")
+                                   Dispatcher.Invoke(Sub() Status($"Error reading CAB {Path.GetFileName(cabPath)}: {ex.Message}"))
+                               End Try
+                           End Sub, ct)
         End Function
 
         ''' <summary>
@@ -1917,16 +2158,31 @@ Namespace Beacon
                     If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
                         ' Use WebView2 engine for HTML/XML/JSON (will initialize if needed)
                         ShowWebPreviewMode()
-                        LoadWebContentFromZip(hit.ZipPath, hit.ZipEntryName, ext)
+                        LoadWebContentFromArchive(hit.ZipPath, hit.ZipEntryName, ext)
                         FindNext_btn.Visibility = Visibility.Visible
                     Else
                         ' Use RichTextBox engine for plain text
                         ShowTextPreviewMode()
-                        LoadTextFromZip(hit.ZipPath, hit.ZipEntryName)
+                        LoadTextFromArchive(hit.ZipPath, hit.ZipEntryName)
                         FindNext_btn.Visibility = Visibility.Visible
                     End If
 
-                Case HitKind.EvtxFileOnDisk, HitKind.EvtxFromZipTemp
+                Case HitKind.CabTextEntry
+                    Dim ext = Path.GetExtension(hit.ZipEntryName).ToLowerInvariant()
+
+                    If ext = ".html" OrElse ext = ".xml" OrElse ext = ".json" Then
+                        ' Use WebView2 engine for HTML/XML/JSON (will initialize if needed)
+                        ShowWebPreviewMode()
+                        LoadWebContentFromCab(hit.ZipPath, hit.ZipEntryName, ext)
+                        FindNext_btn.Visibility = Visibility.Visible
+                    Else
+                        ' Use RichTextBox engine for plain text
+                        ShowTextPreviewMode()
+                        LoadTextFromCab(hit.ZipPath, hit.ZipEntryName)
+                        FindNext_btn.Visibility = Visibility.Visible
+                    End If
+
+                Case HitKind.EvtxFileOnDisk, HitKind.EvtxFromZipTemp, HitKind.EvtxFromCabTemp
                     ShowEventPreviewMode()
                     hit.CurrentEventIndex = -1
                     RenderFirstEvent(hit)
@@ -1954,22 +2210,67 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
-        ''' Extracts text entry from ZIP and loads into preview pane
+        ''' Extracts text entry from archive and loads into preview pane
+        ''' Supports ZIP, 7Z, RAR, TAR, and other formats via SharpCompress
         ''' </summary>
-        Private Sub LoadTextFromZip(zipPath As String, entryName As String)
-            Using z = ZipFile.OpenRead(zipPath)
-                Dim entry = z.GetEntry(entryName)
-                If entry Is Nothing Then
+        Private Sub LoadTextFromArchive(archivePath As String, entryName As String)
+            Try
+                Using archive = OpenArchive(archivePath)
+                    For Each entry In archive.Entries
+                        If entry.Key = entryName Then
+                            Dim stream As Stream = entry.OpenEntryStream()
+                            Using stream
+                                Using sr As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True)
+                                    SetTextPreview(sr.ReadToEnd())
+                                End Using
+                            End Using
+                            Return
+                        End If
+                    Next
+                    ' Entry not found
                     SetTextPreview("[Entry not found]")
+                End Using
+            Catch ex As Exception
+                SetTextPreview($"[Error loading from archive: {ex.Message}]")
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Extracts text entry from CAB archive and loads into preview pane
+        ''' Uses 7-Zip command line for extraction
+        ''' </summary>
+        Private Sub LoadTextFromCab(cabPath As String, entryName As String)
+            Dim tempExtractDir As String = Nothing
+            Try
+                ' Extract entire CAB to temp directory using 7-Zip
+                tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabPreview_" & Guid.NewGuid().ToString("N"))
+
+                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir)
+                If Not success Then
+                    SetTextPreview($"[Error: Failed to extract CAB file]")
                     Return
                 End If
 
-                Using s = entry.Open()
-                    Using sr As New StreamReader(s, detectEncodingFromByteOrderMarks:=True)
-                        SetTextPreview(sr.ReadToEnd())
-                    End Using
-                End Using
-            End Using
+                ' Find the extracted file
+                Dim extractedFile = Path.Combine(tempExtractDir, entryName)
+                If File.Exists(extractedFile) Then
+                    Dim text = File.ReadAllText(extractedFile)
+                    SetTextPreview(text)
+                Else
+                    SetTextPreview($"[Error: File '{entryName}' not found in extracted CAB contents]")
+                End If
+            Catch ex As Exception
+                SetTextPreview($"[Error loading CAB preview: {ex.Message}]")
+            Finally
+                ' Cleanup temp directory
+                If tempExtractDir IsNot Nothing AndAlso Directory.Exists(tempExtractDir) Then
+                    Try
+                        Directory.Delete(tempExtractDir, True)
+                    Catch
+                        ' Ignore cleanup errors
+                    End Try
+                End If
+            End Try
         End Sub
 
         ''' <summary>
@@ -2029,6 +2330,25 @@ Namespace Beacon
                 ' Read file content and wrap with theme-aware CSS
                 Dim content = File.ReadAllText(filePath)
                 Await LoadWebContentAsync(content, extension)
+                ' For HTML files on disk, use Navigate() to preserve base URL for external resources
+                If extension = ".html" Then
+                    Dim fileUri = New Uri(filePath, UriKind.Absolute)
+                    Debug.WriteLine($"Loading HTML from URI: {fileUri}")
+                    WebPreview_wv2.Source = fileUri
+
+                    ' Wait for page to load before applying theme override and highlighting
+                    Await Task.Delay(1500)
+
+                    ' Inject theme-aware CSS to ensure readability in dark mode
+                    Await InjectThemeOverrideCssAsync()
+
+                    ' Then apply search highlighting
+                    Await HighlightSearchInWebViewAsync()
+                Else
+                    ' For XML/JSON, wrap in viewer HTML and apply highlighting
+                    Dim content = File.ReadAllText(filePath)
+                    Await LoadWebContentAsync(content, extension)
+                End If
             Catch ex As Exception
                 Debug.WriteLine($"Error loading content: {ex.Message}")
                 ' On error, show error message in WebView
@@ -2037,37 +2357,89 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
-        ''' Loads HTML or XML entry from ZIP into WebView2 with search highlighting
+        ''' Loads HTML or XML entry from archive into WebView2 with search highlighting
+        ''' Supports ZIP, 7Z, RAR, TAR, and other formats via SharpCompress
         ''' </summary>
-        Private Async Sub LoadWebContentFromZip(zipPath As String, entryName As String, extension As String)
+        Private Async Sub LoadWebContentFromArchive(archivePath As String, entryName As String, extension As String)
             ' Ensure WebView2 is initialized (will wait if needed)
             Dim isReady = Await EnsureWebView2InitializedAsync()
 
             If Not isReady Then
                 ' Fallback to text preview if WebView2 not available
                 ShowTextPreviewMode()
-                LoadTextFromZip(zipPath, entryName)
+                LoadTextFromArchive(archivePath, entryName)
                 Status("HTML/XML shown as text - WebView2 unavailable")
                 Return
             End If
 
             Try
-                Using z = ZipFile.OpenRead(zipPath)
-                    Dim entry = z.GetEntry(entryName)
-                    If entry Is Nothing Then
-                        WebPreview_wv2.NavigateToString("<html><body><h3>Error: Entry not found in ZIP</h3></body></html>")
-                        Return
-                    End If
-
-                    Using s = entry.Open()
-                        Using sr As New StreamReader(s, detectEncodingFromByteOrderMarks:=True)
-                            Dim content = sr.ReadToEnd()
-                            Await LoadWebContentAsync(content, extension)
-                        End Using
-                    End Using
+                Using archive = OpenArchive(archivePath)
+                    For Each entry In archive.Entries
+                        If entry.Key = entryName Then
+                            Dim stream As Stream = entry.OpenEntryStream()
+                            Using stream
+                                Using sr As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True)
+                                    Dim content = sr.ReadToEnd()
+                                    Await LoadWebContentAsync(content, extension)
+                                End Using
+                            End Using
+                            Return
+                        End If
+                    Next
+                    ' Entry not found
+                    WebPreview_wv2.NavigateToString("<html><body><h3>Error: Entry not found in archive</h3></body></html>")
                 End Using
             Catch ex As Exception
-                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading from ZIP:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading from archive:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Loads HTML/XML/JSON entry from CAB archive into WebView2 with search highlighting
+        ''' Uses 7-Zip command line for extraction
+        ''' </summary>
+        Private Async Sub LoadWebContentFromCab(cabPath As String, entryName As String, extension As String)
+            ' Ensure WebView2 is initialized (will wait if needed)
+            Dim isReady = Await EnsureWebView2InitializedAsync()
+
+            If Not isReady Then
+                ' Fallback to text preview if WebView2 not available
+                ShowTextPreviewMode()
+                LoadTextFromCab(cabPath, entryName)
+                Status("HTML/XML shown as text - WebView2 unavailable")
+                Return
+            End If
+
+            Dim tempExtractDir As String = Nothing
+            Try
+                ' Extract entire CAB to temp directory using 7-Zip
+                tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabPreview_" & Guid.NewGuid().ToString("N"))
+
+                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir)
+                If Not success Then
+                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error: Failed to extract CAB file</h3></body></html>")
+                    Return
+                End If
+
+                ' Find the extracted file
+                Dim extractedFile = Path.Combine(tempExtractDir, entryName)
+                If File.Exists(extractedFile) Then
+                    Dim content = File.ReadAllText(extractedFile)
+                    Await LoadWebContentAsync(content, extension)
+                Else
+                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error: File '{System.Security.SecurityElement.Escape(entryName)}' not found in extracted CAB contents</h3></body></html>")
+                End If
+            Catch ex As Exception
+                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading CAB preview:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+            Finally
+                ' Cleanup temp directory
+                If tempExtractDir IsNot Nothing AndAlso Directory.Exists(tempExtractDir) Then
+                    Try
+                        Directory.Delete(tempExtractDir, True)
+                    Catch
+                        ' Ignore cleanup errors
+                    End Try
+                End If
             End Try
         End Sub
 
@@ -2196,12 +2568,14 @@ Namespace Beacon
 
         ''' <summary>
         ''' Creates HTML wrapper for XML content with syntax highlighting and search support
+        ''' Respects current theme (dark/light mode)
         ''' </summary>
         Private Function CreateXmlViewerHtml(xmlContent As String) As String
             ' Escape XML for safe display in HTML
             Dim escapedXml = System.Security.SecurityElement.Escape(xmlContent)
 
             ' Adapt styling based on current theme
+            ' Theme-aware colors
             Dim bgColor = If(_isDarkMode, "#1E1E1E", "white")
             Dim textColor = If(_isDarkMode, "#D4D4D4", "#000")
 
@@ -2447,6 +2821,74 @@ Namespace Beacon
             Try
                 Await WebPreview_wv2.ExecuteScriptAsync(script)
             Catch
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Injects CSS to override HTML page colors for better visibility in dark mode
+        ''' Only applies when in dark mode to prevent breaking light-themed HTML
+        ''' </summary>
+        Private Async Function InjectThemeOverrideCssAsync() As Task
+            If Not _webViewInitialized Then Return
+
+            ' Only inject dark mode overrides when in dark mode
+            If Not _isDarkMode Then Return
+
+            Dim script = "
+(function() {
+    // Inject CSS to override page colors for dark mode readability
+    var style = document.createElement('style');
+    style.id = 'beacon-dark-mode-override';
+    style.textContent = `
+        /* Force readable colors in dark mode */
+        body {
+            background-color: #1E1E1E !important;
+            color: #D4D4D4 !important;
+        }
+
+        /* Override common text elements */
+        p, div, span, td, th, li, a, h1, h2, h3, h4, h5, h6 {
+            color: #D4D4D4 !important;
+        }
+
+        /* Override links for visibility */
+        a {
+            color: #60CFFF !important;
+        }
+
+        /* Override tables */
+        table {
+            border-color: #3F3F3F !important;
+        }
+
+        /* Keep search highlights visible */
+        mark.search-highlight {
+            background-color: #FFFF00 !important;
+            color: #000 !important;
+        }
+
+        mark.current-highlight {
+            background-color: #FF9500 !important;
+            color: #000 !important;
+        }
+    `;
+
+    // Remove existing override if present
+    var existing = document.getElementById('beacon-dark-mode-override');
+    if (existing) {
+        existing.remove();
+    }
+
+    document.head.appendChild(style);
+    return true;
+})();
+"
+
+            Try
+                Await WebPreview_wv2.ExecuteScriptAsync(script)
+                Debug.WriteLine("✓ Dark mode CSS override injected")
+            Catch ex As Exception
+                Debug.WriteLine($"Failed to inject dark mode CSS: {ex.Message}")
             End Try
         End Function
 
@@ -3126,14 +3568,43 @@ Namespace Beacon
         End Function
 
         ''' <summary>
-        ''' Counts total entries in a ZIP file (for progress calculation)
+        ''' Opens an archive using the appropriate SharpCompress type based on file extension
+        ''' Supports ZIP, 7Z, RAR, TAR, GZ, BZ2 formats
         ''' </summary>
-        Private Function CountFilesInZip(zipPath As String) As Integer
+        Private Function OpenArchive(archivePath As String) As IArchive
             Try
-                Using z = ZipFile.OpenRead(zipPath)
-                    Return z.Entries.Where(Function(e) Not String.IsNullOrEmpty(e.Name)).Count()
+                ' Try generic ArchiveFactory which auto-detects format
+                Return SharpCompress.Archives.ArchiveFactory.Open(archivePath)
+            Catch ex As Exception
+                ' Log the error for debugging
+                Debug.WriteLine($"Failed to open archive {Path.GetFileName(archivePath)}: {ex.Message}")
+                Throw New Exception($"Unsupported or corrupted archive format: {Path.GetFileName(archivePath)}", ex)
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Counts total entries in an archive file (for progress calculation)
+        ''' Supports ZIP, 7Z, RAR, TAR, CAB and other formats
+        ''' </summary>
+        Private Function CountFilesInArchive(archivePath As String) As Integer
+            Try
+                ' CAB files use 7-Zip listing
+                If Path.GetExtension(archivePath).Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
+                    Try
+                        Dim files = SevenZipHelper.ListCabFiles(archivePath)
+                        Return files.Count
+                    Catch ex As Exception
+                        Debug.WriteLine($"Failed to count CAB files using 7-Zip: {ex.Message}")
+                        Return 0
+                    End Try
+                End If
+
+                ' Other archives use SharpCompress
+                Using archive = OpenArchive(archivePath)
+                    Return archive.Entries.Where(Function(e) Not e.IsDirectory AndAlso Not String.IsNullOrEmpty(e.Key)).Count()
                 End Using
-            Catch
+            Catch ex As Exception
+                Debug.WriteLine($"Failed to count files in archive {Path.GetFileName(archivePath)}: {ex.Message}")
                 Return 0
             End Try
         End Function
@@ -3164,7 +3635,28 @@ Namespace Beacon
         End Function
 
         ''' <summary>
-        ''' Deletes all temporary EVTX files extracted from ZIPs
+        ''' Extracts archive entry to temporary file for EventLogReader access (SharpCompress version)
+        ''' EventLogReader requires file path, cannot read from stream
+        ''' </summary>
+        Private Function ExtractArchiveEntryToTemp(entry As IArchiveEntry, archivePath As String) As String
+            Dim tempDir = Path.Combine(Path.GetTempPath(), "BeaconFindInFiles")
+            Directory.CreateDirectory(tempDir)
+
+            Dim tempFile = Path.Combine(tempDir, Guid.NewGuid().ToString("N") & "_" & Path.GetFileName(entry.Key))
+
+            Using input = entry.OpenEntryStream()
+                Using output As New FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None)
+                    input.CopyTo(output)
+                End Using
+            End Using
+
+            ' Track for cleanup on Reset or app close
+            _tempToDelete.Add(tempFile)
+            Return tempFile
+        End Function
+
+        ''' <summary>
+        ''' Deletes all temporary EVTX files extracted from archives
         ''' </summary>
         Private Sub CleanupTemp()
             For Each f In _tempToDelete.ToList()

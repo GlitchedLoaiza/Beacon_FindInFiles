@@ -24,10 +24,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="7-Zip.CommandLine" Version="25.1.0" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <ExcludeAssets>none</ExcludeAssets>
     </PackageReference>
+    <PackageReference Include="SharpCompress" Version="0.38.0" />
   </ItemGroup>
 
   <!-- Exclude XML documentation files from publish -->
@@ -87,5 +89,20 @@
       <LastGenOutput>Settings.Designer.vb</LastGenOutput>
     </None>
   </ItemGroup>
+
+  <!-- Embed 7za.exe as resource for single-file publish -->
+  <ItemGroup>
+    <EmbeddedResource Include="7za.exe" Condition="Exists('7za.exe')" />
+  </ItemGroup>
+
+  <!-- Copy 7za.exe from NuGet package to project directory for embedding -->
+  <Target Name="Copy7ZipForEmbedding" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <SevenZipSource>$(USERPROFILE)\.nuget\packages\7-zip.commandline\25.1.0\tools\x64\7za.exe</SevenZipSource>
+      <SevenZipDest>$(MSBuildProjectDirectory)\7za.exe</SevenZipDest>
+    </PropertyGroup>
+    <Copy SourceFiles="$(SevenZipSource)" DestinationFiles="$(SevenZipDest)" SkipUnchangedFiles="true" Condition="Exists('$(SevenZipSource)') And !Exists('$(SevenZipDest)')" />
+    <Message Text="Copied 7za.exe to project directory for embedding" Importance="high" Condition="Exists('$(SevenZipSource)')" />
+  </Target>
 
 </Project>
