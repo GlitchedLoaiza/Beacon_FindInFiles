@@ -1,6 +1,6 @@
 # Beacon: Find in Files - Advanced Log Search Utility
 
-![Version](https://img.shields.io/badge/version-1.0-blue)
+![Version](https://img.shields.io/badge/version-2.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Framework](https://img.shields.io/badge/.NET-10-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
