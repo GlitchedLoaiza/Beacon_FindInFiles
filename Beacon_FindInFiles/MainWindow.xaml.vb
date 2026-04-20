@@ -12,6 +12,7 @@ Imports Microsoft.Win32
 Imports System.Diagnostics
 Imports System.Diagnostics.Eventing.Reader
 Imports WinForms = System.Windows.Forms
+Imports System.Text.Json
 Imports SharpCompress.Archives
 Imports SharpCompress.Readers
 Imports SharpCompress.Common
@@ -24,6 +25,7 @@ Imports SharpCompress.Common
 ' Purpose: Searches for text patterns across multiple file types including:
 '   - Plain text files (.txt, .log, .json, .xml, .csv, .html, .reg)
 '   - Windows Event Log files (.evtx)
+'   - HAR (HTTP Archive) log files
 '   - ZIP archives (recursively scans entries)
 '
 ' Features:
@@ -54,6 +56,8 @@ Namespace Beacon
             CabTextEntry        ' Text file inside a CAB archive
             EvtxFileOnDisk      ' Event log file on disk
             EvtxFromZipTemp     ' Event log extracted from ZIP to temp location
+            HarFileOnDisk       ' HAR log file on disk
+            HarFromZip          ' HAR log file from ZIP
             EvtxFromCabTemp     ' Event log extracted from CAB to temp location
         End Enum
 
@@ -67,6 +71,24 @@ Namespace Beacon
             Public Property EventId As Integer          ' Numeric event identifier
             Public Property TimeCreated As DateTime?    ' Event timestamp
             Public Property Message As String           ' Formatted event description
+        End Class
+
+        ''' <summary>
+        ''' Represents a single HAR (HTTP Archive) request entry that matches the search term.
+        ''' Contains formatted HTTP request/response details for display in the preview pane.
+        ''' </summary>
+        Private Class HarRequest
+            Public Property Method As String            ' HTTP method (GET, POST, etc.)
+            Public Property Url As String               ' Request URL
+            Public Property StatusCode As Integer       ' Response status code
+            Public Property StatusText As String        ' Response status text
+            Public Property StartedDateTime As DateTime? ' Request start time
+            Public Property Time As Double              ' Time in milliseconds
+            Public Property RequestHeaders As String    ' Formatted request headers
+            Public Property ResponseHeaders As String   ' Formatted response headers
+            Public Property RequestBody As String       ' Request body/payload
+            Public Property ResponseBody As String      ' Response body content
+            Public Property ServerIpAddress As String   ' Server IP
         End Class
 
         ''' <summary>
@@ -90,6 +112,10 @@ Namespace Beacon
             ' --- EVTX navigation state ---
             Public Property MatchingEvents As New List(Of EventSummary)  ' All matching events in this EVTX
             Public Property CurrentEventIndex As Integer = -1            ' Currently displayed event index
+
+            ' --- HAR navigation state ---
+            Public Property MatchingRequests As New List(Of HarRequest)  ' All matching requests in this HAR
+            Public Property CurrentRequestIndex As Integer = -1          ' Currently displayed request index
         End Class
 
 #End Region
@@ -114,6 +140,9 @@ Namespace Beacon
         ''' <summary>Current character position in EVTX message for F3 navigation</summary>
         Private _currentEventMessageMatchIndex As Integer = 0
 
+        ''' <summary>Current character position in HAR content for F3 navigation</summary>
+        Private _currentHarMatchIndex As Integer = 0
+
         ''' <summary>Root folder of current scan, used for relative path display</summary>
         Private _scanRootFolder As String = ""
 
@@ -123,6 +152,11 @@ Namespace Beacon
         ''' <summary>File extensions recognized as searchable text files</summary>
         Private ReadOnly _supportedTextExt As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
             ".txt", ".log", ".json", ".xml", ".csv", ".html", ".reg", ".ini", ".cfg", ".config", ".nfo"
+        }
+
+        ''' <summary>File extensions recognized as HAR (HTTP Archive) files</summary>
+        Private ReadOnly _supportedHarExt As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
+            ".har"
         }
 
         ''' <summary>File extensions recognized as Windows Event Logs</summary>
@@ -217,6 +251,8 @@ Namespace Beacon
             AddHandler FindNext_btn.Click, AddressOf FindNext_btn_Click
             AddHandler FindNextEvent_btn.Click, AddressOf FindNextEvent_btn_Click
             AddHandler FindPreviousEvent_btn.Click, AddressOf FindPreviousEvent_btn_Click
+            AddHandler FindNextHarRequest_btn.Click, AddressOf FindNextHarRequest_btn_Click
+            AddHandler FindPreviousHarRequest_btn.Click, AddressOf FindPreviousHarRequest_btn_Click
 
             ' Wire theme toggle handler
             AddHandler ThemeToggle_btn.Click, AddressOf ThemeToggle_btn_Click
@@ -256,6 +292,8 @@ Namespace Beacon
             NextFile_btn.Visibility = Visibility.Collapsed
             FindNext_btn.Visibility = Visibility.Collapsed
             FindNextEvent_btn.Visibility = Visibility.Collapsed
+            FindNextHarRequest_btn.Visibility = Visibility.Collapsed
+            FindPreviousHarRequest_btn.Visibility = Visibility.Collapsed
 
             ShowTextPreviewMode()
             ClearTextPreview()
@@ -351,6 +389,7 @@ Namespace Beacon
             Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))      ' #505050
             Resources("InputBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))    ' #2B2B2B
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))        ' #505050
+            Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H1E, &H1E, &H1E))     ' #1E1E1E
 
             ' Update event preview text colors for dark mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HFF, &H60, &H60)) ' Lighter red for dark mode
@@ -386,6 +425,7 @@ Namespace Beacon
             Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&HD0, &HD0, &HD0))      ' #D0D0D0
             Resources("InputBackgroundBrush") = New SolidColorBrush(Colors.White)
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&HCC, &HCC, &HCC))        ' #CCCCCC
+            Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HFA, &HFA, &HFA))     ' #FAFAFA
 
             ' Restore event preview text colors for light mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HC0, &H0, &H0)) ' Original dark red
@@ -773,6 +813,20 @@ Namespace Beacon
                     Return
                 End If
 
+                ' HAR preview (navigate between requests)
+                If HarPreview_grp.Visibility = Visibility.Visible AndAlso
+       FindNextHarRequest_btn.Visibility = Visibility.Visible Then
+
+                    If Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) Then
+                        FindPreviousHarRequest()
+                    Else
+                        FindNextHarRequest()
+                    End If
+
+                    e.Handled = True
+                    Return
+                End If
+
                 ' Text preview (navigate within text)
                 If TextPreview_grp.Visibility = Visibility.Visible AndAlso
        FindNext_btn.Visibility = Visibility.Visible Then
@@ -1024,6 +1078,8 @@ Namespace Beacon
             NextFile_btn.Visibility = Visibility.Collapsed
             FindNext_btn.Visibility = Visibility.Collapsed
             FindNextEvent_btn.Visibility = Visibility.Collapsed
+            FindNextHarRequest_btn.Visibility = Visibility.Collapsed
+            FindPreviousHarRequest_btn.Visibility = Visibility.Collapsed
 
             ShowTextPreviewMode()
             ClearTextPreview()
@@ -1277,6 +1333,13 @@ Namespace Beacon
                         })
                     End If
 
+                ElseIf _supportedHarExt.Contains(ext) Then
+                    Dim har = Await HarCollectMatchesAsync(f, term, caseSensitive, ct)
+                    If har IsNot Nothing Then
+                        har.DisplayName = MakeRelativeDisplay(folder, f)
+                        AddHit(har)
+                    End If
+
                 ElseIf _supportedEvtxExt.Contains(ext) Then
                     Dim ev = Await EvtxCollectMatchesAsync(f, term, caseSensitive, ct)
                     If ev IsNot Nothing Then
@@ -1337,6 +1400,43 @@ Namespace Beacon
             If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
                 Debug.WriteLine($"Found nested archive: {entry.Key} at depth {depth}, extracting and scanning...")
 
+                            If containsTerm Then
+                                AddHit(New SearchHit With {
+                                       .DisplayName = $"{Path.GetFileName(zipPath)} | {entry.FullName}",
+                                       .Kind = HitKind.ZipTextEntry,
+                                       .ZipPath = zipPath,
+                                       .ZipEntryName = entry.FullName
+                                })
+                            End If
+                        End Using
+
+                    ElseIf _supportedHarExt.Contains(ext) Then
+                        Using s = entry.Open()
+                            Dim har = Await HarCollectMatchesFromStreamAsync(s, term, caseSensitive, ct)
+                            If har IsNot Nothing Then
+                                har.Kind = HitKind.HarFromZip
+                                har.ZipPath = zipPath
+                                har.ZipEntryName = entry.FullName
+                                har.DisplayName = $"{Path.GetFileName(zipPath)} | {entry.FullName}"
+                                AddHit(har)
+                            End If
+                        End Using
+
+                    ElseIf _supportedEvtxExt.Contains(ext) Then
+                        ' EventLogReader requires file path, extract to temp
+                        Dim tempEvtx = ExtractEntryToTemp(entry)
+                        Dim ev = Await EvtxCollectMatchesAsync(tempEvtx, term, caseSensitive, ct)
+
+                        If ev IsNot Nothing Then
+                            ev.Kind = HitKind.EvtxFromZipTemp
+                            ev.ZipPath = zipPath
+                            ev.ZipEntryName = entry.FullName
+                            ev.TempEvtxPath = tempEvtx
+                            ev.DisplayName = $"{Path.GetFileName(zipPath)} | {entry.FullName}"
+                            AddHit(ev)
+                        Else
+                            SafeDelete(tempEvtx)
+                        End If
                 ' Extract nested archive to temp
                 Dim tempNestedArchive = ExtractArchiveEntryToTemp(entry, archivePath)
 
@@ -1741,6 +1841,279 @@ Namespace Beacon
 
 #End Region
 
+#Region "HAR Search (Cancellation-safe)"
+
+        ''' <summary>
+        ''' Scans HAR file for HTTP requests containing search term
+        ''' Searches in URL, headers, request/response bodies
+        ''' Limits to 300 matches per file to prevent memory issues
+        ''' </summary>
+        Private Async Function HarCollectMatchesAsync(harPath As String,
+                                                       term As String,
+                                                       caseSensitive As Boolean,
+                                                       ct As CancellationToken) As Task(Of SearchHit)
+            Try
+                Using fs As New FileStream(harPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                    Return Await HarCollectMatchesFromStreamAsync(fs, term, caseSensitive, ct, harPath)
+                End Using
+            Catch ex As Exception
+                Return Nothing
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Scans HAR stream for HTTP requests containing search term
+        ''' Collects all matching requests into a single SearchHit
+        ''' </summary>
+        Private Async Function HarCollectMatchesFromStreamAsync(stream As Stream,
+                                                                 term As String,
+                                                                 caseSensitive As Boolean,
+                                                                 ct As CancellationToken,
+                                                                 Optional filePath As String = Nothing) As Task(Of SearchHit)
+            Try
+                Return Await Task.Run(Async Function()
+                                          Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
+
+                                          Dim hit As New SearchHit With {
+                                              .Kind = HitKind.HarFileOnDisk,
+                                              .FilePath = filePath,
+                                              .DisplayName = filePath
+                                          }
+
+                                          ' Parse HAR JSON
+                                          Using reader As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True, bufferSize:=4096, leaveOpen:=True)
+                                              Dim jsonContent = Await reader.ReadToEndAsync()
+
+                                              Using doc = JsonDocument.Parse(jsonContent)
+                                                  Dim root = doc.RootElement
+
+                                                  ' HAR structure: { "log": { "entries": [...] } }
+                                                  If Not root.TryGetProperty("log", Nothing) Then Return Nothing
+                                                  Dim log = root.GetProperty("log")
+
+                                                  If Not log.TryGetProperty("entries", Nothing) Then Return Nothing
+                                                  Dim entries = log.GetProperty("entries")
+
+                                                  Const MAX_MATCHES As Integer = 300
+
+                                                  For Each entryElement In entries.EnumerateArray()
+                                                      If ct.IsCancellationRequested Then Return Nothing
+                                                      If hit.MatchingRequests.Count >= MAX_MATCHES Then Exit For
+
+                                                      Dim harReq = ParseHarEntry(entryElement)
+                                                      If harReq Is Nothing Then Continue For
+
+                                                      ' Check if any field matches the search term
+                                                      Dim matchFound As Boolean = False
+
+                                                      ' HTTP Method
+                                                      If harReq.Method IsNot Nothing AndAlso harReq.Method.IndexOf(term, comparison) >= 0 Then
+                                                          matchFound = True
+                                                      End If
+
+                                                      ' URL
+                                                      If Not matchFound AndAlso harReq.Url IsNot Nothing AndAlso harReq.Url.IndexOf(term, comparison) >= 0 Then
+                                                          matchFound = True
+                                                      End If
+
+                                                      ' Status Code (as string)
+                                                      If Not matchFound AndAlso harReq.StatusCode > 0 Then
+                                                          Dim statusStr = harReq.StatusCode.ToString()
+                                                          If statusStr.IndexOf(term, comparison) >= 0 Then
+                                                              matchFound = True
+                                                          End If
+                                                      End If
+
+                                                      ' Status Text
+                                                      If Not matchFound AndAlso harReq.StatusText IsNot Nothing AndAlso harReq.StatusText.IndexOf(term, comparison) >= 0 Then
+                                                          matchFound = True
+                                                      End If
+
+                                                      ' Request Headers
+                                                      If Not matchFound AndAlso harReq.RequestHeaders IsNot Nothing AndAlso harReq.RequestHeaders.IndexOf(term, comparison) >= 0 Then
+                                                          matchFound = True
+                                                      End If
+
+                                                      ' Response Headers
+                                                      If Not matchFound AndAlso harReq.ResponseHeaders IsNot Nothing AndAlso harReq.ResponseHeaders.IndexOf(term, comparison) >= 0 Then
+                                                          matchFound = True
+                                                      End If
+
+                                                      ' Request Body
+                                                      If Not matchFound AndAlso harReq.RequestBody IsNot Nothing AndAlso harReq.RequestBody.IndexOf(term, comparison) >= 0 Then
+                                                          matchFound = True
+                                                      End If
+
+                                                      ' Response Body
+                                                      If Not matchFound AndAlso harReq.ResponseBody IsNot Nothing AndAlso harReq.ResponseBody.IndexOf(term, comparison) >= 0 Then
+                                                          matchFound = True
+                                                      End If
+
+                                                      If matchFound Then
+                                                          hit.MatchingRequests.Add(harReq)
+                                                      End If
+                                                  Next
+                                              End Using
+                                          End Using
+
+                                          If hit.MatchingRequests.Count > 0 Then Return hit
+                                          Return Nothing
+
+                                      End Function)
+            Catch ex As OperationCanceledException
+                Return Nothing
+            Catch ex As TaskCanceledException
+                Return Nothing
+            Catch ex As Exception
+                Return Nothing
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Parses a single HAR entry into a HarRequest object
+        ''' </summary>
+        Private Function ParseHarEntry(entryElement As JsonElement) As HarRequest
+            Try
+                Dim req As New HarRequest()
+
+                ' Parse request
+                If entryElement.TryGetProperty("request", Nothing) Then
+                    Dim request = entryElement.GetProperty("request")
+                    req.Method = GetJsonString(request, "method")
+                    req.Url = GetJsonString(request, "url")
+
+                    ' Parse request headers
+                    If request.TryGetProperty("headers", Nothing) Then
+                        req.RequestHeaders = FormatHeaders(request.GetProperty("headers"))
+                    End If
+
+                    ' Parse request body
+                    If request.TryGetProperty("postData", Nothing) Then
+                        Dim postData = request.GetProperty("postData")
+                        req.RequestBody = GetJsonString(postData, "text")
+                    End If
+                End If
+
+                ' Parse response
+                If entryElement.TryGetProperty("response", Nothing) Then
+                    Dim response = entryElement.GetProperty("response")
+                    req.StatusCode = GetJsonInt(response, "status")
+                    req.StatusText = GetJsonString(response, "statusText")
+
+                    ' Parse response headers
+                    If response.TryGetProperty("headers", Nothing) Then
+                        req.ResponseHeaders = FormatHeaders(response.GetProperty("headers"))
+                    End If
+
+                    ' Parse response body
+                    If response.TryGetProperty("content", Nothing) Then
+                        Dim content = response.GetProperty("content")
+                        req.ResponseBody = GetJsonString(content, "text")
+                    End If
+                End If
+
+                ' Parse timing
+                req.Time = GetJsonDouble(entryElement, "time")
+
+                ' Parse start time
+                Dim startedDateTime = GetJsonString(entryElement, "startedDateTime")
+                If Not String.IsNullOrEmpty(startedDateTime) Then
+                    Dim dt As DateTime
+                    If DateTime.TryParse(startedDateTime, dt) Then
+                        req.StartedDateTime = dt
+                    End If
+                End If
+
+                ' Parse server IP
+                req.ServerIpAddress = GetJsonString(entryElement, "serverIPAddress")
+
+                Return req
+            Catch
+                Return Nothing
+            End Try
+        End Function
+
+        ''' <summary>
+        ''' Safely gets a string property from JSON element
+        ''' </summary>
+        Private Function GetJsonString(element As JsonElement, propertyName As String) As String
+            Try
+                If element.TryGetProperty(propertyName, Nothing) Then
+                    Dim prop = element.GetProperty(propertyName)
+                    If prop.ValueKind = JsonValueKind.String Then
+                        Return prop.GetString()
+                    End If
+                End If
+            Catch
+            End Try
+            Return Nothing
+        End Function
+
+        ''' <summary>
+        ''' Safely gets an integer property from JSON element
+        ''' Handles both numeric and string representations
+        ''' </summary>
+        Private Function GetJsonInt(element As JsonElement, propertyName As String) As Integer
+            Try
+                If element.TryGetProperty(propertyName, Nothing) Then
+                    Dim prop = element.GetProperty(propertyName)
+
+                    ' Try as number first
+                    If prop.ValueKind = JsonValueKind.Number Then
+                        Return prop.GetInt32()
+                    End If
+
+                    ' Some HAR files might store status as string "404" instead of number 404
+                    If prop.ValueKind = JsonValueKind.String Then
+                        Dim strValue = prop.GetString()
+                        Dim intValue As Integer
+                        If Integer.TryParse(strValue, intValue) Then
+                            Return intValue
+                        End If
+                    End If
+                End If
+            Catch
+            End Try
+            Return 0
+        End Function
+
+        ''' <summary>
+        ''' Safely gets a double property from JSON element
+        ''' </summary>
+        Private Function GetJsonDouble(element As JsonElement, propertyName As String) As Double
+            Try
+                If element.TryGetProperty(propertyName, Nothing) Then
+                    Dim prop = element.GetProperty(propertyName)
+                    If prop.ValueKind = JsonValueKind.Number Then
+                        Return prop.GetDouble()
+                    End If
+                End If
+            Catch
+            End Try
+            Return 0
+        End Function
+
+        ''' <summary>
+        ''' Formats HAR headers array into readable string
+        ''' </summary>
+        Private Function FormatHeaders(headersArray As JsonElement) As String
+            Try
+                Dim sb As New System.Text.StringBuilder()
+                For Each header In headersArray.EnumerateArray()
+                    Dim name = GetJsonString(header, "name")
+                    Dim value = GetJsonString(header, "value")
+                    If Not String.IsNullOrEmpty(name) Then
+                        sb.AppendLine($"{name}: {value}")
+                    End If
+                Next
+                Return sb.ToString()
+            Catch
+                Return ""
+            End Try
+        End Function
+
+#End Region
+
 #Region "Preview Selection"
 
         ''' <summary>
@@ -1753,8 +2126,11 @@ Namespace Beacon
             FindNext_btn.Visibility = Visibility.Collapsed
             FindNextEvent_btn.Visibility = Visibility.Collapsed
             FindPreviousEvent_btn.Visibility = Visibility.Collapsed
+            FindNextHarRequest_btn.Visibility = Visibility.Collapsed
+            FindPreviousHarRequest_btn.Visibility = Visibility.Collapsed
             _currentTextFindStart = 0
             _currentEventMessageMatchIndex = 0
+            _currentHarMatchIndex = 0
             _currentWebMatchIndex = 0
             _totalWebMatches = 0
 
@@ -1812,6 +2188,13 @@ Namespace Beacon
                     RenderFirstEvent(hit)
                     FindNextEvent_btn.Visibility = Visibility.Visible
                     FindPreviousEvent_btn.Visibility = Visibility.Visible
+
+                Case HitKind.HarFileOnDisk, HitKind.HarFromZip
+                    ShowHarPreviewMode()
+                    hit.CurrentRequestIndex = -1
+                    RenderFirstHarRequest(hit)
+                    FindNextHarRequest_btn.Visibility = Visibility.Visible
+                    FindPreviousHarRequest_btn.Visibility = Visibility.Visible
             End Select
 
             ' IMPORTANT: If scanning, do NOT change status to Ready when user clicks results
@@ -1944,6 +2327,9 @@ Namespace Beacon
             End If
 
             Try
+                ' Read file content and wrap with theme-aware CSS
+                Dim content = File.ReadAllText(filePath)
+                Await LoadWebContentAsync(content, extension)
                 ' For HTML files on disk, use Navigate() to preserve base URL for external resources
                 If extension = ".html" Then
                     Dim fileUri = New Uri(filePath, UriKind.Absolute)
@@ -2070,8 +2456,8 @@ Namespace Beacon
                 ' Wrap JSON in styled HTML viewer with syntax highlighting
                 htmlToRender = CreateJsonViewerHtml(content)
             Else
-                ' HTML content - render directly
-                htmlToRender = content
+                ' HTML content - inject theme-aware CSS to ensure good contrast
+                htmlToRender = InjectThemeAwareCSS(content)
             End If
 
             ' Navigate to content
@@ -2085,6 +2471,102 @@ Namespace Beacon
         End Function
 
         ''' <summary>
+        ''' Injects theme-aware CSS into HTML content to ensure good contrast in both light and dark modes
+        ''' </summary>
+        Private Function InjectThemeAwareCSS(htmlContent As String) As String
+            ' Determine colors based on current theme
+            Dim bgColor = If(_isDarkMode, "#1E1E1E", "#FFFFFF")
+            Dim textColor = If(_isDarkMode, "#E0E0E0", "#202020")
+            Dim linkColor = If(_isDarkMode, "#60CFFF", "#0066CC")
+            Dim borderColor = If(_isDarkMode, "#3F3F3F", "#CCCCCC")
+
+            ' CSS to inject - uses !important to override existing styles
+            Dim themeCSS = $"
+<style id='beacon-theme-override'>
+    /* Force readable colors for better contrast */
+    body {{
+        background-color: {bgColor} !important;
+        color: {textColor} !important;
+    }}
+
+    /* Ensure all text elements have good contrast */
+    div, span, p, td, th, li, dt, dd, label, h1, h2, h3, h4, h5, h6 {{
+        color: {textColor} !important;
+    }}
+
+    /* Style tables for better visibility */
+    table {{
+        border-color: {borderColor} !important;
+    }}
+
+    td, th {{
+        border-color: {borderColor} !important;
+        background-color: transparent !important;
+    }}
+
+    /* Style links */
+    a {{
+        color: {linkColor} !important;
+    }}
+
+    /* Ensure input fields are visible */
+    input, textarea, select {{
+        background-color: {If(_isDarkMode, "#2B2B2B", "#FFFFFF")} !important;
+        color: {textColor} !important;
+        border-color: {borderColor} !important;
+    }}
+
+    /* Style code blocks */
+    pre, code {{
+        background-color: {If(_isDarkMode, "#252525", "#F5F5F5")} !important;
+        color: {textColor} !important;
+        border-color: {borderColor} !important;
+    }}
+
+    /* Search highlighting (maintain high visibility) */
+    mark.search-highlight {{
+        background-color: #FFFF00 !important;
+        color: #000 !important;
+        font-weight: bold;
+        padding: 2px 0;
+    }}
+
+    mark.current-highlight {{
+        background-color: #FF9500 !important;
+        color: #000 !important;
+        font-weight: bold;
+        padding: 2px 0;
+    }}
+</style>
+"
+
+            ' Try to inject CSS into <head> if it exists, otherwise prepend to content
+            Dim headEndIndex = htmlContent.IndexOf("</head>", StringComparison.OrdinalIgnoreCase)
+
+            If headEndIndex > 0 Then
+                ' Insert before </head>
+                Return htmlContent.Insert(headEndIndex, themeCSS)
+            Else
+                ' Check if <html> tag exists
+                Dim htmlStartIndex = htmlContent.IndexOf("<html", StringComparison.OrdinalIgnoreCase)
+
+                If htmlStartIndex >= 0 Then
+                    ' Find the end of <html> tag
+                    Dim htmlTagEndIndex = htmlContent.IndexOf(">", htmlStartIndex)
+
+                    If htmlTagEndIndex > 0 Then
+                        ' Insert <head> with CSS after <html>
+                        Dim headSection = $"<head><meta charset='utf-8'>{themeCSS}</head>"
+                        Return htmlContent.Insert(htmlTagEndIndex + 1, headSection)
+                    End If
+                End If
+
+                ' No proper HTML structure, wrap entire content
+                Return $"<!DOCTYPE html><html><head><meta charset='utf-8'>{themeCSS}</head><body>{htmlContent}</body></html>"
+            End If
+        End Function
+
+        ''' <summary>
         ''' Creates HTML wrapper for XML content with syntax highlighting and search support
         ''' Respects current theme (dark/light mode)
         ''' </summary>
@@ -2092,6 +2574,7 @@ Namespace Beacon
             ' Escape XML for safe display in HTML
             Dim escapedXml = System.Security.SecurityElement.Escape(xmlContent)
 
+            ' Adapt styling based on current theme
             ' Theme-aware colors
             Dim bgColor = If(_isDarkMode, "#1E1E1E", "white")
             Dim textColor = If(_isDarkMode, "#D4D4D4", "#000")
@@ -2155,12 +2638,24 @@ Namespace Beacon
             ' Escape for HTML display
             Dim escapedJson = System.Security.SecurityElement.Escape(formattedJson)
 
-            ' Apply basic syntax highlighting using HTML/CSS
-            ' Colorize: strings (orange), numbers (light green), booleans/null (blue), keys (light blue)
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""\s*:", "<span style='color:#9CDCFE'>""$1""</span>:") ' Keys
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""", "<span style='color:#CE9178'>""$1""</span>") ' String values
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(\d+\.?\d*)\b", "<span style='color:#B5CEA8'>$1</span>") ' Numbers
-            escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(true|false|null)\b", "<span style='color:#569CD6'>$1</span>") ' Booleans/null
+            ' Apply basic syntax highlighting using HTML/CSS with theme-aware colors
+            If _isDarkMode Then
+                ' Dark mode: Use VS Code dark theme colors
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""\s*:", "<span style='color:#9CDCFE'>""$1""</span>:") ' Keys (light blue)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""", "<span style='color:#CE9178'>""$1""</span>") ' String values (orange)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(\d+\.?\d*)\b", "<span style='color:#B5CEA8'>$1</span>") ' Numbers (light green)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(true|false|null)\b", "<span style='color:#569CD6'>$1</span>") ' Booleans/null (blue)
+            Else
+                ' Light mode: Use darker colors for better contrast
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""\s*:", "<span style='color:#0451A5'>""$1""</span>:") ' Keys (blue)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, """([^""]+)""", "<span style='color:#A31515'>""$1""</span>") ' String values (red)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(\d+\.?\d*)\b", "<span style='color:#098658'>$1</span>") ' Numbers (green)
+                escapedJson = System.Text.RegularExpressions.Regex.Replace(escapedJson, "\b(true|false|null)\b", "<span style='color:#0000FF'>$1</span>") ' Booleans/null (blue)
+            End If
+
+            ' Adapt styling based on current theme
+            Dim bgColor = If(_isDarkMode, "#1E1E1E", "white")
+            Dim textColor = If(_isDarkMode, "#D4D4D4", "#000")
 
             Return $"<!DOCTYPE html>
 <html>
@@ -2172,8 +2667,8 @@ Namespace Beacon
             padding: 12px;
             font-family: Consolas, 'Courier New', monospace;
             font-size: 13px;
-            background: #1E1E1E;
-            color: #D4D4D4;
+            background: {bgColor};
+            color: {textColor};
         }}
         .json-content {{
             white-space: pre-wrap;
@@ -2754,6 +3249,173 @@ Namespace Beacon
 
 #End Region
 
+#Region "HAR Preview + Find Next Request"
+
+        ''' <summary>Button handler for Previous HAR Request navigation</summary>
+        Private Sub FindPreviousHarRequest_btn_Click(sender As Object, e As RoutedEventArgs)
+            FindPreviousHarRequest()
+        End Sub
+
+        ''' <summary>Button handler for Next HAR Request navigation</summary>
+        Private Sub FindNextHarRequest_btn_Click(sender As Object, e As RoutedEventArgs)
+            FindNextHarRequest()
+        End Sub
+
+        ''' <summary>
+        ''' Navigates to previous occurrence of search term in HAR requests
+        ''' Searches within current request first, then moves to previous request
+        ''' </summary>
+        Private Sub FindPreviousHarRequest()
+            Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
+            If hit Is Nothing OrElse hit.MatchingRequests.Count = 0 Then Return
+
+            hit.CurrentRequestIndex -= 1
+            If hit.CurrentRequestIndex < 0 Then
+                hit.CurrentRequestIndex = hit.MatchingRequests.Count - 1
+                If Not _isScanning Then Status("Wrapped to last request")
+            Else
+                If Not _isScanning Then Status("Ready")
+            End If
+
+            RenderHarRequest(hit)
+        End Sub
+
+        ''' <summary>
+        ''' Navigates to next occurrence of search term in HAR requests
+        ''' Wraps to first request when reaching end
+        ''' </summary>
+        Private Sub FindNextHarRequest()
+            Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
+            If hit Is Nothing OrElse hit.MatchingRequests.Count = 0 Then Return
+
+            hit.CurrentRequestIndex += 1
+            If hit.CurrentRequestIndex >= hit.MatchingRequests.Count Then
+                hit.CurrentRequestIndex = 0
+                If Not _isScanning Then Status("Wrapped to first request")
+            Else
+                If Not _isScanning Then Status("Ready")
+            End If
+
+            RenderHarRequest(hit)
+        End Sub
+
+        ''' <summary>
+        ''' Renders the first HAR request with highlighting
+        ''' </summary>
+        Private Sub RenderFirstHarRequest(hit As SearchHit)
+            If hit.MatchingRequests.Count = 0 Then Return
+
+            hit.CurrentRequestIndex = 0
+            RenderHarRequest(hit)
+        End Sub
+
+        ''' <summary>
+        ''' Renders the current HAR request with highlighting
+        ''' </summary>
+        Private Sub RenderHarRequest(hit As SearchHit)
+            If hit.CurrentRequestIndex < 0 OrElse hit.CurrentRequestIndex >= hit.MatchingRequests.Count Then Return
+
+            Dim req = hit.MatchingRequests(hit.CurrentRequestIndex)
+            Dim term = Search_txt.Text
+            Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
+            Dim comparison = If(cs, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
+
+            ' Highlight HTTP Method
+            HighlightTextInBlock(HarMethod_txt, req.Method, term, comparison)
+
+            ' Highlight URL
+            HighlightTextInBlock(HarUrl_txt, req.Url, term, comparison)
+
+            ' Highlight Status Code and Text
+            Dim statusText = $"{req.StatusCode} {req.StatusText}"
+            HighlightTextInBlock(HarStatus_txt, statusText, term, comparison)
+
+            HarTime_txt.Text = If(req.StartedDateTime.HasValue, req.StartedDateTime.Value.ToString("yyyy-MM-dd HH:mm:ss.fff"), "N/A")
+            HarDuration_txt.Text = $"{req.Time:F2} ms"
+            HarServerIp_txt.Text = If(String.IsNullOrEmpty(req.ServerIpAddress), "N/A", req.ServerIpAddress)
+
+            ' Highlight Request Headers
+            HighlightTextInBlock(HarRequestHeaders_txt,
+                                If(String.IsNullOrEmpty(req.RequestHeaders), "(no headers)", req.RequestHeaders),
+                                term, comparison)
+
+            ' Highlight Response Headers
+            HighlightTextInBlock(HarResponseHeaders_txt,
+                                If(String.IsNullOrEmpty(req.ResponseHeaders), "(no headers)", req.ResponseHeaders),
+                                term, comparison)
+
+            ' Highlight Request Body/Payload
+            HighlightTextInBlock(HarRequestBody_txt,
+                                If(String.IsNullOrEmpty(req.RequestBody), "(no request payload)", req.RequestBody),
+                                term, comparison)
+
+            ' Highlight Response Body/Payload
+            HighlightTextInBlock(HarResponseBody_txt,
+                                If(String.IsNullOrEmpty(req.ResponseBody), "(no response payload)", req.ResponseBody),
+                                term, comparison)
+
+            ' Update counter
+            HarCounter_lbl.Text = $"Viewing {hit.CurrentRequestIndex + 1} of {hit.MatchingRequests.Count} request(s)"
+
+            ' Count total matches in this request
+            Dim totalMatches = 0
+            If req.Method IsNot Nothing Then totalMatches += CountMatchesInString(req.Method, term, comparison)
+            If req.Url IsNot Nothing Then totalMatches += CountMatchesInString(req.Url, term, comparison)
+            totalMatches += CountMatchesInString(req.StatusCode.ToString(), term, comparison)
+            If req.StatusText IsNot Nothing Then totalMatches += CountMatchesInString(req.StatusText, term, comparison)
+            If req.RequestHeaders IsNot Nothing Then totalMatches += CountMatchesInString(req.RequestHeaders, term, comparison)
+            If req.ResponseHeaders IsNot Nothing Then totalMatches += CountMatchesInString(req.ResponseHeaders, term, comparison)
+            If req.RequestBody IsNot Nothing Then totalMatches += CountMatchesInString(req.RequestBody, term, comparison)
+            If req.ResponseBody IsNot Nothing Then totalMatches += CountMatchesInString(req.ResponseBody, term, comparison)
+
+            HarMatchCounter_lbl.Text = $"{totalMatches} match(es) in this request"
+        End Sub
+
+        ''' <summary>
+        ''' Highlights all occurrences of search term in a TextBlock using Inlines
+        ''' </summary>
+        Private Sub HighlightTextInBlock(textBlock As TextBlock, text As String, term As String, comparison As StringComparison)
+            textBlock.Inlines.Clear()
+
+            If String.IsNullOrEmpty(text) Then
+                textBlock.Inlines.Add(New Run(""))
+                Return
+            End If
+
+            If String.IsNullOrWhiteSpace(term) Then
+                textBlock.Inlines.Add(New Run(text))
+                Return
+            End If
+
+            Dim currentIndex = 0
+            While currentIndex < text.Length
+                Dim matchIndex = text.IndexOf(term, currentIndex, comparison)
+
+                If matchIndex < 0 Then
+                    ' No more matches, add remaining text
+                    textBlock.Inlines.Add(New Run(text.Substring(currentIndex)))
+                    Exit While
+                End If
+
+                ' Add text before match
+                If matchIndex > currentIndex Then
+                    textBlock.Inlines.Add(New Run(text.Substring(currentIndex, matchIndex - currentIndex)))
+                End If
+
+                ' Add highlighted match
+                Dim highlightedRun As New Run(text.Substring(matchIndex, term.Length)) With {
+                    .Background = New SolidColorBrush(Color.FromRgb(&HFF, &HFF, &H0)),
+                    .Foreground = New SolidColorBrush(Colors.Black),
+                    .FontWeight = FontWeights.Bold
+                }
+                textBlock.Inlines.Add(highlightedRun)
+
+                currentIndex = matchIndex + term.Length
+            End While
+        End Sub
+
+#End Region
+
 #Region "Next File"
 
         ''' <summary>Button handler for Next File navigation</summary>
@@ -2787,6 +3449,7 @@ Namespace Beacon
         Private Sub ShowTextPreviewMode()
             TextPreview_grp.Visibility = Visibility.Visible
             EventPreview_grp.Visibility = Visibility.Collapsed
+            HarPreview_grp.Visibility = Visibility.Collapsed
             WebPreview_grp.Visibility = Visibility.Collapsed
             EventCounter_lbl.Visibility = Visibility.Collapsed
 
@@ -2798,6 +3461,7 @@ Namespace Beacon
         Private Sub ShowEventPreviewMode()
             TextPreview_grp.Visibility = Visibility.Collapsed
             EventPreview_grp.Visibility = Visibility.Visible
+            HarPreview_grp.Visibility = Visibility.Collapsed
             WebPreview_grp.Visibility = Visibility.Collapsed
             EventCounter_lbl.Visibility = Visibility.Visible
 
@@ -2811,6 +3475,17 @@ Namespace Beacon
             EventPreview_grp.Visibility = Visibility.Collapsed
             WebPreview_grp.Visibility = Visibility.Visible
             EventCounter_lbl.Visibility = Visibility.Collapsed
+        End Sub
+
+        Private Sub ShowHarPreviewMode()
+            TextPreview_grp.Visibility = Visibility.Collapsed
+            EventPreview_grp.Visibility = Visibility.Collapsed
+            HarPreview_grp.Visibility = Visibility.Visible
+            WebPreview_grp.Visibility = Visibility.Collapsed
+            EventCounter_lbl.Visibility = Visibility.Collapsed
+
+            ' Clear WebView2 to prevent black screen
+            ClearWebPreview()
         End Sub
 
 #End Region
