@@ -1,6 +1,6 @@
-# Beacon: Find in Files v2.0 - Advanced Log Search Utility
+# Beacon: Find in Files v2.0.1 - Advanced Log Search Utility
 
-![Version](https://img.shields.io/badge/version-2.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.1-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Framework](https://img.shields.io/badge/.NET-10-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -191,6 +191,22 @@ This project is developed and maintained by:
 For bug reports, feature requests, or general feedback:
 - Open an issue on [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/issues)
 - Start a discussion on [GitHub Discussions](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/discussions)
+
+## 📋 Changelog
+
+### v2.0.1
+
+#### 🐛 Bug Fixes
+- **Focus restoration on scan cancel**: Keyboard focus now correctly returns to the search field when a scan is cancelled via the Cancel button or Esc key, allowing the user to immediately start a new search without manually clicking.
+- **Focus restoration on scan completion**: Keyboard focus now correctly returns to the search field upon scan completion, consistent with the cancel behaviour.
+- **Non-EVTX files in nested archives not loading**: Text and HTML/XML/JSON files contained within nested archives (e.g., a ZIP inside a CAB) were incorrectly reported as corrupted or failed to open in the preview pane. The archive entry routing logic has been corrected to handle all supported file types at any nesting depth.
+- **Event ID search not returning results**: Searching for a term such as `Event ID 813` or a bare numeric Event ID failed to match events even when the ID was present. The EVTX scanner now evaluates the synthesised `Event ID {n}` label alongside the raw XML and formatted message, ensuring all matching events are surfaced in results.
+
+#### ✨ Improvements
+- **EVTX raw XML formatted as indented markup**: When a Windows Event Log message cannot be rendered via its provider DLL, or when the search term is found only in the raw event data, the fallback display now presents the XML in properly indented, human-readable form rather than a single-line string.
+- **HTML preview rendered in light mode when OS dark mode is active**: The WebView2 preview pane now instructs the Chromium engine to apply a light colour scheme, preventing pages that do not define their own dark-mode CSS from having their colours inverted when the operating system is in dark mode. Pages that ship their own dark-mode styles are unaffected.
+
+---
 
 ## 📜 License
 
