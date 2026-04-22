@@ -53,7 +53,7 @@ Due to code signing costs for open-source projects, this release uses a self-sig
 2. Click "Run anyway"
 
 **Verify authenticity:**
-- **SHA-256**: 308F7EA6464224D95A3F2A6570100A0CE25B79A23199A5861BF78A4B7FEF4AD0
+- **SHA-256**: 9D860AC772236413ECBA47F79B5061C2020ADDD3F8EE9A8376C35B7B1972156F
 - Compare with official release hash on GitHub
 
 We're working on obtaining a trusted certificate for future releases.
