@@ -13,6 +13,7 @@ Imports System.Diagnostics
 Imports System.Diagnostics.Eventing.Reader
 Imports WinForms = System.Windows.Forms
 Imports System.Text.Json
+Imports System.Xml.Linq
 Imports SharpCompress.Archives
 Imports SharpCompress.Readers
 Imports SharpCompress.Common
@@ -498,57 +499,75 @@ Namespace Beacon
                         Debug.WriteLine("Could not get existing data folder path")
                     End Try
 
-                    ' Configure settings on already-initialized WebView2
-                    With WebPreview_wv2.CoreWebView2.Settings
-                        .AreDefaultContextMenusEnabled = False
-                        .IsScriptEnabled = True
-                        .AreDevToolsEnabled = False
-                        .IsWebMessageEnabled = True
-                        .IsStatusBarEnabled = False
-                    End With
+                            ' Configure settings on already-initialized WebView2
+                                With WebPreview_wv2.CoreWebView2.Settings
+                                    .AreDefaultContextMenusEnabled = False
+                                    .IsScriptEnabled = True
+                                    .AreDevToolsEnabled = False
+                                    .IsWebMessageEnabled = True
+                                    .IsStatusBarEnabled = False
+                                End With
 
-                    _webViewInitialized = True
-                    Debug.WriteLine("✓✓✓ Using existing WebView2 initialization ✓✓✓")
-                    Debug.WriteLine("========================================")
-                    Return
-                End If
+                                ' Force pages to render in light mode so their own CSS is not inverted by
+                                ' Chromium's built-in forced-dark feature when the OS is in dark mode.
+                                Try
+                                    WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
+                                        Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
+                                Catch
+                                    ' Property unavailable on older WebView2 SDK versions - safe to ignore
+                                End Try
 
-                ' Not initialized yet - try to initialize with default environment (let WPF handle location)
-                Debug.WriteLine("Initializing WebView2 with default environment...")
-                Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
-                Debug.WriteLine($"✓ WebView2 CoreWebView2 initialized: {WebPreview_wv2.CoreWebView2 IsNot Nothing}")
+                                _webViewInitialized = True
+                                Debug.WriteLine("✓✓✓ Using existing WebView2 initialization ✓✓✓")
+                                Debug.WriteLine("========================================")
+                                Return
+                            End If
 
-                ' Get the data folder path
-                Try
-                    _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
-                    Debug.WriteLine($"Data folder: {_webView2DataFolder}")
-                Catch
-                    Debug.WriteLine("Could not get data folder path")
-                End Try
+                            ' Not initialized yet - try to initialize with default environment (let WPF handle location)
+                            Debug.WriteLine("Initializing WebView2 with default environment...")
+                            Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
+                            Debug.WriteLine($"✓ WebView2 CoreWebView2 initialized: {WebPreview_wv2.CoreWebView2 IsNot Nothing}")
 
-                ' Configure WebView2 settings
-                With WebPreview_wv2.CoreWebView2.Settings
-                    .AreDefaultContextMenusEnabled = False  ' Disable right-click menu for security
-                    .IsScriptEnabled = True                  ' Enable JavaScript (required for interactive HTML)
-                    .AreDevToolsEnabled = False              ' Disable F12 dev tools
-                    .IsWebMessageEnabled = True              ' Allow script communication
-                    .IsStatusBarEnabled = False              ' Hide status bar
-                End With
+                            ' Get the data folder path
+                            Try
+                                _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
+                                Debug.WriteLine($"Data folder: {_webView2DataFolder}")
+                            Catch
+                                Debug.WriteLine("Could not get data folder path")
+                            End Try
 
-                _webViewInitialized = True
-                Debug.WriteLine("✓✓✓ WebView2 initialized successfully ✓✓✓")
-                Debug.WriteLine("========================================")
+                            ' Configure WebView2 settings
+                            With WebPreview_wv2.CoreWebView2.Settings
+                                .AreDefaultContextMenusEnabled = False  ' Disable right-click menu for security
+                                .IsScriptEnabled = True                  ' Enable JavaScript (required for interactive HTML)
+                                .AreDevToolsEnabled = False              ' Disable F12 dev tools
+                                .IsWebMessageEnabled = True              ' Allow script communication
+                                .IsStatusBarEnabled = False              ' Hide status bar
+                            End With
 
-            Catch ex As Exception
-                _webViewInitialized = False
-                Debug.WriteLine("========================================")
-                Debug.WriteLine($"✗✗✗ WebView2 initialization FAILED ✗✗✗")
-                Debug.WriteLine($"Exception Type: {ex.GetType().FullName}")
-                Debug.WriteLine($"Exception Message: {ex.Message}")
-                Debug.WriteLine($"Stack Trace: {ex.StackTrace}")
-                Debug.WriteLine("========================================")
-            End Try
-        End Sub
+                            ' Force pages to render in light mode so their own CSS is not inverted by
+                            ' Chromium's built-in forced-dark feature when the OS is in dark mode.
+                            Try
+                                WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
+                                    Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
+                            Catch
+                                ' Property unavailable on older WebView2 SDK versions - safe to ignore
+                            End Try
+
+                            _webViewInitialized = True
+                            Debug.WriteLine("✓✓✓ WebView2 initialized successfully ✓✓✓")
+                            Debug.WriteLine("========================================")
+
+                        Catch ex As Exception
+                            _webViewInitialized = False
+                            Debug.WriteLine("========================================")
+                            Debug.WriteLine($"✗✗✗ WebView2 initialization FAILED ✗✗✗")
+                            Debug.WriteLine($"Exception Type: {ex.GetType().FullName}")
+                            Debug.WriteLine($"Exception Message: {ex.Message}")
+                            Debug.WriteLine($"Stack Trace: {ex.StackTrace}")
+                            Debug.WriteLine("========================================")
+                        End Try
+                    End Sub
 
         ''' <summary>
         ''' Ensures WebView2 is initialized before use (synchronous check with retry)
@@ -591,6 +610,15 @@ Namespace Beacon
                         .IsStatusBarEnabled = False
                     End With
 
+                    ' Force pages to render in light mode so their own CSS is not inverted by
+                    ' Chromium's built-in forced-dark feature when the OS is in dark mode.
+                    Try
+                        WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
+                            Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
+                    Catch
+                        ' Property unavailable on older WebView2 SDK versions - safe to ignore
+                    End Try
+
                     _webViewInitialized = True
                     Debug.WriteLine("✓✓✓ Using existing WebView2 initialization ✓✓✓")
                     Debug.WriteLine("========================================")
@@ -618,6 +646,15 @@ Namespace Beacon
                     .IsWebMessageEnabled = True              ' Allow script communication
                     .IsStatusBarEnabled = False              ' Hide status bar
                 End With
+
+                ' Force pages to render in light mode so their own CSS is not inverted by
+                ' Chromium's built-in forced-dark feature when the OS is in dark mode.
+                Try
+                    WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
+                        Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
+                Catch
+                    ' Property unavailable on older WebView2 SDK versions - safe to ignore
+                End Try
 
                 _webViewInitialized = True
                 Debug.WriteLine("✓✓✓ WebView2 initialized on-demand successfully ✓✓✓")
@@ -1190,10 +1227,9 @@ Namespace Beacon
 
                                                    UpdateButtonsState()
 
-                                                   If wasCancelled OrElse ct.IsCancellationRequested Then
-                                                       Search_txt.Focus()
-                                                       Keyboard.Focus(Search_txt)
-                                                   End If
+                                                   ' Always return focus to search box when scan ends (cancel or complete)
+                                                   Search_txt.Focus()
+                                                   Keyboard.Focus(Search_txt)
 
                                                End Sub)
                          End Try
@@ -1434,8 +1470,10 @@ Namespace Beacon
                         Await ScanArchiveAsync(tempNestedArchive, term, caseSensitive, exactMatch, ct, depth:=depth + 1, parentArchiveName:=nestedArchiveChain)
                     End If
                 Finally
-                    ' Clean up extracted nested archive
-                    SafeDelete(tempNestedArchive)
+                    ' Do NOT SafeDelete tempNestedArchive here - it is already tracked in
+                    ' _tempToDelete by ExtractArchiveEntryToTemp and must stay alive so that
+                    ' LoadTextFromArchive / LoadWebContentFromArchive can open it for preview.
+                    ' CleanupTemp() will remove it on Reset or app close.
                 End Try
 
                 Return
@@ -1853,24 +1891,38 @@ Namespace Beacon
 
                                                   Using rec
                                                       ' OPTIMIZATION: Check XML representation first (much faster than FormatDescription)
-                                                      ' This allows us to skip expensive formatting for events that don't contain the search term
                                                       Dim xmlString As String = Nothing
                                                       Try
                                                           xmlString = rec.ToXml()
                                                       Catch
-                                                          ' If XML conversion fails, skip this event
                                                           Continue While
                                                       End Try
 
-                                                      ' Quick pre-filter: if search term not in XML, it won't be in formatted message either
-                                                      ' Note: This is a fast substring check to avoid expensive FormatDescription() calls
-                                                      If String.IsNullOrEmpty(xmlString) OrElse xmlString.IndexOf(term, comparison) < 0 Then
+                                                      ' Pre-filter: check XML, bare Event ID, and the synthetic "Event ID NNN" label.
+                                                      ' Some EVTX files store qualifier-encoded IDs in XML (e.g., 20560 instead of 4624),
+                                                      ' so rec.Id is the only reliable source for the displayed Event ID number.
+                                                      ' Users can also search "Event ID 813" (the label shown in the UI) and expect matches.
+                                                      Dim eventIdStr = rec.Id.ToString()
+                                                      Dim eventIdLabel = "Event ID " & eventIdStr  ' synthetic label shown in the UI
+                                                      Dim xmlHasTerm = Not String.IsNullOrEmpty(xmlString) AndAlso xmlString.IndexOf(term, comparison) >= 0
+                                                      Dim idHasTerm = eventIdStr.IndexOf(term, comparison) >= 0
+                                                      Dim idLabelHasTerm = eventIdLabel.IndexOf(term, comparison) >= 0
+
+                                                      If Not xmlHasTerm AndAlso Not idHasTerm AndAlso Not idLabelHasTerm Then
                                                           Continue While
                                                       End If
 
-                                                      ' At this point, we KNOW the XML contains the search term (pre-filter passed)
+                                                      ' Pretty-print XML for readable display in fallback messages
+                                                      Dim prettyXml As String = xmlString
+                                                      Try
+                                                          prettyXml = XDocument.Parse(xmlString).ToString()
+                                                      Catch
+                                                          ' Use raw XML if parsing fails
+                                                      End Try
+
                                                       ' Now try to get the formatted message
                                                       Dim msg As String = ""
+                                                      Dim formattedMsg As String = ""  ' preserves original FormatDescription() result
                                                       Dim msgFailed As Boolean = False
                                                       Dim useFallback As Boolean = False
                                                       Dim hasMatch As Boolean = False
@@ -1882,6 +1934,8 @@ Namespace Beacon
                                                               msgFailed = True
                                                               useFallback = True
                                                           Else
+                                                              formattedMsg = msg  ' preserve before any fallback overwrites it
+
                                                               ' Check if the formatted message contains the search term
                                                               If exactMatch Then
                                                                   hasMatch = ContainsExactMatch(msg, term, caseSensitive)
@@ -1900,28 +1954,42 @@ Namespace Beacon
                                                           useFallback = True
                                                       End Try
 
-                                                      ' Use fallback message with raw XML when:
+                                                      ' Use fallback with pretty-printed XML when:
                                                       ' 1. Formatting failed (DLL missing), OR
                                                       ' 2. Formatted message doesn't contain the search term (term only in raw XML)
                                                       If useFallback Then
-                                                          ' Build fallback message with XML
                                                           If msgFailed Then
                                                               msg = "⚠️ Warning: Message unavailable - required DLL not found." & vbCrLf &
                                                                     "Event data may not render correctly. Showing raw XML data below:" & vbCrLf & vbCrLf &
-                                                                    xmlString
+                                                                    prettyXml
                                                           Else
                                                               msg = "ℹ️ Note: Search term found in raw event data (XML), not in formatted message." & vbCrLf &
                                                                     "Showing raw XML data below:" & vbCrLf & vbCrLf &
-                                                                        xmlString
+                                                                    prettyXml
                                                           End If
 
-                                                          ' IMPORTANT: Re-validate match against the complete fallback message (including XML)
-                                                          ' This ensures exact match rules are respected
                                                           If exactMatch Then
                                                               hasMatch = ContainsExactMatch(msg, term, caseSensitive)
                                                           Else
                                                               hasMatch = msg.IndexOf(term, comparison) >= 0
                                                           End If
+                                                      End If
+
+                                                      ' Final fallback: term matched the bare Event ID number or the "Event ID NNN" label.
+                                                      ' When the DLL is present, restore the formatted message (raw XML is not needed).
+                                                      ' When the DLL is missing, show both the warning and raw XML.
+                                                      If Not hasMatch AndAlso (idHasTerm OrElse idLabelHasTerm) Then
+                                                          If msgFailed Then
+                                                              msg = "⚠️ Warning: Message unavailable - required DLL not found." & vbCrLf &
+                                                                    "Event data may not render correctly." & vbCrLf &
+                                                                    $"ℹ️ Note: Search term matched Event ID {rec.Id}." & vbCrLf &
+                                                                    "Showing raw event XML below:" & vbCrLf & vbCrLf &
+                                                                    prettyXml
+                                                          Else
+                                                              ' DLL is present: show the formatted message, not raw XML
+                                                              msg = formattedMsg
+                                                          End If
+                                                          hasMatch = True
                                                       End If
 
                                                       ' Only add if it actually matches (respects exact match rules)
@@ -2597,99 +2665,78 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
-        ''' Core method to load and highlight HTML/XML/JSON content in WebView2
+        ''' Core method to load and highlight HTML/XML/JSON content in WebView2.
+        ''' Falls back to a temp file for large content because WebView2.NavigateToString
+        ''' has an ~2 MB limit and throws "Value does not fall within the expected range"
+        ''' when the rendered HTML string exceeds it (common with large XML files).
         ''' </summary>
         Private Async Function LoadWebContentAsync(content As String, extension As String) As Task
             Dim htmlToRender As String
 
             If extension = ".xml" Then
-                ' Wrap XML in styled HTML viewer
                 htmlToRender = CreateXmlViewerHtml(content)
             ElseIf extension = ".json" Then
-                ' Wrap JSON in styled HTML viewer with syntax highlighting
                 htmlToRender = CreateJsonViewerHtml(content)
             Else
-                ' HTML content - inject theme-aware CSS to ensure good contrast
                 htmlToRender = InjectThemeAwareCSS(content)
             End If
 
-            ' Navigate to content
-            WebPreview_wv2.NavigateToString(htmlToRender)
+            ' NavigateToString limit is ~2 MB; write to temp file for larger content
+            Const MAX_INLINE As Integer = 1_500_000
+            If htmlToRender.Length > MAX_INLINE Then
+                Dim tempFile = Path.Combine(Path.GetTempPath(), "BeaconPreview_" & Guid.NewGuid().ToString("N") & ".html")
+                Try
+                    File.WriteAllText(tempFile, htmlToRender, System.Text.Encoding.UTF8)
+                    _tempToDelete.Add(tempFile)
+                    WebPreview_wv2.CoreWebView2.Navigate("file:///" & tempFile.Replace("\", "/"))
+                Catch ex As Exception
+                    Debug.WriteLine($"Error navigating to temp file: {ex.Message}")
+                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error displaying file:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+                    Return
+                End Try
+            Else
+                Try
+                    WebPreview_wv2.NavigateToString(htmlToRender)
+                Catch ex As Exception
+                    Debug.WriteLine($"NavigateToString failed: {ex.Message}")
+                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading content:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+                    Return
+                End Try
+            End If
 
             ' Wait for navigation to complete before highlighting
-            Await Task.Delay(300) ' Small delay to ensure DOM is ready
+            Await Task.Delay(300)
 
             ' Apply search highlighting
             Await HighlightSearchInWebViewAsync()
+
+            If extension = ".html" Then
+                Await InjectThemeOverrideCssAsync()
+            End If
         End Function
 
         ''' <summary>
-        ''' Injects theme-aware CSS into HTML content to ensure good contrast in both light and dark modes
+        ''' Injects search-highlight CSS into HTML content (no theme color overrides)
+        ''' The page is left to render with its own colors/backgrounds as the author intended.
         ''' </summary>
         Private Function InjectThemeAwareCSS(htmlContent As String) As String
-            ' Determine colors based on current theme
-            Dim bgColor = If(_isDarkMode, "#1E1E1E", "#FFFFFF")
-            Dim textColor = If(_isDarkMode, "#E0E0E0", "#202020")
-            Dim linkColor = If(_isDarkMode, "#60CFFF", "#0066CC")
-            Dim borderColor = If(_isDarkMode, "#3F3F3F", "#CCCCCC")
-
-            ' CSS to inject - uses !important to override existing styles
-            Dim themeCSS = $"
+            ' Only inject styles needed for search highlighting - leave page colors untouched
+            Dim themeCSS = "
 <style id='beacon-theme-override'>
-    /* Force readable colors for better contrast */
-    body {{
-        background-color: {bgColor} !important;
-        color: {textColor} !important;
-    }}
-
-    /* Ensure all text elements have good contrast */
-    div, span, p, td, th, li, dt, dd, label, h1, h2, h3, h4, h5, h6 {{
-        color: {textColor} !important;
-    }}
-
-    /* Style tables for better visibility */
-    table {{
-        border-color: {borderColor} !important;
-    }}
-
-    td, th {{
-        border-color: {borderColor} !important;
-        background-color: transparent !important;
-    }}
-
-    /* Style links */
-    a {{
-        color: {linkColor} !important;
-    }}
-
-    /* Ensure input fields are visible */
-    input, textarea, select {{
-        background-color: {If(_isDarkMode, "#2B2B2B", "#FFFFFF")} !important;
-        color: {textColor} !important;
-        border-color: {borderColor} !important;
-    }}
-
-    /* Style code blocks */
-    pre, code {{
-        background-color: {If(_isDarkMode, "#252525", "#F5F5F5")} !important;
-        color: {textColor} !important;
-        border-color: {borderColor} !important;
-    }}
-
-    /* Search highlighting (maintain high visibility) */
-    mark.search-highlight {{
+    /* Search highlighting */
+    mark.search-highlight {
         background-color: #FFFF00 !important;
         color: #000 !important;
         font-weight: bold;
         padding: 2px 0;
-    }}
+    }
 
-    mark.current-highlight {{
+    mark.current-highlight {
         background-color: #FF9500 !important;
         color: #000 !important;
         font-weight: bold;
         padding: 2px 0;
-    }}
+    }
 </style>
 "
 
@@ -2730,7 +2777,7 @@ Namespace Beacon
             ' Adapt styling based on current theme
             ' Theme-aware colors
             Dim bgColor = If(_isDarkMode, "#1E1E1E", "white")
-            Dim textColor = If(_isDarkMode, "#D4D4D4", "#000")
+            Dim textColor = If(_isDarkMode, "#F0F0F0", "#000")
 
             Return $"<!DOCTYPE html>
 <html>
@@ -2808,7 +2855,7 @@ Namespace Beacon
 
             ' Adapt styling based on current theme
             Dim bgColor = If(_isDarkMode, "#1E1E1E", "white")
-            Dim textColor = If(_isDarkMode, "#D4D4D4", "#000")
+            Dim textColor = If(_isDarkMode, "#F0F0F0", "#000")
 
             Return $"<!DOCTYPE html>
 <html>
@@ -2978,71 +3025,11 @@ Namespace Beacon
         End Function
 
         ''' <summary>
-        ''' Injects CSS to override HTML page colors for better visibility in dark mode
-        ''' Only applies when in dark mode to prevent breaking light-themed HTML
+        ''' No-op: HTML pages are rendered with their own colors as the author intended.
+        ''' Search highlights are injected by HighlightSearchInWebViewAsync instead.
         ''' </summary>
         Private Async Function InjectThemeOverrideCssAsync() As Task
-            If Not _webViewInitialized Then Return
-
-            ' Only inject dark mode overrides when in dark mode
-            If Not _isDarkMode Then Return
-
-            Dim script = "
-(function() {
-    // Inject CSS to override page colors for dark mode readability
-    var style = document.createElement('style');
-    style.id = 'beacon-dark-mode-override';
-    style.textContent = `
-        /* Force readable colors in dark mode */
-        body {
-            background-color: #1E1E1E !important;
-            color: #D4D4D4 !important;
-        }
-
-        /* Override common text elements */
-        p, div, span, td, th, li, a, h1, h2, h3, h4, h5, h6 {
-            color: #D4D4D4 !important;
-        }
-
-        /* Override links for visibility */
-        a {
-            color: #60CFFF !important;
-        }
-
-        /* Override tables */
-        table {
-            border-color: #3F3F3F !important;
-        }
-
-        /* Keep search highlights visible */
-        mark.search-highlight {
-            background-color: #FFFF00 !important;
-            color: #000 !important;
-        }
-
-        mark.current-highlight {
-            background-color: #FF9500 !important;
-            color: #000 !important;
-        }
-    `;
-
-    // Remove existing override if present
-    var existing = document.getElementById('beacon-dark-mode-override');
-    if (existing) {
-        existing.remove();
-    }
-
-    document.head.appendChild(style);
-    return true;
-})();
-"
-
-            Try
-                Await WebPreview_wv2.ExecuteScriptAsync(script)
-                Debug.WriteLine("✓ Dark mode CSS override injected")
-            Catch ex As Exception
-                Debug.WriteLine($"Failed to inject dark mode CSS: {ex.Message}")
-            End Try
+            Await Task.CompletedTask
         End Function
 
 #End Region
