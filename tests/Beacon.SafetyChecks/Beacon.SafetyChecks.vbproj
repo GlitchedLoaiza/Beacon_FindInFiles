@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace></RootNamespace>
+    <OptionStrict>On</OptionStrict>
+    <OptionExplicit>On</OptionExplicit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Beacon_FindInFiles/ArchiveSafety.vb" Link="Production/ArchiveSafety.vb" />
+    <Compile Include="../../Beacon_FindInFiles/BeaconSettings.vb" Link="Production/BeaconSettings.vb" />
+    <Compile Include="../../Beacon_FindInFiles/CabExtractor.vb" Link="Production/CabExtractor.vb" />
+    <Compile Include="../../Beacon_FindInFiles/FileSystemTraversal.vb" Link="Production/FileSystemTraversal.vb" />
+    <Compile Include="../../Beacon_FindInFiles/PreviewFormatting.vb" Link="Production/PreviewFormatting.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SettingsWindow.xaml.vb" Link="SettingsWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/SettingsWindow.xaml" Link="SettingsWindow.xaml" />
+    <Page Include="../../Beacon_FindInFiles/SettingsStyles.xaml" Link="SettingsStyles.xaml" />
+    <Resource Include="../../Beacon_FindInFiles/beacon_no_bg.png" Link="beacon_no_bg.png" />
+    <None Include="../../Beacon_FindInFiles/MainWindow.xaml" Link="Fixtures/MainWindow.xaml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../Beacon_FindInFiles/SearchQuery.vb" Link="Production/SearchQuery.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SearchResults.vb" Link="Production/SearchResults.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MatchContext.vb" Link="Production/MatchContext.vb" />
+    <Compile Include="../../Beacon_FindInFiles/WebSearchScripts.vb" Link="Production/WebSearchScripts.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.xaml.vb" Link="MainWindow.xaml.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.Search.vb" Link="MainWindow.Search.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.SearchUI.vb" Link="MainWindow.SearchUI.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.Reporting.vb" Link="MainWindow.Reporting.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanDiagnostics.vb" Link="Production/ScanDiagnostics.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanReport.vb" Link="Production/ScanReport.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanReportWriter.vb" Link="Production/ScanReportWriter.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanReportWindow.xaml.vb" Link="ScanReportWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/ScanReportWindow.xaml" Link="ScanReportWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/SevenZipHelper.vb" Link="Production/SevenZipHelper.vb" />
+    <Page Include="../../Beacon_FindInFiles/MainWindow.xaml" Link="MainWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/SplashWindow.xaml.vb" Link="SplashWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/SplashWindow.xaml" Link="SplashWindow.xaml" />
+    <EmbeddedResource Include="../../Beacon_FindInFiles/7za.exe" Link="7za.exe" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
+    <PackageReference Include="SharpCompress" Version="0.38.0" />
+  </ItemGroup>
+</Project>

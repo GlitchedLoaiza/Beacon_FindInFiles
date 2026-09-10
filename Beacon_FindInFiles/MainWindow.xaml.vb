@@ -103,6 +103,34 @@ Namespace Beacon
         Private Class SearchHit
             Public Property DisplayName As String       ' User-friendly name shown in results list
             Public Property Kind As HitKind             ' Type of hit (text file, evtx, etc.)
+            Public Property LogicalPath As String
+            Public ReadOnly Property Details As New List(Of SearchDetail)()
+            Public Property PartialReason As String = ""
+            Public ReadOnly Property CompactCount As String
+                Get
+                    Return Details.Count.ToString("N0") & If(PartialReason.Length > 0, "+", "")
+                End Get
+            End Property
+            Public ReadOnly Property MetadataOnly As Boolean
+                Get
+                    Return Details.All(Function(detail) detail.IsMetadata)
+                End Get
+            End Property
+            Public ReadOnly Property MatchSummary As String
+                Get
+                    Dim records = Details.Where(Function(detail) Not detail.IsMetadata).Count()
+                    Dim metadata = Details.Count - records
+                    Dim summary = $"{records:N0} matching record(s)"
+                    If metadata > 0 Then summary &= $" · {metadata} name/path hit(s)"
+                    If PartialReason.Length > 0 Then summary &= " · " & PartialReason
+                    Return summary
+                End Get
+            End Property
+            Public ReadOnly Property Excerpt As String
+                Get
+                    Return If(Details.Count > 0, Details(0).Excerpt, "")
+                End Get
+            End Property
 
             ' --- Disk file / EVTX properties ---
             Public Property FilePath As String          ' Full path to file on disk
@@ -132,9 +160,17 @@ Namespace Beacon
 
         ''' <summary>Collection of all search results, bound to Results_lst</summary>
         Private ReadOnly _hits As New ObservableCollection(Of SearchHit)
+        Private _settings As BeaconSettings
+        Private _searchOptions As BeaconSettings
+        Private _activeQuery As SearchQuery
+        Private _selectedSearchMode As SearchMode
+        Private _resultLimitReached As Boolean
+        Private _structuredLimitFiles As Integer
 
         ''' <summary>Cancellation token source for aborting scan operations</summary>
         Private _scanCts As CancellationTokenSource
+        Private _scanTask As Task
+        Private _isResetting As Boolean
 
         ''' <summary>Flag indicating whether a scan is currently in progress</summary>
         Private _isScanning As Boolean = False
@@ -176,6 +212,10 @@ Namespace Beacon
 
         ''' <summary>Tracks temporary EVTX files extracted from archives for cleanup</summary>
         Private ReadOnly _tempToDelete As New List(Of String)
+        Private ReadOnly _tempDirectories As New List(Of String)
+
+        Private ReadOnly _accessIssueLock As New Object()
+        Private ReadOnly _ownershipPromptedPaths As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
 
         ' --- WebView2 state for HTML/XML preview ---
         ''' <summary>Flag indicating if WebView2 is initialized</summary>
@@ -189,6 +229,9 @@ Namespace Beacon
 
         ''' <summary>WebView2 user data folder path (for cleanup on exit)</summary>
         Private _webView2DataFolder As String = ""
+
+        ''' <summary>Single shared initialization operation used by startup and preview requests</summary>
+        Private _webViewInitializationTask As Task(Of Boolean)
 
         ' --- UI throttling for "Scanning file: ..." label ---
         ''' <summary>Stopwatch for measuring time between label updates</summary>
@@ -239,16 +282,26 @@ Namespace Beacon
             Debug.WriteLine("========================================")
 
             InitializeComponent()
+            _settings = BeaconSettingsService.Load()
 
             ' Bind results collection to ListBox
             Results_lst.ItemsSource = _hits
-            Results_lst.DisplayMemberPath = NameOf(SearchHit.DisplayName)
+            SearchMode_cmb.ItemsSource = SearchModeChoice.All()
+            SearchMode_cmb.DisplayMemberPath = NameOf(SearchModeChoice.Label)
+            SearchMode_cmb.SelectedValuePath = NameOf(SearchModeChoice.Value)
+            AddHandler SearchMode_cmb.SelectionChanged, AddressOf SearchModeChanged
+            AddHandler Details_lst.SelectionChanged, AddressOf SearchDetailSelected
 
             ' Wire button click handlers
             AddHandler BrowseFolder_btn.Click, AddressOf BrowseFolder_btn_Click
             AddHandler BrowseZip_btn.Click, AddressOf BrowseZip_btn_Click
             AddHandler Scan_btn.Click, AddressOf Scan_btn_Click
             AddHandler Reset_btn.Click, AddressOf Reset_btn_Click
+            AddHandler Settings_btn.Click, AddressOf Settings_btn_Click
+            AddHandler ExportResults_btn.Click, AddressOf ExportHtmlReport
+            AddHandler Diagnostics_btn.Click, AddressOf OpenDiagnostics
+            AddHandler CopyResult_btn.Click, AddressOf CopySelectedResult
+            AddHandler CopyPaths_btn.Click, AddressOf CopyResultPaths
 
             ' Wire navigation and selection handlers
             AddHandler Results_lst.SelectionChanged, AddressOf Results_lst_SelectionChanged
@@ -265,8 +318,6 @@ Namespace Beacon
             ' Wire input change handlers for button state updates
             AddHandler Path_txt.TextChanged, AddressOf AnyInputChanged
             AddHandler Search_txt.TextChanged, AddressOf AnyInputChanged
-            AddHandler ExactMatch_chk.Checked, AddressOf AnyInputChanged
-            AddHandler ExactMatch_chk.Unchecked, AddressOf AnyInputChanged
 
             ' Register global keyboard shortcut handler
             AddHandler Me.PreviewKeyDown, AddressOf MainWindow_PreviewKeyDown
@@ -307,9 +358,46 @@ Namespace Beacon
 
             ' Initialize dark mode based on system preferences
             InitializeTheme()
+            ApplySettings()
 
             ' Initialize WebView2 after window is fully loaded (control must be in visual tree)
             AddHandler Me.Loaded, AddressOf MainWindow_Loaded
+        End Sub
+
+        Private Sub Settings_btn_Click(sender As Object, e As RoutedEventArgs)
+            If _isScanning OrElse _isResetting OrElse _isClosing Then
+                MessageBox.Show(Me, "Finish or cancel the current scan before changing settings.", "Scan in progress",
+                                MessageBoxButton.OK, MessageBoxImage.Information)
+                Return
+            End If
+
+            Dim settingsWindow As New SettingsWindow(_settings, _isDarkMode) With {.Owner = Me}
+            If settingsWindow.ShowDialog() = True Then
+                _settings = settingsWindow.SavedSettings
+                ApplySettings()
+                Status("Settings saved")
+            End If
+        End Sub
+
+        Private Sub ApplySettings()
+            SearchMode_cmb.SelectedValue = _settings.DefaultSearchMode
+            UpdateSearchHint()
+            _supportedTextExt.Clear()
+            For Each extension In _settings.IncludedExtensions.Split(";"c, StringSplitOptions.RemoveEmptyEntries)
+                Dim normalized = extension.Trim()
+                If normalized.Length > 0 AndAlso
+                   Not _supportedHarExt.Contains(normalized) AndAlso
+                   Not _supportedEvtxExt.Contains(normalized) AndAlso
+                   Not _supportedArchiveExt.Contains(normalized) Then
+                    _supportedTextExt.Add(normalized)
+                End If
+            Next
+
+            TextPreview_rtb.FontFamily = New FontFamily(_settings.PreviewFontFamily)
+            TextPreview_rtb.FontSize = _settings.PreviewFontSize
+            TextPreview_rtb.HorizontalScrollBarVisibility = If(_settings.PreviewWordWrap,
+                                                                ScrollBarVisibility.Disabled,
+                                                                ScrollBarVisibility.Auto)
         End Sub
 
         ''' <summary>
@@ -397,6 +485,7 @@ Namespace Beacon
             Resources("InputBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))    ' #2B2B2B
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))        ' #505050
             Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H1E, &H1E, &H1E))     ' #1E1E1E
+            Resources("SelectionBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H18, &H3C, &H50))
 
             ' Update event preview text colors for dark mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HFF, &H60, &H60)) ' Lighter red for dark mode
@@ -404,8 +493,6 @@ Namespace Beacon
             EventProvider_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0)) ' Light gray
             EventTime_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0))  ' Medium gray
             EventMessage_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0)) ' Light gray
-            EventCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0)) ' Medium gray
-            EventMatchCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0)) ' Medium gray
         End Sub
 
         ''' <summary>
@@ -433,6 +520,7 @@ Namespace Beacon
             Resources("InputBackgroundBrush") = New SolidColorBrush(Colors.White)
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&HCC, &HCC, &HCC))        ' #CCCCCC
             Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HFA, &HFA, &HFA))     ' #FAFAFA
+            Resources("SelectionBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HE5, &HF1, &HFF))
 
             ' Restore event preview text colors for light mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HC0, &H0, &H0)) ' Original dark red
@@ -440,8 +528,6 @@ Namespace Beacon
             EventProvider_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20)) ' Dark gray
             EventTime_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66)) ' Medium gray
             EventMessage_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20)) ' Dark gray
-            EventCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66)) ' Medium gray
-            EventMatchCounter_lbl.Foreground = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66)) ' Medium gray
         End Sub
 
         ''' <summary>
@@ -471,117 +557,27 @@ Namespace Beacon
             InitializeWebView2Async()
         End Sub
 
-        ''' <summary>
-        ''' Initializes WebView2 control asynchronously (non-blocking)
-        ''' Uses default environment if already initialized, otherwise creates custom temp folder
-        ''' </summary>
+        ''' <summary>Starts WebView2 initialization without blocking window startup.</summary>
         Private Async Sub InitializeWebView2Async()
-            Try
-                Debug.WriteLine("========================================")
-                Debug.WriteLine("Starting WebView2 initialization...")
-                Debug.WriteLine($"WebPreview_wv2 is null: {WebPreview_wv2 Is Nothing}")
+            Await EnsureWebView2InitializedAsync()
+        End Sub
 
-                If WebPreview_wv2 Is Nothing Then
-                    Debug.WriteLine("✗ WebView2 control is null!")
-                    _webViewInitialized = False
-                    Return
-                End If
-
-                ' Check if WebView2 is already initialized (auto-initialized by WPF)
-                If WebPreview_wv2.CoreWebView2 IsNot Nothing Then
-                    Debug.WriteLine("✓ WebView2 already initialized by WPF (using default environment)")
-
-                    ' Get the data folder path from the existing environment
-                    Try
-                        _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
-                        Debug.WriteLine($"Using existing data folder: {_webView2DataFolder}")
-                    Catch
-                        Debug.WriteLine("Could not get existing data folder path")
-                    End Try
-
-                            ' Configure settings on already-initialized WebView2
-                                With WebPreview_wv2.CoreWebView2.Settings
-                                    .AreDefaultContextMenusEnabled = False
-                                    .IsScriptEnabled = True
-                                    .AreDevToolsEnabled = False
-                                    .IsWebMessageEnabled = True
-                                    .IsStatusBarEnabled = False
-                                End With
-
-                                ' Force pages to render in light mode so their own CSS is not inverted by
-                                ' Chromium's built-in forced-dark feature when the OS is in dark mode.
-                                Try
-                                    WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
-                                        Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
-                                Catch
-                                    ' Property unavailable on older WebView2 SDK versions - safe to ignore
-                                End Try
-
-                                _webViewInitialized = True
-                                Debug.WriteLine("✓✓✓ Using existing WebView2 initialization ✓✓✓")
-                                Debug.WriteLine("========================================")
-                                Return
-                            End If
-
-                            ' Not initialized yet - try to initialize with default environment (let WPF handle location)
-                            Debug.WriteLine("Initializing WebView2 with default environment...")
-                            Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
-                            Debug.WriteLine($"✓ WebView2 CoreWebView2 initialized: {WebPreview_wv2.CoreWebView2 IsNot Nothing}")
-
-                            ' Get the data folder path
-                            Try
-                                _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
-                                Debug.WriteLine($"Data folder: {_webView2DataFolder}")
-                            Catch
-                                Debug.WriteLine("Could not get data folder path")
-                            End Try
-
-                            ' Configure WebView2 settings
-                            With WebPreview_wv2.CoreWebView2.Settings
-                                .AreDefaultContextMenusEnabled = False  ' Disable right-click menu for security
-                                .IsScriptEnabled = True                  ' Enable JavaScript (required for interactive HTML)
-                                .AreDevToolsEnabled = False              ' Disable F12 dev tools
-                                .IsWebMessageEnabled = True              ' Allow script communication
-                                .IsStatusBarEnabled = False              ' Hide status bar
-                            End With
-
-                            ' Force pages to render in light mode so their own CSS is not inverted by
-                            ' Chromium's built-in forced-dark feature when the OS is in dark mode.
-                            Try
-                                WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
-                                    Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
-                            Catch
-                                ' Property unavailable on older WebView2 SDK versions - safe to ignore
-                            End Try
-
-                            _webViewInitialized = True
-                            Debug.WriteLine("✓✓✓ WebView2 initialized successfully ✓✓✓")
-                            Debug.WriteLine("========================================")
-
-                        Catch ex As Exception
-                            _webViewInitialized = False
-                            Debug.WriteLine("========================================")
-                            Debug.WriteLine($"✗✗✗ WebView2 initialization FAILED ✗✗✗")
-                            Debug.WriteLine($"Exception Type: {ex.GetType().FullName}")
-                            Debug.WriteLine($"Exception Message: {ex.Message}")
-                            Debug.WriteLine($"Stack Trace: {ex.StackTrace}")
-                            Debug.WriteLine("========================================")
-                        End Try
-                    End Sub
-
-        ''' <summary>
-        ''' Ensures WebView2 is initialized before use (synchronous check with retry)
-        ''' Uses default environment if already initialized, otherwise initializes with WPF default
-        ''' </summary>
+        ''' <summary>Returns the shared WebView2 initialization task, retrying after a failed attempt.</summary>
         Private Async Function EnsureWebView2InitializedAsync() As Task(Of Boolean)
-            If _webViewInitialized Then
-                Debug.WriteLine("WebView2 already initialized ✓")
-                Return True
+            If _webViewInitialized AndAlso WebPreview_wv2?.CoreWebView2 IsNot Nothing Then Return True
+
+            If _webViewInitializationTask Is Nothing OrElse
+               (_webViewInitializationTask.IsCompleted AndAlso Not _webViewInitialized) Then
+                _webViewInitializationTask = InitializeWebView2CoreAsync()
             End If
 
+            Return Await _webViewInitializationTask
+        End Function
+
+        Private Async Function InitializeWebView2CoreAsync() As Task(Of Boolean)
             Try
                 Debug.WriteLine("========================================")
-                Debug.WriteLine("WebView2 not initialized yet, initializing now...")
+                Debug.WriteLine("Initializing WebView2...")
                 Debug.WriteLine($"WebPreview_wv2 is null: {WebPreview_wv2 Is Nothing}")
 
                 If WebPreview_wv2 Is Nothing Then
@@ -589,75 +585,31 @@ Namespace Beacon
                     Return False
                 End If
 
-                ' Check if WebView2 is already initialized (auto-initialized by WPF)
-                If WebPreview_wv2.CoreWebView2 IsNot Nothing Then
-                    Debug.WriteLine("✓ WebView2 already initialized by WPF (using default environment)")
-
-                    ' Get the data folder path from the existing environment
-                    Try
-                        _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
-                        Debug.WriteLine($"Using existing data folder: {_webView2DataFolder}")
-                    Catch
-                        Debug.WriteLine("Could not get existing data folder path")
-                    End Try
-
-                    ' Configure settings on already-initialized WebView2
-                    With WebPreview_wv2.CoreWebView2.Settings
-                        .AreDefaultContextMenusEnabled = False
-                        .IsScriptEnabled = True
-                        .AreDevToolsEnabled = False
-                        .IsWebMessageEnabled = True
-                        .IsStatusBarEnabled = False
-                    End With
-
-                    ' Force pages to render in light mode so their own CSS is not inverted by
-                    ' Chromium's built-in forced-dark feature when the OS is in dark mode.
-                    Try
-                        WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
-                            Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
-                    Catch
-                        ' Property unavailable on older WebView2 SDK versions - safe to ignore
-                    End Try
-
-                    _webViewInitialized = True
-                    Debug.WriteLine("✓✓✓ Using existing WebView2 initialization ✓✓✓")
-                    Debug.WriteLine("========================================")
-                    Return True
+                If WebPreview_wv2.CoreWebView2 Is Nothing Then
+                    Debug.WriteLine("Initializing WebView2 with Beacon session environment...")
+                    Dim environment = Await CreateBeaconWebView2EnvironmentAsync()
+                    Await WebPreview_wv2.EnsureCoreWebView2Async(environment)
                 End If
 
-                ' Not initialized yet - initialize with default environment (let WPF handle location)
-                Debug.WriteLine("Initializing WebView2 with default environment...")
-                Await WebPreview_wv2.EnsureCoreWebView2Async(Nothing)
-                Debug.WriteLine($"✓ WebView2 CoreWebView2 initialized: {WebPreview_wv2.CoreWebView2 IsNot Nothing}")
+                If WebPreview_wv2.CoreWebView2 Is Nothing Then Return False
+                _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
 
-                ' Get the data folder path
-                Try
-                    _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
-                    Debug.WriteLine($"Data folder: {_webView2DataFolder}")
-                Catch
-                    Debug.WriteLine("Could not get data folder path")
-                End Try
-
-                ' Configure WebView2 settings
                 With WebPreview_wv2.CoreWebView2.Settings
-                    .AreDefaultContextMenusEnabled = False  ' Disable right-click menu for security
-                    .IsScriptEnabled = True                  ' Enable JavaScript (required for interactive HTML)
-                    .AreDevToolsEnabled = False              ' Disable F12 dev tools
-                    .IsWebMessageEnabled = True              ' Allow script communication
-                    .IsStatusBarEnabled = False              ' Hide status bar
+                    .AreDefaultContextMenusEnabled = False
+                    .IsScriptEnabled = True
+                    .AreDevToolsEnabled = False
+                    .IsWebMessageEnabled = True
+                    .IsStatusBarEnabled = False
                 End With
 
-                ' Force pages to render in light mode so their own CSS is not inverted by
-                ' Chromium's built-in forced-dark feature when the OS is in dark mode.
                 Try
                     WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
                         Microsoft.Web.WebView2.Core.CoreWebView2PreferredColorScheme.Light
                 Catch
-                    ' Property unavailable on older WebView2 SDK versions - safe to ignore
                 End Try
 
                 _webViewInitialized = True
-                Debug.WriteLine("✓✓✓ WebView2 initialized on-demand successfully ✓✓✓")
+                Debug.WriteLine($"✓ WebView2 initialized with data folder: {_webView2DataFolder}")
                 Debug.WriteLine("========================================")
                 Return True
             Catch ex As Exception
@@ -676,14 +628,16 @@ Namespace Beacon
         ''' Flag to prevent recursive closing calls
         ''' </summary>
         Private _isClosing As Boolean = False
+        Private _shutdownReady As Boolean
 
         ''' <summary>
         ''' Handles window closing event - cleanup temp files and attempt quick WebView2 folder cleanup
         ''' Does NOT block application exit - leftover folders are cleaned on next startup
         ''' </summary>
-        Private Sub MainWindow_Closing(sender As Object, e As ComponentModel.CancelEventArgs)
-            ' If we're already cleaning up, allow the close to proceed
+        Private Async Sub MainWindow_Closing(sender As Object, e As ComponentModel.CancelEventArgs)
+            ' Repeated close requests must not interrupt resource cleanup.
             If _isClosing Then
+                e.Cancel = Not _shutdownReady
                 Return
             End If
 
@@ -692,6 +646,17 @@ Namespace Beacon
             _isClosing = True
 
             Try
+                UpdateButtonsState()
+                _scanCts?.Cancel()
+                _htmlExportCancellation?.Cancel()
+                If _scanTask IsNot Nothing Then Await _scanTask
+                If _htmlExportTask IsNot Nothing Then
+                    Try
+                        Await _htmlExportTask
+                    Catch ex As Exception
+                        Debug.WriteLine($"Export stopped during shutdown: {ex.Message}")
+                    End Try
+                End If
                 ' Dispose WebView2 to release file locks
                 If _webViewInitialized AndAlso WebPreview_wv2 IsNot Nothing Then
                     Try
@@ -721,7 +686,7 @@ Namespace Beacon
                 CleanupTemp()
 
                 ' QUICK attempt to delete WebView2 folder (don't block shutdown for long)
-                If Not String.IsNullOrEmpty(_webView2DataFolder) AndAlso Directory.Exists(_webView2DataFolder) Then
+                If IsBeaconWebView2SessionFolder(_webView2DataFolder) AndAlso Directory.Exists(_webView2DataFolder) Then
                     Debug.WriteLine($"Attempting quick cleanup of WebView2 folder: {_webView2DataFolder}")
 
                     ' Single quick attempt with minimal wait
@@ -739,66 +704,66 @@ Namespace Beacon
             Finally
                 ' Shut down quickly - don't keep user waiting
                 Debug.WriteLine("Shutting down application...")
+                _shutdownReady = True
                 Application.Current.Shutdown()
             End Try
         End Sub
 
+        Private Shared Function GetBeaconWebView2Root() As String
+            Return Path.Combine(Path.GetTempPath(), "Beacon", "WebView2")
+        End Function
+
+        Private Async Function CreateBeaconWebView2EnvironmentAsync() As Task(Of Microsoft.Web.WebView2.Core.CoreWebView2Environment)
+            If String.IsNullOrEmpty(_webView2DataFolder) Then
+                _webView2DataFolder = Path.Combine(GetBeaconWebView2Root(), $"session-{Guid.NewGuid():N}")
+            End If
+
+            Directory.CreateDirectory(_webView2DataFolder)
+            Return Await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(Nothing, _webView2DataFolder)
+        End Function
+
+        Private Shared Function IsBeaconWebView2SessionFolder(folder As String) As Boolean
+            If String.IsNullOrWhiteSpace(folder) Then Return False
+
+            Try
+                Dim root = Path.GetFullPath(GetBeaconWebView2Root()).TrimEnd(Path.DirectorySeparatorChar) & Path.DirectorySeparatorChar
+                Dim candidate = Path.GetFullPath(folder)
+                Return candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase) AndAlso
+                       Path.GetFileName(candidate).StartsWith("session-", StringComparison.OrdinalIgnoreCase)
+            Catch
+                Return False
+            End Try
+        End Function
+
         ''' <summary>
-        ''' Cleans up old WebView2 folders from previous application sessions
-        ''' This runs on startup when browser processes aren't running, making cleanup reliable
+        ''' Cleans up only Beacon-owned WebView2 session folders from previous runs.
         ''' </summary>
         Private Sub CleanupOldWebView2Folders()
             Try
                 Debug.WriteLine("========================================")
-                Debug.WriteLine("Checking for old WebView2 folders to cleanup...")
-
-                ' Look for WebView2 folders in common locations
-                Dim possibleLocations As New List(Of String)
-
-                ' Check user's AppData\Local
-                Dim localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)
-                If Not String.IsNullOrEmpty(localAppData) Then
-                    possibleLocations.Add(Path.Combine(localAppData, "Microsoft", "Edge", "User Data"))
-                    possibleLocations.Add(localAppData)
-                End If
-
-                ' Check temp folder
-                possibleLocations.Add(Path.GetTempPath())
+                Debug.WriteLine("Checking for old Beacon WebView2 folders to cleanup...")
 
                 Dim foldersDeleted = 0
-                For Each location In possibleLocations
-                    If Not Directory.Exists(location) Then Continue For
+                Dim root = GetBeaconWebView2Root()
+                If Directory.Exists(root) Then
+                    For Each folder In Directory.EnumerateDirectories(root, "session-*", SearchOption.TopDirectoryOnly)
+                        If Not IsBeaconWebView2SessionFolder(folder) Then Continue For
 
-                    Try
-                        ' Look for folders matching WebView2 pattern
-                        Dim webViewFolders = Directory.GetDirectories(location, "*WebView2*", SearchOption.TopDirectoryOnly)
-
-                        For Each folder In webViewFolders
-                            ' Check if it's from our app (contains "Beacon" or is old enough to be from previous session)
-                            Dim folderInfo As New DirectoryInfo(folder)
-                            Dim isOldEnough = (DateTime.Now - folderInfo.LastWriteTime).TotalMinutes > 5 ' Older than 5 minutes
-                            Dim isBeaconFolder = folder.Contains("Beacon", StringComparison.OrdinalIgnoreCase)
-
-                            If isBeaconFolder OrElse isOldEnough Then
-                                Try
-                                    Debug.WriteLine($"Deleting old WebView2 folder: {folder}")
-                                    Directory.Delete(folder, True)
-                                    foldersDeleted += 1
-                                    Debug.WriteLine($"✓ Deleted")
-                                Catch ex As Exception
-                                    Debug.WriteLine($"Could not delete {folder}: {ex.Message}")
-                                End Try
-                            End If
-                        Next
-                    Catch
-                        ' Continue checking other locations
-                    End Try
-                Next
+                        Try
+                            Debug.WriteLine($"Deleting old Beacon WebView2 folder: {folder}")
+                            Directory.Delete(folder, True)
+                            foldersDeleted += 1
+                            Debug.WriteLine("✓ Deleted")
+                        Catch ex As Exception
+                            Debug.WriteLine($"Could not delete {folder}: {ex.Message}")
+                        End Try
+                    Next
+                End If
 
                 If foldersDeleted > 0 Then
                     Debug.WriteLine($"✓✓✓ Cleaned up {foldersDeleted} old WebView2 folder(s)")
                 Else
-                    Debug.WriteLine($"No old WebView2 folders found")
+                    Debug.WriteLine("No old Beacon WebView2 folders found")
                 End If
                 Debug.WriteLine("========================================")
 
@@ -927,6 +892,16 @@ Namespace Beacon
         ''' - Search term presence
         ''' </summary>
         Private Sub UpdateButtonsState()
+            UpdateReportingButtons()
+            Settings_btn.IsEnabled = Not (_isScanning OrElse _isResetting OrElse _isClosing)
+            SearchMode_cmb.IsEnabled = Settings_btn.IsEnabled
+            If _isResetting OrElse _isClosing Then
+                Scan_btn.IsEnabled = False
+                Reset_btn.IsEnabled = False
+                BrowseFolder_btn.IsEnabled = False
+                BrowseZip_btn.IsEnabled = False
+                Return
+            End If
             If _isScanning Then
                 ' During scan: Scan button becomes "Cancel", lock most inputs
                 Scan_btn.IsEnabled = True
@@ -937,7 +912,6 @@ Namespace Beacon
                 Path_txt.IsEnabled = False
                 Search_txt.IsEnabled = False
                 CaseSensitive_chk.IsEnabled = False
-                ExactMatch_chk.IsEnabled = False
                 Return
             End If
 
@@ -965,7 +939,6 @@ Namespace Beacon
             Path_txt.IsEnabled = False
             Search_txt.IsEnabled = True
             CaseSensitive_chk.IsEnabled = True
-            ExactMatch_chk.IsEnabled = True
         End Sub
 
 #End Region
@@ -1099,8 +1072,21 @@ Namespace Beacon
         ''' Clears previous results, configures UI, and spawns background scan task
         ''' </summary>
         Private Sub StartScan()
-            If _isScanning Then Return
+            If _isScanning OrElse _isResetting OrElse _isClosing Then Return
             If Not Scan_btn.IsEnabled Then Return
+
+            Try
+                Dim mode = _selectedSearchMode
+                Dim query As New SearchQuery(Search_txt.Text, mode, CaseSensitive_chk.IsChecked.GetValueOrDefault())
+                If Not (_settings.SearchFileContents OrElse _settings.SearchFileNames OrElse _settings.SearchFullPaths) Then
+                    Throw New ArgumentException("Enable contents, file names, or full paths in Settings before scanning.")
+                End If
+                _activeQuery = query
+                _searchOptions = BeaconSettingsService.Clone(_settings)
+            Catch ex As ArgumentException
+                MessageBox.Show(Me, ex.Message, "Invalid search", MessageBoxButton.OK, MessageBoxImage.Warning)
+                Return
+            End Try
 
             CleanupTemp()
 
@@ -1117,6 +1103,19 @@ Namespace Beacon
 
             ' Reset all scan state
             _hits.Clear()
+            _resultLimitReached = False
+            _structuredLimitFiles = 0
+            _diagnostics.Clear()
+            _logicalSourcePaths.Clear()
+            _scanRun = New ScanRunInfo With {
+                .SourceRoot = Path.GetFullPath(Path_txt.Text.Trim()), .QueryText = _activeQuery.Text,
+                .Mode = _activeQuery.Mode, .CaseSensitive = _activeQuery.CaseSensitive,
+                .Options = BeaconSettingsService.Clone(_searchOptions), .StartedUtc = DateTimeOffset.UtcNow,
+                .State = ScanReportState.Running
+            }
+            SyncLock _accessIssueLock
+                _ownershipPromptedPaths.Clear()
+            End SyncLock
             Results_lst.SelectedIndex = -1
             _currentTextFindStart = 0
 
@@ -1154,49 +1153,33 @@ Namespace Beacon
 
             ' Capture scan parameters for background task
             Dim p = Path_txt.Text.Trim()
-            Dim term = Search_txt.Text
-            Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
-            Dim exactMatch = ExactMatch_chk.IsChecked.GetValueOrDefault(False)
             Dim ct = _scanCts.Token
 
             ' Capture scan root folder for relative display
             ' (e.g., show "logs\app.log" instead of "C:\Users\...\logs\app.log")
             _scanRootFolder = If(Directory.Exists(p), p, "")
 
-            ' Count total files before scanning (for progress bar)
-            Task.Run(Sub()
-                         Try
-                             If Directory.Exists(p) Then
-                                 _totalFilesToScan = CountFilesInFolder(p)
-                             ElseIf File.Exists(p) AndAlso _supportedArchiveExt.Contains(Path.GetExtension(p)) Then
-                                 _totalFilesToScan = CountFilesInArchive(p)
-                             End If
-                         Catch ex As Exception
-                             _totalFilesToScan = 0
-                         End Try
-                     End Sub)
-
             ' Spawn background scan task to keep UI responsive
-            Task.Run(Async Function()
+            _scanTask = Task.Run(Async Function()
                          Dim wasCancelled As Boolean = False
+                         Dim failure As String = Nothing
 
                          Try
-                             ' Route to appropriate scan method based on source type
                              If Directory.Exists(p) Then
-                                 Await ScanFolderAsync(p, term, cs, exactMatch, ct)
-                             ElseIf File.Exists(p) AndAlso _supportedArchiveExt.Contains(Path.GetExtension(p)) Then
-                                 ' CAB files use 7-Zip extraction
-                                 If Path.GetExtension(p).Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
-                                     Await ScanCabArchiveAsync(p, term, cs, exactMatch, ct, depth:=0)
-                                 Else
-                                     Await ScanArchiveAsync(p, term, cs, exactMatch, ct, depth:=0)
-                                 End If
+                                 _totalFilesToScan = CountFilesInFolder(p, ct)
+                             ElseIf File.Exists(p) Then
+                                 If Not FileSystemTraversal.IsFileAllowed(p, _settings, AddressOf RecordFileSystemIssue) Then Return
+                                 _totalFilesToScan = CountFilesInArchive(p, ct)
                              End If
+                             ct.ThrowIfCancellationRequested()
+                             Await SearchSourceAsync(p, ct)
                          Catch ex As OperationCanceledException
                              wasCancelled = True
                          Catch ex As TaskCanceledException
                              wasCancelled = True
                          Catch ex As Exception
+                             failure = ex.Message
+                             RecordDiagnostic(p, ex, "Search", "Error")
                              Dispatcher.Invoke(Sub() Status("Error: " & ex.Message))
                          Finally
                              ' Allow pending UI updates to complete before showing final status
@@ -1212,16 +1195,28 @@ Namespace Beacon
                                                    If _elapsedTimeTimer.IsEnabled Then _elapsedTimeTimer.Stop()
                                                    _scanElapsedStopwatch.Stop()
                                                    SetCurrentFileDisplayImmediate("")
+                                                   _scanRun.CompletedUtc = DateTimeOffset.UtcNow
+                                                   _scanRun.FailureMessage = If(failure Is Nothing, Nothing, failure.Substring(0, Math.Min(failure.Length, 2000)))
+                                                   _scanRun.State = If(Not String.IsNullOrEmpty(failure), ScanReportState.Failed,
+                                                       If(wasCancelled OrElse ct.IsCancellationRequested, ScanReportState.Cancelled,
+                                                          If(_resultLimitReached, ScanReportState.ResultLimitReached, ScanReportState.Completed)))
 
-                                                   If wasCancelled OrElse (ct.IsCancellationRequested) Then
+                                                   If Not String.IsNullOrEmpty(failure) Then
+                                                       Status("Scan stopped: " & failure)
+                                                   ElseIf wasCancelled OrElse (ct.IsCancellationRequested) Then
                                                        Status("Scan cancelled")
                                                    Else
-                                                       If _hits.Count > 0 Then
-                                                           Status($"Scan complete - {_hits.Count} result(s)")
+                                                        Dim accessIssueCount = _diagnostics.Count
+
+                                                        Dim issueSuffix = If(accessIssueCount > 0, $" - {accessIssueCount} issue(s) reported", "")
+                                                        If _resultLimitReached Then issueSuffix &= " - result limit reached; scan incomplete"
+                                                        If _structuredLimitFiles > 0 Then issueSuffix &= $" - {_structuredLimitFiles} file(s) reached match limits; additional matches may exist"
+                                                        If _hits.Count > 0 Then
+                                                            Status($"Scan complete - {_hits.Count} result(s){issueSuffix}")
                                                            NextFile_btn.Visibility = Visibility.Visible
-                                                           Results_lst.SelectedIndex = 0
+                                                           If _searchOptions.SelectFirstResult Then Results_lst.SelectedIndex = 0
                                                        Else
-                                                           Status("Scan complete - No matches")
+                                                            Status($"Scan complete - No matches{issueSuffix}")
                                                        End If
                                                    End If
 
@@ -1243,21 +1238,30 @@ Namespace Beacon
         ''' <summary>
         ''' Resets application to initial state: clears inputs, results, and stops any active scan
         ''' </summary>
-        Private Sub Reset_btn_Click(sender As Object, e As RoutedEventArgs)
-
+        Private Async Sub Reset_btn_Click(sender As Object, e As RoutedEventArgs)
+            If _isResetting OrElse _isClosing Then Return
+            _isResetting = True
+            UpdateButtonsState()
+            Try
             ' Stop any active scan first
             If _isScanning Then
                 CancelScan()
             End If
+            If _scanTask IsNot Nothing Then Await _scanTask
+            If _isClosing Then Return
 
             ' Clear all input fields
             Path_txt.Text = ""
             Search_txt.Text = ""
             CaseSensitive_chk.IsChecked = False
-            ExactMatch_chk.IsChecked = False
+            SearchMode_cmb.SelectedValue = _settings.DefaultSearchMode
+            MatchDetails_exp.IsExpanded = False
 
             ' Clear results and selection
             _hits.Clear()
+            _scanRun = Nothing
+            _diagnostics.Clear()
+            _logicalSourcePaths.Clear()
             Results_lst.SelectedIndex = -1
 
             ' Reset preview pane
@@ -1295,7 +1299,10 @@ Namespace Beacon
 
             CleanupTemp()
 
-            UpdateButtonsState()
+            Finally
+                _isResetting = False
+                UpdateButtonsState()
+            End Try
         End Sub
 
 #End Region
@@ -1332,6 +1339,61 @@ Namespace Beacon
 
 #Region "Scan Helpers"
 
+        Private Sub RecordFileSystemIssue(pathValue As String, ex As Exception)
+            RecordDiagnostic(pathValue, ex, "File / archive")
+        End Sub
+
+        Private Function HandleAccessDeniedPath(pathValue As String) As Boolean
+            If _settings.AccessDeniedBehavior = AccessDeniedAction.SkipAndReport Then Return False
+
+            SyncLock _accessIssueLock
+                If _ownershipPromptedPaths.Contains(pathValue) Then Return False
+                _ownershipPromptedPaths.Add(pathValue)
+            End SyncLock
+
+            Dim shouldAttempt = Dispatcher.Invoke(Function()
+                                                      If _isClosing OrElse _isResetting OrElse _scanCts.IsCancellationRequested Then Return False
+                                                      Dim message =
+                                                          "Beacon cannot read this directory:" & Environment.NewLine & Environment.NewLine &
+                                                          pathValue & Environment.NewLine & Environment.NewLine &
+                                                          "Attempt to take ownership of this exact directory?" & Environment.NewLine &
+                                                          "Windows will request administrator approval. This does not recursively change child ownership and may not grant read permission."
+                                                      Return MessageBox.Show(Me, message, "Access denied", MessageBoxButton.YesNo,
+                                                                             MessageBoxImage.Warning, MessageBoxResult.No) = MessageBoxResult.Yes
+                                                  End Function)
+            If Not shouldAttempt Then Return False
+
+            Try
+                Dim startInfo As New ProcessStartInfo() With {
+                    .FileName = Path.Combine(Environment.SystemDirectory, "takeown.exe"),
+                    .UseShellExecute = True,
+                    .Verb = "runas",
+                    .WindowStyle = ProcessWindowStyle.Hidden
+                }
+                startInfo.ArgumentList.Add("/F")
+                startInfo.ArgumentList.Add(pathValue)
+
+                Using ownershipProcess = Process.Start(startInfo)
+                    If ownershipProcess Is Nothing Then Return False
+                    If Not ownershipProcess.WaitForExit(30000) Then
+                        Try
+                            ownershipProcess.Kill(True)
+                        Catch
+                        End Try
+                        RecordFileSystemIssue(pathValue, New TimeoutException("Ownership operation timed out."))
+                        Return False
+                    End If
+                    Return ownershipProcess.ExitCode = 0
+                End Using
+            Catch ex As ComponentModel.Win32Exception When ex.NativeErrorCode = 1223
+                RecordFileSystemIssue(pathValue, New UnauthorizedAccessException("Ownership request was cancelled."))
+                Return False
+            Catch ex As Exception
+                RecordFileSystemIssue(pathValue, ex)
+                Return False
+            End Try
+        End Function
+
         ''' <summary>
         ''' Recursively scans a folder for searchable files and archives
         ''' Supports: Text files, EVTX logs, HAR files, and nested archives (ZIP, 7Z, RAR, TAR, GZ, CAB)
@@ -1343,10 +1405,13 @@ Namespace Beacon
         ''' <param name="exactMatch">Whether to use word boundary matching</param>
         ''' <param name="ct">Cancellation token for aborting scan</param>
         Private Async Function ScanFolderAsync(folder As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken) As Task
-            ' Enumerate all files recursively
-            For Each f In Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
-                If ct.IsCancellationRequested Then Exit For
+            ' Enumerate files without allowing one inaccessible directory or reparse-point loop to abort the scan.
+            For Each f In FileSystemTraversal.EnumerateFiles(folder, ct, followReparsePoints:=_settings.FollowReparsePoints,
+                                                             accessDeniedHandler:=AddressOf HandleAccessDeniedPath,
+                                                             errorHandler:=AddressOf RecordFileSystemIssue, settings:=_settings)
+                If ct.IsCancellationRequested OrElse Volatile.Read(_resultLimitReached) Then Exit For
 
+                Try
                 ' Show relative path (more useful than just file name)
                 Dim relScanning = MakeRelativeDisplay(folder, f)
                 ThrottledSetCurrentFileDisplay(relScanning)
@@ -1405,6 +1470,11 @@ Namespace Beacon
                         AddHit(ev)
                     End If
                 End If
+                Catch ex As OperationCanceledException
+                    Throw
+                Catch ex As Exception When TypeOf ex Is IOException OrElse TypeOf ex Is UnauthorizedAccessException OrElse TypeOf ex Is InvalidDataException
+                    RecordFileSystemIssue(f, ex)
+                End Try
             Next
         End Function
 
@@ -1418,17 +1488,31 @@ Namespace Beacon
         ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
         Private Async Function ScanArchiveAsync(archivePath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
             Try
+                ct.ThrowIfCancellationRequested()
+                If depth > _settings.ArchiveNestingDepth Then Throw New InvalidDataException("Archive nesting limit reached.")
                 Debug.WriteLine($"=== Starting scan of {Path.GetFileName(archivePath)} (depth {depth}) ===")
 
                 Using archive = OpenArchive(archivePath)
-                    Debug.WriteLine($"Archive opened successfully, {archive.Entries.Count()} total entries")
-                    For Each entry In archive.Entries.Where(Function(e) Not e.IsDirectory)
-                        Await ProcessArchiveEntry(entry, archivePath, term, caseSensitive, exactMatch, ct, depth, parentArchiveName)
-                        If ct.IsCancellationRequested Then Exit For
+                    Dim budget As New ArchiveReadBudget(_settings, New FileInfo(archivePath).Length)
+                    For Each entry In archive.Entries
+                        ct.ThrowIfCancellationRequested()
+                        If Volatile.Read(_resultLimitReached) Then Exit For
+                        budget.Register(entry.Key, entry.Size, entry.CompressedSize, entry.IsEncrypted, entry.LinkTarget)
+                        If entry.IsDirectory OrElse ArchiveSafety.IsExcluded(entry.Key, _settings) Then Continue For
+                        Dim entryAttributes = GetArchiveAttributes(entry)
+                        If entryAttributes.HasValue Then
+                            Dim attributes = entryAttributes.Value
+                            If Not _settings.IncludeHiddenFiles AndAlso (attributes And FileAttributes.Hidden) <> 0 Then Continue For
+                            If Not _settings.IncludeSystemFiles AndAlso (attributes And FileAttributes.System) <> 0 Then Continue For
+                        End If
+                        Await ProcessArchiveEntry(entry, archivePath, term, caseSensitive, exactMatch, ct, depth, parentArchiveName, budget)
                     Next
                 End Using
                 Debug.WriteLine($"Archive scan completed successfully for {Path.GetFileName(archivePath)}")
+            Catch ex As OperationCanceledException
+                Throw
             Catch ex As Exception
+                RecordFileSystemIssue(archivePath, ex)
                 ' Archive might be corrupted or unsupported format, log and continue
                 Debug.WriteLine($"ERROR scanning archive {Path.GetFileName(archivePath)}: {ex.Message}")
                 Debug.WriteLine($"Stack trace: {ex.StackTrace}")
@@ -1442,7 +1526,7 @@ Namespace Beacon
         ''' </summary>
         ''' <param name="depth">Current nesting depth (0 = top-level archive, 1 = nested archive)</param>
         ''' <param name="parentArchiveName">Display name chain from parent archives (e.g., "diagnostic.zip »")</param>
-        Private Async Function ProcessArchiveEntry(entry As IArchiveEntry, archivePath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "") As Task
+        Private Async Function ProcessArchiveEntry(entry As IArchiveEntry, archivePath As String, term As String, caseSensitive As Boolean, exactMatch As Boolean, ct As CancellationToken, Optional depth As Integer = 0, Optional parentArchiveName As String = "", Optional budget As ArchiveReadBudget = Nothing) As Task
             If String.IsNullOrEmpty(entry.Key) Then Return
 
             ' Show "archive.ext | path/to/file.ext" format
@@ -1453,11 +1537,15 @@ Namespace Beacon
             ' Handle nested archives (only if depth allows - max 1 level deep)
             ' Note: Nested archive entries are counted when their contents are scanned,
             ' so we don't increment _filesScanned here to avoid double-counting
-            If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
+            If _supportedArchiveExt.Contains(ext) AndAlso depth >= _settings.ArchiveNestingDepth Then
+                RecordFileSystemIssue(entry.Key, New InvalidDataException("Archive nesting limit reached."))
+                Return
+            End If
+            If _supportedArchiveExt.Contains(ext) Then
                 Debug.WriteLine($"Found nested archive: {entry.Key} at depth {depth}, extracting and scanning...")
 
                 ' Extract nested archive to temp
-                Dim tempNestedArchive = ExtractArchiveEntryToTemp(entry, archivePath)
+                Dim tempNestedArchive = ExtractArchiveEntryToTemp(entry, archivePath, ct, budget)
 
                 ' Build archive chain for nested display (e.g., "diagnostic.zip » reports.cab")
                 Dim nestedArchiveChain = parentArchiveName & Path.GetFileName(archivePath) & " » "
@@ -1485,7 +1573,7 @@ Namespace Beacon
             UpdateScanProgress()
 
             If _supportedTextExt.Contains(ext) Then
-                Using entryStream = entry.OpenEntryStream()
+                Using entryStream = OpenBoundedArchiveEntry(entry, archivePath, ct, budget)
                     Dim containsTerm As Boolean
 
                     ' For HTML/XML/JSON files, search only visible/data content
@@ -1513,7 +1601,7 @@ Namespace Beacon
 
             ElseIf _supportedEvtxExt.Contains(ext) Then
                 ' EventLogReader requires file path, extract to temp
-                Dim tempEvtx = ExtractArchiveEntryToTemp(entry, archivePath)
+                Dim tempEvtx = ExtractArchiveEntryToTemp(entry, archivePath, ct, budget)
                 Dim ev = Await EvtxCollectMatchesAsync(tempEvtx, term, caseSensitive, exactMatch, ct)
 
                 If ev IsNot Nothing Then
@@ -1547,10 +1635,12 @@ Namespace Beacon
                                    ' Extract CAB to temp directory using 7-Zip
                                    Dim tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabExtract_" & Guid.NewGuid().ToString("N"))
                                    Directory.CreateDirectory(tempExtractDir)
+                                   _tempDirectories.Add(tempExtractDir)
 
                                    Try
                                        ' Extract using 7-Zip command line
-                                       Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir)
+                                       If depth > _settings.ArchiveNestingDepth Then Throw New InvalidDataException("Archive nesting limit reached.")
+                                       Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir, _settings, ct, AddressOf RecordFileSystemIssue)
 
                                        If Not success Then
                                            Debug.WriteLine($"CAB extraction failed for {Path.GetFileName(cabPath)}")
@@ -1565,7 +1655,7 @@ Namespace Beacon
                                        Debug.WriteLine($"CAB contains {extractedFiles.Length} file(s)")
 
                                        For Each filePath In extractedFiles
-                                           If ct.IsCancellationRequested Then Exit For
+                                           If ct.IsCancellationRequested OrElse Volatile.Read(_resultLimitReached) Then Exit For
 
                                            Dim relativePath = filePath.Substring(tempExtractDir.Length + 1)
                                            ThrottledSetCurrentFileDisplay($"{Path.GetFileName(cabPath)} | {relativePath}")
@@ -1575,7 +1665,11 @@ Namespace Beacon
                                            ' Handle nested archives (only if depth allows - max 1 level deep)
                                            ' Note: Nested archive entries are counted when their contents are scanned,
                                            ' so we don't increment _filesScanned here to avoid double-counting
-                                           If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
+                                           If _supportedArchiveExt.Contains(ext) AndAlso depth >= _settings.ArchiveNestingDepth Then
+                                               RecordFileSystemIssue(relativePath, New InvalidDataException("Archive nesting limit reached."))
+                                               Continue For
+                                           End If
+                                           If _supportedArchiveExt.Contains(ext) Then
                                                Debug.WriteLine($"Found nested archive in CAB: {relativePath} at depth {depth}, scanning...")
 
                                                ' Build archive chain for nested display (e.g., "diagnostic.cab » logs.zip")
@@ -1646,21 +1740,14 @@ Namespace Beacon
                                        Debug.WriteLine($"CAB scan completed")
 
                                    Finally
-                                       ' Cleanup temp directory (except EVTX files we're tracking)
-                                       Try
-                                           For Each file In Directory.GetFiles(tempExtractDir, "*.*", SearchOption.AllDirectories)
-                                               If Not _tempToDelete.Contains(file) Then
-                                                   SafeDelete(file)
-                                               End If
-                                           Next
-                                           ' Try to remove directory (will fail if EVTX files still there, which is fine)
-                                           Directory.Delete(tempExtractDir, True)
-                                       Catch
-                                           ' Ignore cleanup errors
-                                       End Try
+                                       ' Nested archive previews may still reference files in this directory.
+                                       ' CleanupTemp removes only these explicitly tracked directories on reset/exit.
                                    End Try
 
+                               Catch ex As OperationCanceledException
+                                   Throw
                                Catch ex As Exception
+                                   RecordFileSystemIssue(cabPath, ex)
                                    Debug.WriteLine($"ERROR scanning CAB {Path.GetFileName(cabPath)}: {ex.Message}")
                                    Debug.WriteLine($"Stack trace: {ex.StackTrace}")
                                    Dispatcher.Invoke(Sub() Status($"Error reading CAB {Path.GetFileName(cabPath)}: {ex.Message}"))
@@ -1673,7 +1760,12 @@ Namespace Beacon
         ''' Marshals to UI thread asynchronously via Dispatcher (non-blocking)
         ''' </summary>
         Private Sub AddHit(hit As SearchHit)
-            Dispatcher.BeginInvoke(Sub() _hits.Add(hit))
+            Dispatcher.Invoke(Sub()
+                                  If _hits.Count >= _settings.MaximumTotalResults Then Return
+                                  _hits.Add(hit)
+                                  If _hits.Count >= _settings.MaximumTotalResults Then Volatile.Write(_resultLimitReached, True)
+                                  UpdateReportingButtons()
+                              End Sub)
         End Sub
 
 #End Region
@@ -1690,7 +1782,7 @@ Namespace Beacon
 
             Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
 
-            Using fs As New FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+            Using fs = OpenBoundedDiskFile(filePath, ct)
                 Using sr As New StreamReader(fs, detectEncodingFromByteOrderMarks:=True)
                     ' Scan line-by-line for memory efficiency
                     While True
@@ -1748,7 +1840,7 @@ Namespace Beacon
             If String.IsNullOrWhiteSpace(term) Then Return False
 
             Try
-                Using fs As New FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                Using fs = OpenBoundedDiskFile(filePath, ct)
                     Using sr As New StreamReader(fs, detectEncodingFromByteOrderMarks:=True)
                         Dim content = Await sr.ReadToEndAsync()
                         Dim visibleText = ExtractVisibleText(content)
@@ -2023,7 +2115,8 @@ Namespace Beacon
                                                                })
 
                                                           ' Limit matches per file to prevent memory exhaustion
-                                                          If hit.MatchingEvents.Count >= 300 Then
+                                                          If hit.MatchingEvents.Count >= Math.Min(_settings.EvtxMaximumMatches, _settings.MaximumStructuredMatches) Then
+                                                              Interlocked.Increment(_structuredLimitFiles)
                                                               Exit While
                                                           End If
                                                       End If
@@ -2062,7 +2155,7 @@ Namespace Beacon
                                                        exactMatch As Boolean,
                                                        ct As CancellationToken) As Task(Of SearchHit)
             Try
-                Using fs As New FileStream(harPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                Using fs = OpenBoundedDiskFile(harPath, ct)
                     Return Await HarCollectMatchesFromStreamAsync(fs, term, caseSensitive, exactMatch, ct, harPath)
                 End Using
             Catch ex As Exception
@@ -2191,6 +2284,10 @@ Namespace Beacon
 
                                                       If matchFound Then
                                                           hit.MatchingRequests.Add(harReq)
+                                                          If hit.MatchingRequests.Count >= Math.Min(_settings.HarMaximumMatches, _settings.MaximumStructuredMatches) Then
+                                                              Interlocked.Increment(_structuredLimitFiles)
+                                                              Exit For
+                                                          End If
                                                       End If
                                                   Next
                                               End Using
@@ -2360,7 +2457,9 @@ Namespace Beacon
         ''' Handles result selection changes - loads appropriate preview (text or EVTX) and sets up navigation
         ''' </summary>
         Private Sub Results_lst_SelectionChanged(sender As Object, e As SelectionChangedEventArgs)
+            UpdateReportingButtons()
             Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
+            Details_lst.ItemsSource = If(hit Is Nothing, Nothing, hit.Details)
             If hit Is Nothing Then Return
 
             FindNext_btn.Visibility = Visibility.Collapsed
@@ -2373,6 +2472,11 @@ Namespace Beacon
             _currentHarMatchIndex = 0
             _currentWebMatchIndex = 0
             _totalWebMatches = 0
+
+            If hit.MetadataOnly Then
+                ShowMetadataPreview(hit)
+                Return
+            End If
 
             ' Load preview based on hit type
             Select Case hit.Kind
@@ -2445,8 +2549,11 @@ Namespace Beacon
 
         ''' <summary>Loads text file from disk into preview pane</summary>
         Private Sub LoadTextFromDisk(path As String)
-            Dim text = File.ReadAllText(path)
-            SetTextPreview(text)
+            Try
+                SetTextPreview(ReadPreviewFile(path))
+            Catch ex As Exception
+                SetTextPreview($"[Preview unavailable: {ex.Message}]")
+            End Try
         End Sub
 
         ''' <summary>
@@ -2485,7 +2592,7 @@ Namespace Beacon
                 ' Extract entire CAB to temp directory using 7-Zip
                 tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabPreview_" & Guid.NewGuid().ToString("N"))
 
-                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir)
+                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir, _settings, report:=AddressOf RecordFileSystemIssue)
                 If Not success Then
                     SetTextPreview($"[Error: Failed to extract CAB file]")
                     Return
@@ -2494,7 +2601,7 @@ Namespace Beacon
                 ' Find the extracted file
                 Dim extractedFile = Path.Combine(tempExtractDir, entryName)
                 If File.Exists(extractedFile) Then
-                    Dim text = File.ReadAllText(extractedFile)
+                    Dim text = ReadPreviewFile(extractedFile)
                     SetTextPreview(text)
                 Else
                     SetTextPreview($"[Error: File '{entryName}' not found in extracted CAB contents]")
@@ -2568,7 +2675,7 @@ Namespace Beacon
 
             Try
                 ' Read file content and wrap with theme-aware CSS
-                Dim content = File.ReadAllText(filePath)
+                Dim content = ReadPreviewFile(filePath)
                 Await LoadWebContentAsync(content, extension)
             Catch ex As Exception
                 Debug.WriteLine($"Error loading content: {ex.Message}")
@@ -2636,7 +2743,7 @@ Namespace Beacon
                 ' Extract entire CAB to temp directory using 7-Zip
                 tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabPreview_" & Guid.NewGuid().ToString("N"))
 
-                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir)
+                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir, _settings, report:=AddressOf RecordFileSystemIssue)
                 If Not success Then
                     WebPreview_wv2.NavigateToString($"<html><body><h3>Error: Failed to extract CAB file</h3></body></html>")
                     Return
@@ -2645,7 +2752,7 @@ Namespace Beacon
                 ' Find the extracted file
                 Dim extractedFile = Path.Combine(tempExtractDir, entryName)
                 If File.Exists(extractedFile) Then
-                    Dim content = File.ReadAllText(extractedFile)
+                    Dim content = ReadPreviewFile(extractedFile)
                     Await LoadWebContentAsync(content, extension)
                 Else
                     WebPreview_wv2.NavigateToString($"<html><body><h3>Error: File '{System.Security.SecurityElement.Escape(entryName)}' not found in extracted CAB contents</h3></body></html>")
@@ -2672,6 +2779,8 @@ Namespace Beacon
         ''' </summary>
         Private Async Function LoadWebContentAsync(content As String, extension As String) As Task
             Dim htmlToRender As String
+
+            WebPreview_wv2.DefaultBackgroundColor = System.Drawing.Color.White
 
             If extension = ".xml" Then
                 htmlToRender = CreateXmlViewerHtml(content)
@@ -2721,7 +2830,7 @@ Namespace Beacon
         ''' </summary>
         Private Function InjectThemeAwareCSS(htmlContent As String) As String
             ' Only inject styles needed for search highlighting - leave page colors untouched
-            Dim themeCSS = "
+            Dim themeCSS = PreviewFormatting.HtmlCanvasStyle & "
 <style id='beacon-theme-override'>
     /* Search highlighting */
     mark.search-highlight {
@@ -2771,6 +2880,9 @@ Namespace Beacon
         ''' Respects current theme (dark/light mode)
         ''' </summary>
         Private Function CreateXmlViewerHtml(xmlContent As String) As String
+            xmlContent = PreviewFormatting.FormatXml(xmlContent, _settings.PrettyPrintJsonAndXml,
+                                                       CLng(_settings.MaximumPreviewSizeMb) * 1024 * 1024)
+
             ' Escape XML for safe display in HTML
             Dim escapedXml = System.Security.SecurityElement.Escape(xmlContent)
 
@@ -2898,97 +3010,37 @@ Namespace Beacon
         ''' <summary>
         ''' Injects JavaScript to highlight all search term occurrences in WebView2
         ''' </summary>
+        Private _webHighlightVersion As Integer
+
         Private Async Function HighlightSearchInWebViewAsync() As Task
-            Dim searchTerm = Search_txt.Text
-            If String.IsNullOrWhiteSpace(searchTerm) OrElse Not _webViewInitialized Then
+            Dim version = Interlocked.Increment(_webHighlightVersion)
+            Dim query = _activeQuery
+            Dim selected = Results_lst.SelectedItem
+            If query Is Nothing OrElse Not _webViewInitialized Then
                 _totalWebMatches = 0
                 Return
             End If
-
-            Dim caseSensitive = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
-
-            ' Escape JavaScript string and regex special characters
-            Dim escapedTerm = searchTerm.Replace("\", "\\").Replace("'", "\'").Replace(vbLf, "\n").Replace(vbCr, "\r")
-            Dim regexFlags = If(caseSensitive, "g", "gi")
-
-            ' Build regex pattern, escaping special regex characters
-            Dim regexEscapedTerm = System.Text.RegularExpressions.Regex.Escape(searchTerm)
-
-            ' JavaScript to highlight all matches and count them
-            Dim script = $"
-(function() {{
-    // Remove existing highlights
-    document.querySelectorAll('mark.search-highlight, mark.current-highlight').forEach(function(el) {{
-        var parent = el.parentNode;
-        parent.replaceChild(document.createTextNode(el.textContent), el);
-        parent.normalize();
-    }});
-
-    var body = document.body;
-    var searchTerm = '{escapedTerm}';
-    var regex = new RegExp('({regexEscapedTerm})', '{regexFlags}');
-    var matchCount = 0;
-
-    // Recursive function to traverse and highlight text nodes
-    function highlightInNode(node) {{
-        if (node.nodeType === Node.TEXT_NODE) {{
-            var text = node.textContent;
-            var matches = text.match(regex);
-
-            if (matches && matches.length > 0) {{
-                var fragment = document.createDocumentFragment();
-                var lastIndex = 0;
-                var tempText = text;
-
-                tempText.replace(regex, function(match, ...args) {{
-                    var offset = args[args.length - 2]; // offset is second to last argument
-
-                    // Add text before match
-                    if (offset > lastIndex) {{
-                        fragment.appendChild(document.createTextNode(text.substring(lastIndex, offset)));
-                    }}
-
-                    // Add highlighted match
-                    var mark = document.createElement('mark');
-                    mark.className = 'search-highlight';
-                    mark.setAttribute('data-match-index', matchCount);
-                    mark.textContent = match;
-                    fragment.appendChild(mark);
-                    matchCount++;
-
-                    lastIndex = offset + match.length;
-                    return match;
-                }});
-
-                // Add remaining text
-                if (lastIndex < text.length) {{
-                    fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-                }}
-
-                node.parentNode.replaceChild(fragment, node);
-            }}
-        }} else if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE' && node.tagName !== 'MARK') {{
-            Array.from(node.childNodes).forEach(highlightInNode);
-        }}
-    }}
-
-    highlightInNode(body);
-    return matchCount;
-}})();
-"
-
             Try
-                Dim result = Await WebPreview_wv2.ExecuteScriptAsync(script)
-                ' Parse match count from result
-                If Integer.TryParse(result, _totalWebMatches) Then
+                Dim token = Guid.NewGuid().ToString("N")
+                Dim captured = Await WebPreview_wv2.ExecuteScriptAsync(WebSearchScripts.Capture(_settings.MaximumPreviewSizeMb * 1024 * 1024, token))
+                Dim text = JsonSerializer.Deserialize(Of String)(captured)
+                If text Is Nothing Then Return
+                Dim spans = Await Task.Run(Function() query.FindHighlights(text))
+                If version <> _webHighlightVersion OrElse Results_lst.SelectedItem IsNot selected OrElse _activeQuery IsNot query Then Return
+                Dim result = Await WebPreview_wv2.ExecuteScriptAsync(WebSearchScripts.Apply(spans, token))
+                If version <> _webHighlightVersion OrElse Results_lst.SelectedItem IsNot selected OrElse _activeQuery IsNot query Then Return
+                Dim matchCount As Integer
+                If Integer.TryParse(result, matchCount) AndAlso matchCount >= 0 Then
+                    _totalWebMatches = matchCount
                     _currentWebMatchIndex = 0
                     If _totalWebMatches > 0 Then
-                        ' Highlight first match
                         Await HighlightWebMatchAtIndexAsync(0)
                     End If
                 End If
             Catch ex As Exception
+                If version <> _webHighlightVersion OrElse Results_lst.SelectedItem IsNot selected OrElse _activeQuery IsNot query Then Return
                 _totalWebMatches = 0
+                If Not _isScanning Then Status("Preview highlighting unavailable: " & ex.Message)
             End Try
         End Function
 
@@ -3008,10 +3060,10 @@ Namespace Beacon
     }});
 
     // Highlight the current match
-    if (marks.length > {index}) {{
-        var currentMark = marks[{index}];
-        currentMark.className = 'current-highlight';
-        currentMark.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+    var current = Array.from(marks).filter(function(mark) {{ return Number(mark.dataset.matchIndex) === {index}; }});
+    if (current.length > 0) {{
+        current.forEach(function(mark) {{ mark.className = 'current-highlight'; }});
+        current[0].scrollIntoView({{ behavior: 'smooth', block: 'center' }});
         return true;
     }}
     return false;
@@ -3056,35 +3108,16 @@ Namespace Beacon
                 Return
             End If
 
-            ' Original text preview logic
-            Dim term = Search_txt.Text
-            If String.IsNullOrWhiteSpace(term) Then Return
-
             Dim full = New TextRange(TextPreview_rtb.Document.ContentStart, TextPreview_rtb.Document.ContentEnd).Text
             If String.IsNullOrEmpty(full) Then Return
-
-            Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
-            Dim comparison = If(cs, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
-
-            Dim idx = full.IndexOf(term, _currentTextFindStart, comparison)
-            Dim wrapped As Boolean = False
-
-            ' If not found from current position, try from beginning (wrap-around)
-            If idx < 0 Then
-                idx = full.IndexOf(term, 0, comparison)
-                If idx < 0 Then
-                    If Not _isScanning Then Status("No matches in preview")
-                    Return
-                End If
-                wrapped = True
-            End If
-
-            SelectInRichTextBox(idx, term.Length)
-            _currentTextFindStart = idx + term.Length
-
-            If Not _isScanning Then
-                Status(If(wrapped, "Wrapped to top", "Ready"))
-            End If
+            Dim spans = PreviewSpans(full)
+            If spans.Count = 0 Then Return
+            Dim span = spans.FirstOrDefault(Function(item) item.Start >= _currentTextFindStart)
+            Dim wrapped = span Is Nothing
+            If wrapped Then span = spans(0)
+            SelectInRichTextBox(span.Start, span.Length)
+            _currentTextFindStart = span.Start + span.Length
+            If Not _isScanning Then Status(If(wrapped, "Wrapped to top", "Ready"))
         End Sub
 
         ''' <summary>
@@ -3185,43 +3218,7 @@ Namespace Beacon
         ''' Searches within current event first, then moves to previous event
         ''' </summary>
         Private Sub FindPreviousEvent()
-            Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
-            If hit Is Nothing OrElse hit.MatchingEvents.Count = 0 Then Return
-
-            Dim currentEvent = hit.MatchingEvents(hit.CurrentEventIndex)
-            Dim term = Search_txt.Text
-            Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
-            Dim comparison = If(cs, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
-
-            ' Try to find previous match within current event message
-            If _currentEventMessageMatchIndex > term.Length Then
-                ' Search backwards from before the current match
-                Dim searchUpTo = _currentEventMessageMatchIndex - term.Length - 1
-                Dim prevMatchIndex = currentEvent.Message.LastIndexOf(term, searchUpTo, searchUpTo + 1, comparison)
-
-                If prevMatchIndex >= 0 Then
-                    _currentEventMessageMatchIndex = prevMatchIndex + term.Length
-                    RenderEventWithHighlight(currentEvent, prevMatchIndex, term.Length)
-                    UpdateEventCounter(hit)
-                    If Not _isScanning Then Status("Ready")
-                    Return
-                End If
-            End If
-
-            ' No previous match in current event, move to previous event
-            hit.CurrentEventIndex -= 1
-            If hit.CurrentEventIndex < 0 Then
-                hit.CurrentEventIndex = hit.MatchingEvents.Count - 1
-                If Not _isScanning Then Status("Wrapped to last event")
-            Else
-                If Not _isScanning Then Status("Ready")
-            End If
-
-            ' Start at the end of the new event for reverse search
-            Dim newEvent = hit.MatchingEvents(hit.CurrentEventIndex)
-            _currentEventMessageMatchIndex = newEvent.Message.Length
-            RenderEvent(newEvent)
-            UpdateEventCounter(hit)
+            NavigateEventMatch(False)
         End Sub
 
         Private Sub FindNextEvent_btn_Click(sender As Object, e As RoutedEventArgs)
@@ -3254,38 +3251,7 @@ Namespace Beacon
         ''' Wraps to first event when reaching end
         ''' </summary>
         Private Sub FindNextEvent()
-            Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
-            If hit Is Nothing OrElse hit.MatchingEvents.Count = 0 Then Return
-
-            Dim currentEvent = hit.MatchingEvents(hit.CurrentEventIndex)
-            Dim term = Search_txt.Text
-            Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
-            Dim comparison = If(cs, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
-
-            ' Try to find next match within the current event message
-            Dim nextMatchIndex = currentEvent.Message.IndexOf(term, _currentEventMessageMatchIndex, comparison)
-
-            If nextMatchIndex >= 0 Then
-                ' Found another match in the same event
-                _currentEventMessageMatchIndex = nextMatchIndex + term.Length
-                RenderEventWithHighlight(currentEvent, nextMatchIndex, term.Length)
-                UpdateEventCounter(hit)
-                If Not _isScanning Then Status("Ready")
-                Return
-            End If
-
-            ' No more matches in current event, move to next event
-            hit.CurrentEventIndex += 1
-            If hit.CurrentEventIndex >= hit.MatchingEvents.Count Then
-                hit.CurrentEventIndex = 0
-                If Not _isScanning Then Status("Wrapped to first event")
-            Else
-                If Not _isScanning Then Status("Ready")
-            End If
-
-            _currentEventMessageMatchIndex = 0
-            RenderEvent(hit.MatchingEvents(hit.CurrentEventIndex))
-            UpdateEventCounter(hit)
+            NavigateEventMatch(True)
         End Sub
 
         ''' <summary>
@@ -3298,33 +3264,12 @@ Namespace Beacon
             EventProvider_txt.Text = ev.Provider
             EventTime_txt.Text = If(ev.TimeCreated.HasValue, ev.TimeCreated.Value.ToString("yyyy-MM-dd HH:mm:ss"), "")
 
-            ' Highlight the first occurrence of the search term
-            Dim term = Search_txt.Text
-            If String.IsNullOrWhiteSpace(term) Then
-                EventMessage_txt.Inlines.Clear()
-                EventMessage_txt.Inlines.Add(New Run(ev.Message))
-                _currentEventMessageMatchIndex = 0
-                EventMatchCounter_lbl.Text = "0 match(es) in this event"
-                Return
-            End If
-
-            Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
-            Dim comparison = If(cs, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
-
-            ' Count total matches in this event message
-            Dim totalMatches = CountMatchesInString(ev.Message, term, comparison)
-            EventMatchCounter_lbl.Text = $"{totalMatches} match(es) in this event"
-
-            Dim firstMatchIndex = ev.Message.IndexOf(term, comparison)
-
-            If firstMatchIndex >= 0 Then
-                _currentEventMessageMatchIndex = firstMatchIndex + term.Length
-                RenderEventWithHighlight(ev, firstMatchIndex, term.Length)
-            Else
-                EventMessage_txt.Inlines.Clear()
-                EventMessage_txt.Inlines.Add(New Run(ev.Message))
-                _currentEventMessageMatchIndex = 0
-            End If
+            Dim spans = PreviewSpans(ev.Message)
+            EventMatchCounter_lbl.Text = $"{spans.Count}{If(spans.Count >= SearchQuery.MaximumHighlights, "+", "")} visible match(es) in message"
+            _currentEventMessageMatchIndex = If(spans.Count > 0, spans(0).Start + spans(0).Length, 0)
+            RenderMatchedText(EventMessage_txt, ev.Message, If(spans.Count > 0, spans(0).Start, -1))
+            RenderMatchedText(EventProvider_txt, ev.Provider)
+            RenderMatchedText(EventId_txt, $"Event ID {ev.EventId}")
         End Sub
 
         ''' <summary>
@@ -3332,54 +3277,14 @@ Namespace Beacon
         ''' Uses TextBlock.Inlines with colored Run for highlighted text
         ''' </summary>
         Private Sub RenderEventWithHighlight(ev As EventSummary, highlightStart As Integer, highlightLength As Integer)
-            EventMessage_txt.Inlines.Clear()
-
-            Dim message = ev.Message
-            If String.IsNullOrEmpty(message) Then Return
-
-            ' Ensure indices are valid
-            If highlightStart < 0 OrElse highlightStart >= message.Length Then
-                EventMessage_txt.Inlines.Add(New Run(message))
-                Return
-            End If
-
-            Dim highlightEnd = Math.Min(highlightStart + highlightLength, message.Length)
-
-            ' Text before highlight
-            If highlightStart > 0 Then
-                EventMessage_txt.Inlines.Add(New Run(message.Substring(0, highlightStart)))
-            End If
-
-            ' Highlighted text
-            Dim highlightedRun As New Run(message.Substring(highlightStart, highlightEnd - highlightStart)) With {
-                .Background = New SolidColorBrush(Color.FromRgb(&HFF, &HFF, &H0)),
-                .Foreground = New SolidColorBrush(Colors.Black)
-            }
-            EventMessage_txt.Inlines.Add(highlightedRun)
-
-            ' Text after highlight
-            If highlightEnd < message.Length Then
-                EventMessage_txt.Inlines.Add(New Run(message.Substring(highlightEnd)))
-            End If
+            RenderMatchedText(EventMessage_txt, ev.Message, highlightStart)
         End Sub
 
         ''' <summary>
         ''' Counts how many times a search term appears in a string
         ''' </summary>
         Private Function CountMatchesInString(text As String, term As String, comparison As StringComparison) As Integer
-            If String.IsNullOrEmpty(text) OrElse String.IsNullOrEmpty(term) Then Return 0
-
-            Dim count = 0
-            Dim index = 0
-
-            While index < text.Length
-                index = text.IndexOf(term, index, comparison)
-                If index < 0 Then Exit While
-                count += 1
-                index += term.Length
-            End While
-
-            Return count
+            Return PreviewSpans(text).Count
         End Function
 
         Private Sub UpdateEventCounter(hit As SearchHit)
@@ -3456,8 +3361,8 @@ Namespace Beacon
             If hit.CurrentRequestIndex < 0 OrElse hit.CurrentRequestIndex >= hit.MatchingRequests.Count Then Return
 
             Dim req = hit.MatchingRequests(hit.CurrentRequestIndex)
-            Dim term = Search_txt.Text
-            Dim cs = CaseSensitive_chk.IsChecked.GetValueOrDefault(False)
+            Dim term = If(_activeQuery?.Text, "")
+            Dim cs = If(_activeQuery?.CaseSensitive, False)
             Dim comparison = If(cs, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
 
             ' Highlight HTTP Method
@@ -3472,7 +3377,7 @@ Namespace Beacon
 
             HarTime_txt.Text = If(req.StartedDateTime.HasValue, req.StartedDateTime.Value.ToString("yyyy-MM-dd HH:mm:ss.fff"), "N/A")
             HarDuration_txt.Text = $"{req.Time:F2} ms"
-            HarServerIp_txt.Text = If(String.IsNullOrEmpty(req.ServerIpAddress), "N/A", req.ServerIpAddress)
+            RenderMatchedText(HarServerIp_txt, If(String.IsNullOrEmpty(req.ServerIpAddress), "N/A", req.ServerIpAddress))
 
             ' Highlight Request Headers
             HighlightTextInBlock(HarRequestHeaders_txt,
@@ -3507,51 +3412,16 @@ Namespace Beacon
             If req.ResponseHeaders IsNot Nothing Then totalMatches += CountMatchesInString(req.ResponseHeaders, term, comparison)
             If req.RequestBody IsNot Nothing Then totalMatches += CountMatchesInString(req.RequestBody, term, comparison)
             If req.ResponseBody IsNot Nothing Then totalMatches += CountMatchesInString(req.ResponseBody, term, comparison)
+            If req.ServerIpAddress IsNot Nothing Then totalMatches += CountMatchesInString(req.ServerIpAddress, term, comparison)
 
-            HarMatchCounter_lbl.Text = $"{totalMatches} match(es) in this request"
+            HarMatchCounter_lbl.Text = $"{totalMatches} highlighted span(s) in this request"
         End Sub
 
         ''' <summary>
         ''' Highlights all occurrences of search term in a TextBlock using Inlines
         ''' </summary>
         Private Sub HighlightTextInBlock(textBlock As TextBlock, text As String, term As String, comparison As StringComparison)
-            textBlock.Inlines.Clear()
-
-            If String.IsNullOrEmpty(text) Then
-                textBlock.Inlines.Add(New Run(""))
-                Return
-            End If
-
-            If String.IsNullOrWhiteSpace(term) Then
-                textBlock.Inlines.Add(New Run(text))
-                Return
-            End If
-
-            Dim currentIndex = 0
-            While currentIndex < text.Length
-                Dim matchIndex = text.IndexOf(term, currentIndex, comparison)
-
-                If matchIndex < 0 Then
-                    ' No more matches, add remaining text
-                    textBlock.Inlines.Add(New Run(text.Substring(currentIndex)))
-                    Exit While
-                End If
-
-                ' Add text before match
-                If matchIndex > currentIndex Then
-                    textBlock.Inlines.Add(New Run(text.Substring(currentIndex, matchIndex - currentIndex)))
-                End If
-
-                ' Add highlighted match
-                Dim highlightedRun As New Run(text.Substring(matchIndex, term.Length)) With {
-                    .Background = New SolidColorBrush(Color.FromRgb(&HFF, &HFF, &H0)),
-                    .Foreground = New SolidColorBrush(Colors.Black),
-                    .FontWeight = FontWeights.Bold
-                }
-                textBlock.Inlines.Add(highlightedRun)
-
-                currentIndex = matchIndex + term.Length
-            End While
+            RenderMatchedText(textBlock, text)
         End Sub
 
 #End Region
@@ -3613,6 +3483,7 @@ Namespace Beacon
         Private Sub ShowWebPreviewMode()
             TextPreview_grp.Visibility = Visibility.Collapsed
             EventPreview_grp.Visibility = Visibility.Collapsed
+            HarPreview_grp.Visibility = Visibility.Collapsed
             WebPreview_grp.Visibility = Visibility.Visible
             EventCounter_lbl.Visibility = Visibility.Collapsed
         End Sub
@@ -3688,7 +3559,7 @@ Namespace Beacon
                                        ' Update file label with progress counter
                                        If Not String.IsNullOrEmpty(_pendingFileLabel) Then
                                            If _totalFilesToScan > 0 Then
-                                               CurrentFile_lbl.Text = $"Scanning {_filesScanned} of {_totalFilesToScan}: {_pendingFileLabel}"
+                                               CurrentFile_lbl.Text = $"Scanning {_filesScanned} (estimated total {_totalFilesToScan}): {_pendingFileLabel}"
                                            Else
                                                CurrentFile_lbl.Text = $"Scanning file {_filesScanned}: {_pendingFileLabel}"
                                            End If
@@ -3700,17 +3571,20 @@ Namespace Beacon
         ''' Counts total files in a folder recursively (for progress calculation)
         ''' Archives are counted as their contents, not as single files
         ''' </summary>
-        Private Function CountFilesInFolder(folder As String) As Integer
+        Private Function CountFilesInFolder(folder As String, ct As CancellationToken) As Integer
             Try
                 Dim totalCount As Integer = 0
 
-                For Each filePath In Directory.EnumerateFiles(folder, "*.*", SearchOption.AllDirectories)
+                For Each filePath In FileSystemTraversal.EnumerateFiles(folder, ct,
+                                                                        followReparsePoints:=_settings.FollowReparsePoints,
+                                                                        accessDeniedHandler:=Nothing,
+                                                                        errorHandler:=Nothing, settings:=_settings)
                     Dim ext = Path.GetExtension(filePath)
 
                     ' If it's an archive, count its contents instead of counting it as 1 file
                     If _supportedArchiveExt.Contains(ext) Then
                         Try
-                            Dim archiveCount = CountFilesInArchive(filePath)
+                            Dim archiveCount = CountFilesInArchive(filePath, ct)
                             totalCount += archiveCount
                         Catch ex As Exception
                             ' If we can't count archive contents, count it as 1 file
@@ -3748,64 +3622,26 @@ Namespace Beacon
         ''' Supports ZIP, 7Z, RAR, TAR, CAB and other formats
         ''' Recursively counts nested archives up to 1 level deep
         ''' </summary>
-        Private Function CountFilesInArchive(archivePath As String, Optional depth As Integer = 0) As Integer
+        Private Function CountFilesInArchive(archivePath As String, ct As CancellationToken) As Integer
             Try
                 Dim totalCount As Integer = 0
-
-                ' CAB files use 7-Zip listing
+                Dim inspected As Integer = 0
+                ' Do not extract archives or launch external processes to estimate progress.
                 If Path.GetExtension(archivePath).Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
-                    Try
-                        Dim files = SevenZipHelper.ListCabFiles(archivePath)
-
-                        ' Count each file, recursively counting nested archives
-                        For Each fileName In files
-                            Dim ext = Path.GetExtension(fileName)
-
-                            ' If nested archive and depth allows (max 1 level)
-                            If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
-                                ' We'd need to extract it to count contents, but that's expensive
-                                ' For now, estimate nested archives as 5 files each
-                                totalCount += 5
-                            Else
-                                totalCount += 1
-                            End If
-                        Next
-
-                        Return totalCount
-                    Catch ex As Exception
-                        Debug.WriteLine($"Failed to count CAB files using 7-Zip: {ex.Message}")
-                        Return 0
-                    End Try
+                    Return 1
                 End If
-
-                ' Other archives use SharpCompress
                 Using archive = OpenArchive(archivePath)
                     For Each entry In archive.Entries
+                        ct.ThrowIfCancellationRequested()
+                        inspected += 1
+                        If inspected > _settings.MaximumArchiveEntries Then Exit For
                         If entry.IsDirectory OrElse String.IsNullOrEmpty(entry.Key) Then Continue For
-
-                        Dim ext = Path.GetExtension(entry.Key)
-
-                        ' If nested archive and depth allows (max 1 level)
-                        If _supportedArchiveExt.Contains(ext) AndAlso depth < 1 Then
-                            ' Extract nested archive to temp and count its contents
-                            Try
-                                Dim tempNested = ExtractArchiveEntryToTemp(entry, archivePath)
-                                Try
-                                    totalCount += CountFilesInArchive(tempNested, depth + 1)
-                                Finally
-                                    SafeDelete(tempNested)
-                                End Try
-                            Catch
-                                ' If extraction fails, estimate as 5 files
-                                totalCount += 5
-                            End Try
-                        Else
-                            totalCount += 1
-                        End If
+                        totalCount += 1
                     Next
-
                     Return totalCount
                 End Using
+            Catch ex As OperationCanceledException
+                Throw
             Catch ex As Exception
                 Debug.WriteLine($"Failed to count files in archive {Path.GetFileName(archivePath)}: {ex.Message}")
                 Return 0
@@ -3841,21 +3677,52 @@ Namespace Beacon
         ''' Extracts archive entry to temporary file for EventLogReader access (SharpCompress version)
         ''' EventLogReader requires file path, cannot read from stream
         ''' </summary>
-        Private Function ExtractArchiveEntryToTemp(entry As IArchiveEntry, archivePath As String) As String
+        Private Function ExtractArchiveEntryToTemp(entry As IArchiveEntry, archivePath As String,
+                                                    Optional ct As CancellationToken = Nothing, Optional budget As ArchiveReadBudget = Nothing) As String
             Dim tempDir = Path.Combine(Path.GetTempPath(), "BeaconFindInFiles")
             Directory.CreateDirectory(tempDir)
 
             Dim tempFile = Path.Combine(tempDir, Guid.NewGuid().ToString("N") & "_" & Path.GetFileName(entry.Key))
 
-            Using input = entry.OpenEntryStream()
+            _tempToDelete.Add(tempFile)
+            Using input = OpenBoundedArchiveEntry(entry, archivePath, ct, budget)
                 Using output As New FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None)
                     input.CopyTo(output)
                 End Using
             End Using
 
             ' Track for cleanup on Reset or app close
-            _tempToDelete.Add(tempFile)
             Return tempFile
+        End Function
+
+        Private Function OpenBoundedDiskFile(filePath As String, ct As CancellationToken,
+                                              Optional preview As Boolean = False) As Stream
+            Dim limit = CLng(If(preview, Math.Min(_settings.MaximumPreviewSizeMb, _settings.MaximumFileSizeMb),
+                               _settings.MaximumFileSizeMb)) * 1024 * 1024
+            Return New BoundedReadStream(New FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), limit, ct,
+                                         onError:=Sub(ex) RecordFileSystemIssue(filePath, ex))
+        End Function
+
+        Private Function ReadPreviewFile(filePath As String) As String
+            Using stream = OpenBoundedDiskFile(filePath, CancellationToken.None, preview:=True)
+                Using reader As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True)
+                    Return reader.ReadToEnd()
+                End Using
+            End Using
+        End Function
+
+        Private Function OpenBoundedArchiveEntry(entry As IArchiveEntry, archivePath As String,
+                                                  ct As CancellationToken, Optional budget As ArchiveReadBudget = Nothing) As Stream
+            ct.ThrowIfCancellationRequested()
+            Dim preview = budget Is Nothing
+            If budget Is Nothing Then
+                budget = New ArchiveReadBudget(_settings, New FileInfo(archivePath).Length)
+                budget.Register(entry.Key, entry.Size, entry.CompressedSize, entry.IsEncrypted, entry.LinkTarget)
+            End If
+            Dim limit = Math.Min(entry.Size, budget.EntryLimit)
+            If preview Then limit = Math.Min(limit, CLng(_settings.MaximumPreviewSizeMb) * 1024 * 1024)
+            Return New BoundedReadStream(entry.OpenEntryStream(), limit, ct, budget,
+                                         Sub(ex) RecordFileSystemIssue(archivePath & " | " & entry.Key, ex))
         End Function
 
         ''' <summary>
@@ -3866,6 +3733,16 @@ Namespace Beacon
                 SafeDelete(f)
             Next
             _tempToDelete.Clear()
+            For Each directoryPath In _tempDirectories.ToList()
+                Try
+                    Directory.Delete(directoryPath, True)
+                Catch ex As IOException
+                    Debug.WriteLine($"Could not remove Beacon extraction directory: {ex.Message}")
+                Catch ex As UnauthorizedAccessException
+                    Debug.WriteLine($"Could not remove Beacon extraction directory: {ex.Message}")
+                End Try
+            Next
+            _tempDirectories.Clear()
         End Sub
 
         Private Sub SafeDelete(path As String)

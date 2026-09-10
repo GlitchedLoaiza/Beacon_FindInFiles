@@ -1,6 +1,7 @@
 Imports System.IO
 Imports System.Diagnostics
 Imports System.Reflection
+Imports System.Security.Cryptography
 
 ''' <summary>
 ''' Helper class for extracting CAB files using 7-Zip command line tool
@@ -33,29 +34,37 @@ Public Class SevenZipHelper
                     Return Nothing
                 End If
 
-                ' Extract to temp directory
-                Dim tempDir = Path.Combine(Path.GetTempPath(), "Beacon_7zip")
+                ' Extract to an application-owned, versioned directory.
+                Dim version = assembly.GetName().Version?.ToString()
+                If String.IsNullOrWhiteSpace(version) Then version = "unknown"
+                Dim tempDir = Path.Combine(Path.GetTempPath(), "Beacon", "Tools", version)
                 Directory.CreateDirectory(tempDir)
 
                 _extractedSevenZipPath = Path.Combine(tempDir, "7za.exe")
 
-                ' Only extract if not already present
-                If Not File.Exists(_extractedSevenZipPath) Then
-                    Using resourceStream = assembly.GetManifestResourceStream(resourceName)
-                        If resourceStream Is Nothing Then
-                            Debug.WriteLine("ERROR: Could not open resource stream for " & resourceName)
-                            Return Nothing
-                        End If
+                Using resourceStream = assembly.GetManifestResourceStream(resourceName)
+                    If resourceStream Is Nothing Then
+                        Debug.WriteLine("ERROR: Could not open resource stream for " & resourceName)
+                        Return Nothing
+                    End If
 
-                        Using fileStream As New FileStream(_extractedSevenZipPath, FileMode.Create, FileAccess.Write)
+                    Dim embeddedHash = SHA256.HashData(resourceStream)
+                    Dim existingIsValid = File.Exists(_extractedSevenZipPath) AndAlso
+                        CryptographicOperations.FixedTimeEquals(embeddedHash, SHA256.HashData(File.ReadAllBytes(_extractedSevenZipPath)))
+
+                    If Not existingIsValid Then
+                        resourceStream.Position = 0
+                        Dim pendingPath = _extractedSevenZipPath & ".new"
+                        Using fileStream As New FileStream(pendingPath, FileMode.Create, FileAccess.Write, FileShare.None)
                             resourceStream.CopyTo(fileStream)
+                            fileStream.Flush(True)
                         End Using
-                    End Using
-
-                    Debug.WriteLine("✓ Extracted 7za.exe to: " & _extractedSevenZipPath)
-                Else
-                    Debug.WriteLine("✓ Using existing 7za.exe at: " & _extractedSevenZipPath)
-                End If
+                        File.Move(pendingPath, _extractedSevenZipPath, True)
+                        Debug.WriteLine("✓ Extracted verified 7za.exe to: " & _extractedSevenZipPath)
+                    Else
+                        Debug.WriteLine("✓ Verified existing 7za.exe at: " & _extractedSevenZipPath)
+                    End If
+                End Using
 
                 Return _extractedSevenZipPath
 
@@ -73,57 +82,26 @@ Public Class SevenZipHelper
     ''' <param name="cabPath">Full path to the CAB file</param>
     ''' <param name="outputDir">Directory where files should be extracted</param>
     ''' <returns>True if extraction succeeded, False otherwise</returns>
-    Public Shared Function ExtractCab(cabPath As String, outputDir As String) As Boolean
+    Public Shared Function ExtractCab(cabPath As String, outputDir As String,
+                                      Optional settings As Beacon.BeaconSettings = Nothing,
+                                      Optional token As Threading.CancellationToken = Nothing,
+                                      Optional report As Action(Of String, Exception) = Nothing) As Boolean
         Try
-            ' Ensure output directory exists
-            Directory.CreateDirectory(outputDir)
-
-            ' Get path to 7za.exe (extracted from embedded resources)
             Dim sevenZipPath As String = EnsureSevenZipExtracted()
-
             If String.IsNullOrEmpty(sevenZipPath) OrElse Not File.Exists(sevenZipPath) Then
-                Debug.WriteLine("ERROR: 7za.exe not available")
-                Return False
+                Throw New IOException("Embedded 7-Zip reader is unavailable.")
             End If
-
-            Debug.WriteLine("Using 7za.exe from: " & sevenZipPath)
-
-            ' Build process start info
-            ' x = extract with full paths
-            ' -o = output directory
-            ' -y = assume Yes on all queries (overwrite without prompting)
-            Dim psi As New ProcessStartInfo() With {
-                .FileName = sevenZipPath,
-                .Arguments = $"x ""{cabPath}"" -o""{outputDir}"" -y",
-                .UseShellExecute = False,
-                .CreateNoWindow = True,
-                .RedirectStandardOutput = True,
-                .RedirectStandardError = True
-            }
-
-            Debug.WriteLine("Executing: " & psi.FileName & " " & psi.Arguments)
-
-            Dim process As Process = Process.Start(psi)
-            Using process
-                Dim output = process.StandardOutput.ReadToEnd()
-                Dim errorOutput = process.StandardError.ReadToEnd()
-                process.WaitForExit()
-
-                If process.ExitCode = 0 Then
-                    Debug.WriteLine("7z extraction successful")
-                    Return True
-                Else
-                    Debug.WriteLine("7z extraction failed with exit code " & process.ExitCode.ToString())
-                    If Not String.IsNullOrEmpty(errorOutput) Then
-                        Debug.WriteLine("Error output: " & errorOutput)
-                    End If
-                    Return False
-                End If
-            End Using
-
+            ' Run the async pipe readers off the WPF dispatcher even for synchronous preview callers.
+            Threading.Tasks.Task.Run(Function() Beacon.CabExtractor.ExtractAsync(sevenZipPath, cabPath, outputDir,
+                                       If(settings, Beacon.BeaconSettings.CreateDefaults()), token)).GetAwaiter().GetResult()
+            Return True
+        Catch ex As OperationCanceledException
+            If token.IsCancellationRequested Then Throw
+            report?.Invoke(cabPath, New TimeoutException("CAB extraction exceeded its configured timeout.", ex))
+            Return False
         Catch ex As Exception
             Debug.WriteLine("Exception during CAB extraction: " & ex.Message)
-            Debug.WriteLine("Stack trace: " & ex.StackTrace)
+            report?.Invoke(cabPath, ex)
             Return False
         End Try
     End Function
@@ -151,17 +129,25 @@ Public Class SevenZipHelper
             ' -slt = show technical information (one file per section)
             Dim psi As New ProcessStartInfo() With {
                 .FileName = sevenZipPath,
-                .Arguments = $"l ""{cabPath}""",
                 .UseShellExecute = False,
                 .CreateNoWindow = True,
                 .RedirectStandardOutput = True,
                 .RedirectStandardError = True
             }
+            psi.ArgumentList.Add("l")
+            psi.ArgumentList.Add(cabPath)
 
             Dim process As Process = Process.Start(psi)
             Using process
-                Dim output = process.StandardOutput.ReadToEnd()
-                process.WaitForExit()
+                Dim outputTask = process.StandardOutput.ReadToEndAsync()
+                Dim errorTask = process.StandardError.ReadToEndAsync()
+                If Not process.WaitForExit(60000) Then
+                    process.Kill(True)
+                    Debug.WriteLine("7z listing timed out")
+                    Return files
+                End If
+                Dim output = outputTask.GetAwaiter().GetResult()
+                errorTask.GetAwaiter().GetResult()
 
                 If process.ExitCode = 0 Then
                     ' Parse output - 7z list format has file names after the header

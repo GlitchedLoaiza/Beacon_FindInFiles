@@ -1,0 +1,113 @@
+<Window x:Class="Beacon.ScanReportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Beacon — Scan diagnostics" Width="920" Height="720" MinWidth="720" MinHeight="560"
+        FontFamily="Segoe UI" FontSize="13" WindowStartupLocation="CenterOwner" Icon="/beacon_no_bg.png"
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="SettingsStyles.xaml"/></ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F3F3"/>
+            <SolidColorBrush x:Key="CardBackgroundBrush" Color="White"/>
+            <SolidColorBrush x:Key="CardBorderBrush" Color="#E0E0E0"/>
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="#202020"/>
+            <SolidColorBrush x:Key="TextSecondaryBrush" Color="#666666"/>
+            <SolidColorBrush x:Key="InputBackgroundBrush" Color="White"/>
+            <SolidColorBrush x:Key="InputBorderBrush" Color="#CCCCCC"/>
+            <SolidColorBrush x:Key="AccentBrush" Color="#0066CC"/>
+            <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#F0F0F0"/>
+            <SolidColorBrush x:Key="ButtonHoverBrush" Color="#E0E0E0"/>
+            <SolidColorBrush x:Key="ButtonPressedBrush" Color="#D0D0D0"/>
+            <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="#E5F1FF"/>
+            <SolidColorBrush x:Key="CheckmarkBrush" Color="White"/>
+            <SolidColorBrush x:Key="PrimaryButtonBrush" Color="#0066CC"/>
+            <SolidColorBrush x:Key="PrimaryButtonHoverBrush" Color="#005CB8"/>
+            <SolidColorBrush x:Key="PrimaryButtonPressedBrush" Color="#004A99"/>
+            <BooleanToVisibilityConverter x:Key="BooleanVisibility"/>
+            <Style x:Key="DiagnosticItemStyle" TargetType="ListBoxItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="ItemBorder" Padding="10,8" Margin="2" CornerRadius="4" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/></Trigger>
+                                <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/></Trigger>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,12">
+            <TextBlock Text="Scan diagnostics" FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock x:Name="Source_txt" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+        <Border Grid.Row="1" Padding="12" CornerRadius="6" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1">
+            <StackPanel>
+                <TextBlock x:Name="Coverage_txt" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock x:Name="Summary_txt" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="Query_txt" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </Border>
+        <Grid Grid.Row="2" Margin="0,12,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,12,0">
+                <TextBlock Text="Filter diagnostics"/>
+                <TextBox x:Name="Filter_txt" ToolTip="Find a file or message in this list. Copy all diagnostics includes the unfiltered list." Margin="0,5,0,4"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="Severity"/>
+                <ComboBox x:Name="Severity_cmb" Margin="0,5,0,4"/>
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="3">
+            <ListBox x:Name="Diagnostics_lst" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
+                     Foreground="{DynamicResource TextPrimaryBrush}" ItemContainerStyle="{StaticResource DiagnosticItemStyle}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.ScrollUnit="Pixel"
+                     VirtualizingStackPanel.IsVirtualizing="True" VirtualizingStackPanel.VirtualizationMode="Recycling">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Heading}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding SourcePath}" ToolTip="{Binding SourcePath}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding Message}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="{Binding TimestampUtc, StringFormat={}{0:yyyy-MM-dd HH:mm:ss} UTC}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{Binding Occurrences, StringFormat={} · reported {0} time(s)}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="TechnicalDetailsText" Text="{Binding TechnicalText}" Margin="0,6,0,0" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                                       Visibility="{Binding Tag, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanVisibility}}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="EmptyDiagnostics_txt" Text="No diagnostics recorded." IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </Grid>
+        <StackPanel Grid.Row="4" Margin="0,8,0,12">
+            <TextBlock x:Name="DiagnosticCount_txt" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBlock Text="Paths and error messages may contain sensitive data. Review before sharing." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <TextBlock x:Name="ReportStatus_txt" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="Refresh_btn" Content="Refresh" Margin="0,0,8,0"/>
+                <Button x:Name="CopyIssues_btn" Content="Copy all diagnostics" Margin="0"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="Close_btn" Content="Close" IsCancel="True"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
