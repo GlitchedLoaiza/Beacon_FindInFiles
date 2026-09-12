@@ -111,6 +111,21 @@ Module SearchChecks
                               Ensure(hits.Count = 1, "Nested archive content was not searched.")
                               Ensure(CStr(PropertyValue(hits(0), "LogicalPath")) = zipPath & " | inner.zip | target.log", "Temporary names leaked into logical paths.")
                           End Sub)
+            CheckPipeline(zipPath, "error", SearchMode.PlainText, New BeaconSettings With {.ArchiveNestingDepth = 0},
+                          Sub(hits) Ensure(hits.Count = 0, "Depth-zero scan entered a nested archive."), expectedCount:=0)
+            Using archive = ZipFile.Open(zipPath, ZipArchiveMode.Update)
+                Using writer As New StreamWriter(archive.CreateEntry("second.log").Open())
+                    writer.Write("unmatched text")
+                End Using
+                Using writer As New StreamWriter(archive.CreateEntry(".git/ignored.log").Open())
+                    writer.Write("error")
+                End Using
+                archive.CreateEntry("empty-directory/")
+            End Using
+            CheckPipeline(zipPath, "error", SearchMode.PlainText, New BeaconSettings With {.ArchiveNestingDepth = 1},
+                          Sub(hits) Ensure(hits.Count = 1, "Archive exclusions changed results."), expectedCount:=2)
+            CheckPipeline(zipPath, "error", SearchMode.PlainText, New BeaconSettings With {.ArchiveNestingDepth = 0},
+                          Sub(hits) Ensure(hits.Count = 0, "Depth-zero scan entered a nested archive."), expectedCount:=1)
             options = New BeaconSettings With {.SearchFileContents = False, .SearchFullPaths = True}
             CheckPipeline(zipPath, "outer.zip target.log", SearchMode.AllTerms, options,
                           Sub(hits) Ensure(hits.Count = 1 AndAlso Details(hits(0))(0).IsMetadata, "Logical archive-path search failed."))
@@ -197,6 +212,32 @@ Module SearchChecks
             CheckPipeline(cab, "code=\d+", SearchMode.RegularExpression, options,
                           Sub(hits) Ensure(hits.Count = 1 AndAlso Details(hits(0)).Count = 2 AndAlso
                                            CStr(PropertyValue(hits(0), "LogicalPath")) = cab & " | sample.log", "CAB content or logical paths failed."))
+            Dim ddf = Path.Combine(root, "multiple.ddf")
+            Dim multiCab = Path.Combine(root, "multiple.cab")
+            File.WriteAllLines(ddf, {".OPTION EXPLICIT", ".Set Cabinet=on", ".Set Compress=on", ".Set CabinetNameTemplate=multiple.cab",
+                                    ".Set DiskDirectoryTemplate=""" & root & """", ".Set InfFileName=""" & Path.Combine(root, "multiple.inf") & """",
+                                    ".Set RptFileName=""" & Path.Combine(root, "multiple.rpt") & """",
+                                    """" & sourceFile & """ one.log", """" & sourceFile & """ two.log", """" & sourceFile & """ three.log"})
+            start.ArgumentList.Clear()
+            start.ArgumentList.Add("/F")
+            start.ArgumentList.Add(ddf)
+            Using child = System.Diagnostics.Process.Start(start)
+                If Not child.WaitForExit(15000) Then
+                    child.Kill(True)
+                    Throw New TimeoutException("Multi-file CAB creation timed out.")
+                End If
+                Ensure(child.ExitCode = 0, "Multi-file CAB creation failed.")
+            End Using
+            CheckPipeline(multiCab, "code=", SearchMode.PlainText, options,
+                          Sub(hits) Ensure(hits.Count = 3, "Multi-file CAB search missed files."), expectedCount:=3)
+            Dim wrappedCab = Path.Combine(root, "wrapped.zip")
+            Using archive = ZipFile.Open(wrappedCab, ZipArchiveMode.Create)
+                archive.CreateEntryFromFile(multiCab, "nested.cab")
+            End Using
+            CheckPipeline(wrappedCab, "code=", SearchMode.PlainText, options,
+                          Sub(hits) Ensure(hits.Count = 3, "Nested CAB search missed files."), expectedCount:=3)
+            CheckPipeline(wrappedCab, "code=", SearchMode.PlainText, New BeaconSettings With {.ArchiveNestingDepth = 0},
+                          Sub(hits) Ensure(hits.Count = 0, "Nested CAB bypassed the depth limit."), expectedCount:=0)
         Finally
             Directory.Delete(root, True)
         End Try
@@ -209,8 +250,8 @@ Module SearchChecks
         window.UpdateLayout()
     End Sub
 
-    Private Sub CheckPipeline(root As String, text As String, mode As SearchMode, settings As BeaconSettings, check As Action(Of List(Of Object)),
-                              Optional inspect As Action(Of MainWindow, List(Of Object)) = Nothing)
+    Friend Sub CheckPipeline(root As String, text As String, mode As SearchMode, settings As BeaconSettings, check As Action(Of List(Of Object)),
+                              Optional inspect As Action(Of MainWindow, List(Of Object)) = Nothing, Optional expectedCount As Integer? = Nothing)
         Dim window As New MainWindow()
         Dim flags = BindingFlags.Instance Or BindingFlags.NonPublic
         Dim type = GetType(MainWindow)
@@ -225,8 +266,26 @@ Module SearchChecks
             type.GetField("_scanRootFolder", flags).SetValue(window, If(Directory.Exists(root), root, ""))
             Try
                 Dim work = Task.Run(Async Function()
+                                        Using cancelled As New CancellationTokenSource()
+                                            cancelled.Cancel()
+                                            Dim cancelledWork = DirectCast(type.GetMethod("CountSourceFilesAsync", flags).Invoke(window, {root, CType(cancelled.Token, Object)}), Task)
+                                            Try
+                                                Await cancelledWork
+                                                Throw New InvalidOperationException("Counting swallowed cancellation.")
+                                            Catch ex As OperationCanceledException
+                                            End Try
+                                            Ensure(Not CBool(type.GetField("_isCountingFiles", flags).GetValue(window)), "Cancelled counting left the phase active.")
+                                        End Using
+                                        Await DirectCast(type.GetMethod("CountSourceFilesAsync", flags).Invoke(window, {root, CType(source.Token, Object)}), Task)
+                                        Ensure(CInt(type.GetField("_filesScanned", flags).GetValue(window)) = 0, "Counting incremented the scanned counter.")
+                                        Ensure(Not DirectCast(type.GetField("_hits", flags).GetValue(window), IEnumerable).Cast(Of Object)().Any(), "Counting published search results.")
+                                        Ensure(Not DirectCast(type.GetField("_tempDirectories", flags).GetValue(window), IEnumerable).Cast(Of Object)().Any(), "Counting retained extracted directories.")
+                                        If expectedCount.HasValue Then Ensure(CInt(type.GetField("_totalFilesToScan", flags).GetValue(window)) = expectedCount.Value, "Full nested count is incorrect for " & root & ".")
                                         Dim task = DirectCast(type.GetMethod("SearchSourceAsync", flags).Invoke(window, {root, CType(source.Token, Object)}), Task)
                                         Await task
+                                        If Not CBool(type.GetField("_resultLimitReached", flags).GetValue(window)) Then
+                                            Ensure(CInt(type.GetField("_filesScanned", flags).GetValue(window)) = CInt(type.GetField("_totalFilesToScan", flags).GetValue(window)), "Count and search disagree on eligible files.")
+                                        End If
                                     End Function)
                 While Not work.IsCompleted
                     window.Dispatcher.Invoke(Sub()

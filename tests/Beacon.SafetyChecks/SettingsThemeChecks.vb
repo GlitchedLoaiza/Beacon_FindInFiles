@@ -21,6 +21,7 @@ Module SettingsThemeChecks
             Require(window.FindName("Export_btn") Is Nothing AndAlso window.FindName("IncludeExcerpts_chk") Is Nothing AndAlso window.FindName("IncludeTechnical_chk") Is Nothing,
                     "Diagnostics still contains redundant export/settings controls.")
             Require(window.Title.Contains("diagnostics", StringComparison.OrdinalIgnoreCase), "Diagnostics purpose is unclear.")
+            NativeCaptionChecks.Verify(window, dark)
             Dim list = DirectCast(window.FindName("Diagnostics_lst"), ListBox)
             Require(list.Items.Count = 1, "Report diagnostics were not displayed.")
             Dim row = DirectCast(list.ItemContainerGenerator.ContainerFromIndex(0), ListBoxItem)
@@ -80,6 +81,23 @@ Module SettingsThemeChecks
             window.Show()
             Pump(window)
             CheckFontSelector(window, dark)
+            NativeCaptionChecks.Verify(window, dark)
+            Dim theme = DirectCast(window.FindName("Theme_cmb"), ComboBox)
+            Require(theme.Items.Cast(Of ComboBoxItem)().Select(Function(item) CStr(item.Content)).SequenceEqual({"Light", "Dark", "System theme"}), "Theme choices are incorrect.")
+            Require(CStr(theme.SelectedValue) = "System", "Theme should default to Windows preferences.")
+            For Each choice In [Enum].GetValues(Of AppTheme)()
+                Dim saved = BeaconSettingsService.Clone(New BeaconSettings With {.Theme = choice})
+                Require(saved.Theme = choice, "Theme did not survive settings serialization.")
+                Dim themedWindow As New SettingsWindow(saved, dark)
+                Try
+                    Require(CStr(DirectCast(themedWindow.FindName("Theme_cmb"), ComboBox).SelectedValue) = choice.ToString(), "Settings did not load the saved theme.")
+                    DirectCast(themedWindow.FindName("RestoreDefaults_btn"), Button).RaiseEvent(New RoutedEventArgs(Button.ClickEvent))
+                    Require(CStr(DirectCast(themedWindow.FindName("Theme_cmb"), ComboBox).SelectedValue) = "System", "Restore defaults did not reset the theme.")
+                Finally
+                    themedWindow.Close()
+                End Try
+            Next
+            Require(BeaconSettingsService.Validate(New BeaconSettings With {.Theme = CType(999, AppTheme)}).Theme = AppTheme.System, "Invalid theme did not fall back to System.")
             Dim card = DirectCast(window.Resources("CardBackgroundBrush"), SolidColorBrush)
             Dim primary = DirectCast(window.Resources("TextPrimaryBrush"), SolidColorBrush)
             Require(card.Color = If(dark, Color.FromRgb(&H2B, &H2B, &H2B), Colors.White), "Palette differs from Beacon.")
@@ -97,9 +115,16 @@ Module SettingsThemeChecks
                     CheckContrast(heading.Foreground, card, heading.Text)
                 Next
                 For Each editor As TextBox In Descendants(window).OfType(Of TextBox)().ToArray()
+                    If Not editor.IsVisible Then Continue For
+                    editor.ApplyTemplate()
                     CheckContrast(editor.Foreground, editor.Background, editor.Name)
                     Require(editor.Template.FindName("PART_ContentHost", editor) IsNot Nothing, "TextBox content host is missing.")
-                    CheckTextFits(window, editor)
+                    If editor.Name = "PART_EditableTextBox" Then
+                        Require(editor.Text.Length = 0 OrElse TextFitsViewport(editor, DirectCast(editor.Template.FindName("PART_ContentHost", editor), ScrollViewer)),
+                                "Editable provider text is clipped.")
+                    Else
+                        CheckTextFits(window, editor)
+                    End If
                 Next
                 For Each check In Descendants(window).OfType(Of CheckBox)().ToArray()
                     CheckContrast(check.Foreground, card, check.Name)
@@ -231,6 +256,7 @@ Module SettingsThemeChecks
             Pump(window)
             Require(toolbar.FindName("SearchModeHelp_txt") Is Nothing, "Passive search summary is still displayed.")
             Require(toolbar.FindName("ExactMatch_chk") Is Nothing, "Duplicate whole-word checkbox is still displayed.")
+            Require(toolbar.FindName("ThemeToggle_btn") Is Nothing, "Theme toggle is still on the toolbar.")
             Dim settingsButton = DirectCast(toolbar.FindName("Settings_btn"), Button)
             Dim icon = Descendants(settingsButton).OfType(Of TextBlock)().Single(Function(item) item.FontFamily.Source = "Segoe MDL2 Assets")
             Require(icon.Text = ChrW(&HE90F), "Settings wrench glyph is missing.")

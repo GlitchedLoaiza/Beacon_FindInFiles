@@ -7,11 +7,34 @@ Imports SharpCompress.Archives
 
 Namespace Beacon
     Partial Public Class MainWindow
+        Private _isCountingFiles As Boolean
+
+        Private Async Function CountSourceFilesAsync(root As String, ct As CancellationToken) As Task
+            _isCountingFiles = True
+            _totalFilesToScan = 0
+            Try
+                Await SearchSourceAsync(root, ct)
+            Finally
+                CleanupTemp()
+                _isCountingFiles = False
+            End Try
+        End Function
+
+        Private Sub CountSourceFile()
+            If _isCountingFiles Then
+                _totalFilesToScan += 1
+            Else
+                _filesScanned += 1
+            End If
+            UpdateScanProgress()
+        End Sub
+
         Private Function NewSourceHit(physicalPath As String, logicalPath As String, kind As HitKind,
                                       Optional archivePath As String = Nothing, Optional entryName As String = Nothing) As SearchHit
             RememberSourcePath(physicalPath, logicalPath)
             Dim hit As New SearchHit With {.FilePath = physicalPath, .LogicalPath = logicalPath, .Kind = kind,
                 .ZipPath = archivePath, .ZipEntryName = entryName, .DisplayName = DisplaySourcePath(logicalPath)}
+            If _isCountingFiles Then Return hit
             Dim leaf = If(entryName, physicalPath)
             If _searchOptions.SearchFileNames Then
                 Dim detail = SearchDetail.FromRecord(_activeQuery, Path.GetFileName(leaf), "File name", metadata:=True)
@@ -32,6 +55,7 @@ Namespace Beacon
         End Function
 
         Private Sub PublishSourceHit(hit As SearchHit)
+            If _isCountingFiles Then Return
             If hit.Details.Count = 0 Then Return
             If hit.PartialReason.Contains("limit", StringComparison.OrdinalIgnoreCase) Then Interlocked.Increment(_structuredLimitFiles)
             AddHit(hit)
@@ -45,7 +69,7 @@ Namespace Beacon
                     If Volatile.Read(_resultLimitReached) Then Exit For
                     Await SearchDiskSourceAsync(filePath, Path.GetFullPath(filePath), ct)
                 Next
-            Else
+            ElseIf FileSystemTraversal.IsFileAllowed(root, _searchOptions, AddressOf RecordFileSystemIssue) Then
                 Await SearchDiskSourceAsync(root, Path.GetFullPath(root), ct)
             End If
         End Function
@@ -62,8 +86,8 @@ Namespace Beacon
                     If Not Volatile.Read(_resultLimitReached) Then Await SearchArchiveSourceAsync(physicalPath, logicalPath, depth, ct)
                     Return
                 End If
-                _filesScanned += 1
-                UpdateScanProgress()
+                CountSourceFile()
+                If _isCountingFiles Then Return
                 If _searchOptions.SearchFileContents Then
                     If _supportedTextExt.Contains(extension) Then
                         Using stream = OpenBoundedDiskFile(physicalPath, ct)
@@ -101,7 +125,7 @@ Namespace Beacon
                 If attributes.HasValue Then Return CType(attributes.Value, FileAttributes)
                 Return Nothing
             Catch ex As NotImplementedException
-                ' SharpCompress 0.38 does not expose attributes for every archive format.
+                ' Some formats still do not expose attributes (for example TAR).
                 Return Nothing
             End Try
         End Function
@@ -117,7 +141,7 @@ Namespace Beacon
                 Return
             End If
             Try
-                Using archive = OpenArchive(physicalPath)
+                Using archive = OpenArchive(physicalPath, ct, _searchOptions)
                     Dim budget As New ArchiveReadBudget(_searchOptions, New FileInfo(physicalPath).Length)
                     For Each entry In archive.Entries
                         ct.ThrowIfCancellationRequested()
@@ -144,8 +168,8 @@ Namespace Beacon
                             End If
                             Continue For
                         End If
-                        _filesScanned += 1
-                        UpdateScanProgress()
+                        CountSourceFile()
+                        If _isCountingFiles Then Continue For
                         If _searchOptions.SearchFileContents Then
                             If _supportedTextExt.Contains(extension) Then
                                 Using stream = OpenBoundedArchiveEntry(entry, physicalPath, ct, budget)
@@ -175,16 +199,24 @@ Namespace Beacon
         End Function
 
         Private Sub CollectEventDetails(filePath As String, hit As SearchHit, ct As CancellationToken)
+            Dim filter = EvtxFilter.FromSettings(_searchOptions)
+            Dim missingProviders As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
             Using reader As New EventLogReader(filePath, PathType.FilePath)
                 While True
                     ct.ThrowIfCancellationRequested()
                     Using record = reader.ReadEvent()
                         If record Is Nothing Then Exit While
                         Dim provider = ReadEventField(Function() record.ProviderName, "Unknown")
+                        Dim timestamp = record.TimeCreated
+                        Dim levelNumber = record.Level
+                        If Not filter.Matches(record.Id, provider, levelNumber, timestamp) Then Continue While
                         Dim level = ReadEventField(Function() record.LevelDisplayName, "Unknown")
                         Dim message = ReadEventField(Function() record.FormatDescription(), "")
+                        Dim unavailable = String.IsNullOrWhiteSpace(message)
+                        If unavailable AndAlso missingProviders.Add(provider) Then
+                            RecordDiagnostic(hit.LogicalPath, New InvalidDataException($"Message text unavailable for provider '{provider}'. XML remains searchable. {EvtxFilter.ResourceGuidance}"), "EVTX message resources", "Warning")
+                        End If
                         Dim xml = record.ToXml()
-                        Dim timestamp = record.TimeCreated
                         Dim location = $"Event {record.Id} · {If(timestamp.HasValue, timestamp.Value.ToString("g"), "no timestamp")}"
                         Dim content = String.Join(vbLf, {"Event ID " & record.Id.ToString(), provider, level,
                                                        If(timestamp.HasValue, timestamp.Value.ToString("O"), ""), message})
@@ -204,11 +236,16 @@ Namespace Beacon
                         If detail Is Nothing Then Continue While
                         If detail.ContextKind = "Record text" Then detail.ContextKind = "Event text lines"
                         If String.IsNullOrWhiteSpace(message) Then
-                            message = "Message resources are unavailable. Raw event XML:" & vbCrLf &
-                                      PreviewFormatting.FormatXml(xml, True, CLng(_searchOptions.MaximumPreviewSizeMb) * 1024 * 1024)
+                            message = "Message resources are unavailable. Use Raw XML or the offline resource guidance below."
+                            If _searchOptions.ShowRawXmlWhenMessageUnavailable Then
+                                message &= vbCrLf & PreviewFormatting.FormatXml(xml, True, CLng(_searchOptions.MaximumPreviewSizeMb) * 1024 * 1024)
+                            End If
                         End If
+                        Dim xmlLimit = CInt(Math.Min(65536L, CLng(_searchOptions.MaximumPreviewSizeMb) * 1024 * 1024))
+                        Dim capturedXml = If(xml.Length > xmlLimit, xml.Substring(0, xmlLimit), xml)
                         hit.MatchingEvents.Add(New EventSummary With {.Provider = provider, .Level = level,
-                            .EventId = record.Id, .TimeCreated = timestamp, .Message = message})
+                            .EventId = record.Id, .TimeCreated = timestamp, .Message = message, .LevelNumber = levelNumber,
+                            .RawXml = capturedXml, .XmlShortened = xml.Length > xmlLimit, .MessageUnavailable = unavailable})
                         hit.Details.Add(detail)
                         If _searchOptions.StopAfterFirstMatchPerFile OrElse
                            hit.MatchingEvents.Count >= Math.Min(_searchOptions.MaximumStructuredMatches, _searchOptions.EvtxMaximumMatches) Then
@@ -229,6 +266,8 @@ Namespace Beacon
         End Function
 
         Private Async Function CollectHarDetailsAsync(stream As Stream, hit As SearchHit, ct As CancellationToken) As Task
+            Dim filter = HarFilter.FromSettings(_searchOptions)
+            Dim incomplete As Boolean
             Using document = Await JsonDocument.ParseAsync(stream, cancellationToken:=ct)
                 Dim log As JsonElement
                 Dim entries As JsonElement
@@ -241,14 +280,22 @@ Namespace Beacon
                 For Each entry In entries.EnumerateArray()
                     ct.ThrowIfCancellationRequested()
                     ordinal += 1
-                    Dim request = ParseHarEntry(entry)
-                    If request Is Nothing Then Continue For
-                    Dim content = String.Join(vbLf, {request.Method, request.Url, request.StatusCode.ToString(), request.StatusText,
-                        request.ServerIpAddress, request.RequestHeaders, request.ResponseHeaders, request.RequestBody, request.ResponseBody})
-                    Dim detail = SearchDetail.FromRecord(_activeQuery, content, $"Request {ordinal:N0} · {request.Method} {request.StatusCode}",
-                                                          recordIndex:=hit.MatchingRequests.Count, token:=ct)
-                    If detail Is Nothing Then Continue For
-                    detail.ContextKind = "Request text lines"
+                    Dim request As HarRecord
+                    Try
+                        request = HarReader.Read(entry, _searchOptions, ct)
+                    Catch ex As InvalidDataException
+                        RecordDiagnostic(hit.LogicalPath, New InvalidDataException($"HAR request {ordinal}: invalid request structure."), "HAR parsing", "Warning")
+                        incomplete = True
+                        Continue For
+                    End Try
+                    If Not filter.Matches(request) Then Continue For
+                    If request.BodyIncomplete Then
+                        incomplete = True
+                        RecordDiagnostic(hit.LogicalPath, New InvalidDataException(request.BodyNotice), "HAR body limits", "Warning")
+                    End If
+                    If Not _activeQuery.IsMatch(request.SearchText(), ct) Then Continue For
+                    request = HarRedaction.Present(request, _searchOptions.RedactSensitiveHarData, ct)
+                    Dim detail = HarRedaction.CaptureDetail(_activeQuery, request, $"Request {ordinal:N0} · {request.Method} {request.StatusCode}", hit.MatchingRequests.Count, ct)
                     hit.Details.Add(detail)
                     hit.MatchingRequests.Add(request)
                     If _searchOptions.StopAfterFirstMatchPerFile OrElse
@@ -258,6 +305,7 @@ Namespace Beacon
                     End If
                 Next
             End Using
+            If incomplete Then hit.PartialReason = (hit.PartialReason & "; HAR bodies or malformed requests omitted").Trim(";"c, " "c)
         End Function
 
         Private Async Function SearchCabSourceAsync(physicalPath As String, logicalPath As String, depth As Integer, ct As CancellationToken) As Task

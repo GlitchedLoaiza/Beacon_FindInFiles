@@ -24,6 +24,7 @@ Namespace Beacon
                 Next
             End If
             Resources("CheckmarkBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H20, &H20, &H20), Colors.White))
+            NativeCaptionTheme.Apply(Me, dark)
             Resources("SelectionBackgroundBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H18, &H3C, &H50), Color.FromRgb(&HE5, &HF1, &HFF)))
             Severity_cmb.ItemsSource = {"All", "Warning", "Error", "Information"}
             Severity_cmb.SelectedIndex = 0

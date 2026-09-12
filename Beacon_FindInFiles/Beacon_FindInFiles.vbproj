@@ -30,7 +30,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <ExcludeAssets>none</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="SharpCompress" Version="0.38.0" />
+    <PackageReference Include="SharpCompress" Version="0.50.4" />
   </ItemGroup>
 
   <!-- Exclude XML documentation files from publish -->
@@ -60,6 +60,7 @@
 
   <ItemGroup>
     <Resource Include="beacon_no_bg.png" />
+    <EmbeddedResource Include="beacon_no_bg.png" LogicalName="Beacon.ReportLogo.png" />
   </ItemGroup>
 
   <ItemGroup>

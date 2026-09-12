@@ -16,8 +16,19 @@ Namespace Beacon
 
     Public NotInheritable Class ScanReportWriter
         Private Shared ReadOnly JsonOptions As JsonSerializerOptions = CreateJsonOptions()
+        Private Shared ReadOnly LogoDataUri As New Lazy(Of String)(AddressOf LoadLogoDataUri)
         Private Sub New()
         End Sub
+        Private Shared Function LoadLogoDataUri() As String
+            Using source = GetType(ScanReportWriter).Assembly.GetManifestResourceStream("Beacon.ReportLogo.png")
+                If source Is Nothing Then Throw New InvalidOperationException("The embedded Beacon report logo is missing.")
+                Using buffer As New MemoryStream()
+                    source.CopyTo(buffer)
+                    Return "data:image/png;base64," & Convert.ToBase64String(buffer.ToArray())
+                End Using
+            End Using
+        End Function
+
         Private Shared Function CreateJsonOptions() As JsonSerializerOptions
             Dim options As New JsonSerializerOptions With {.WriteIndented = True, .DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull}
             options.Converters.Add(New JsonStringEnumConverter())
@@ -125,6 +136,9 @@ Namespace Beacon
             Yield New KeyValuePair(Of String, String)("Query", report.Run.QueryText)
             Yield New KeyValuePair(Of String, String)("Mode", report.Run.Mode.ToString())
             Yield New KeyValuePair(Of String, String)("CaseSensitive", report.Run.CaseSensitive.ToString())
+            Yield New KeyValuePair(Of String, String)("EVTX scan filters", EvtxFilter.Describe(report.Run.Options))
+            Yield New KeyValuePair(Of String, String)("HAR scan filters", HarFilter.Describe(report.Run.Options))
+            Yield New KeyValuePair(Of String, String)("HAR privacy", If(report.Results.Any(Function(file) file.HarRedactionEnabled), HarRedaction.Notice, "HAR presentation redaction was not applied to captured requests."))
             Yield New KeyValuePair(Of String, String)("ElapsedMilliseconds", report.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture))
             Yield New KeyValuePair(Of String, String)("FilesScanned", report.FilesScanned.ToString(CultureInfo.InvariantCulture))
             Yield New KeyValuePair(Of String, String)("EstimatedTotalFiles", report.EstimatedTotalFiles.ToString(CultureInfo.InvariantCulture))
@@ -170,12 +184,20 @@ Namespace Beacon
         End Function
 
         Private Shared Sub WriteHtml(report As ScanReportSnapshot, writer As TextWriter, token As CancellationToken)
-            writer.WriteLine("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='Content-Security-Policy' content=""default-src 'none'; style-src 'unsafe-inline'""><title>Beacon — Search results</title><style>body{font:14px 'Segoe UI',sans-serif;max-width:1100px;margin:24px auto;padding:0 20px;background:#f3f3f3;color:#202020}header,section,details{background:white;border:1px solid #ddd;border-radius:8px;padding:18px;margin:16px 0}h1,h2,h3{font-weight:600}h1{margin:4px 0 16px}.brand{color:#0066cc;font-weight:600;letter-spacing:.06em}.muted,.path{color:#555}.path{overflow-wrap:anywhere;font-family:Consolas,monospace;font-size:12px}.notice{border-left:3px solid #0066cc;padding-left:10px}nav a{display:block;padding:4px 0;color:#0066cc;overflow-wrap:anywhere}article{margin:20px 0}table{border-collapse:collapse;width:100%;table-layout:fixed}th{width:3em;font-weight:400;color:#666;text-align:right;vertical-align:top;padding:6px 10px;border-right:1px solid #ddd}td{padding:6px 10px;vertical-align:top}.focus{background:#e5f1ff}pre{font:13px Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;tab-size:4;margin:0}mark{background:#ffe082;color:#202020;font-weight:600;border-radius:2px}summary{cursor:pointer;font-weight:600}dt{font-weight:600;margin-top:10px}dd{margin:4px 0;overflow-wrap:anywhere;white-space:pre-wrap}@media(prefers-color-scheme:dark){body{background:#202020;color:#e0e0e0}header,section,details{background:#2b2b2b;border-color:#505050}.brand,nav a{color:#60cfff}.muted,.path,th{color:#b0b0b0}.focus{background:#183c50}th{border-color:#505050}.notice{border-color:#60cfff}}</style></head><body><header><div class='brand'>BEACON</div><h1>Search results</h1>")
+            Dim logo = LogoDataUri.Value
+            writer.WriteLine("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='Content-Security-Policy' content=""default-src 'none'; img-src data:; style-src 'unsafe-inline'""><title>Beacon — Search results</title><style>")
+            writer.WriteLine("body{font:14px 'Segoe UI',sans-serif;max-width:1100px;margin:24px auto;padding:0 20px;background:#f3f3f3;color:#202020;isolation:isolate}header,section,details{background:white;border:1px solid #ddd;border-radius:8px;padding:18px;margin:16px 0}h1,h2,h3{font-weight:600}h1{margin:4px 0 16px}.brand{display:flex;align-items:center;gap:8px;color:#0066cc;font-weight:600;letter-spacing:.06em}.muted,.path{color:#555}.path{overflow-wrap:anywhere;font-family:Consolas,monospace;font-size:12px}.notice{border-left:3px solid #0066cc;padding-left:10px}nav a{display:block;padding:4px 0;color:#0066cc;overflow-wrap:anywhere}article{margin:20px 0}table{border-collapse:collapse;width:100%;table-layout:fixed}th{width:3em;font-weight:400;color:#666;text-align:right;vertical-align:top;padding:6px 10px;border-right:1px solid #ddd}td{padding:6px 10px;vertical-align:top}.focus{background:#e5f1ff}pre{font:13px Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;tab-size:4;margin:0}mark{background:#ffe082;color:#202020;font-weight:600;border-radius:2px}summary{cursor:pointer;font-weight:600}dt{font-weight:600;margin-top:10px}dd{margin:4px 0;overflow-wrap:anywhere;white-space:pre-wrap}")
+            writer.WriteLine(".report-logo{width:24px;height:24px;object-fit:contain;flex:none}.report-watermark{position:fixed;right:clamp(16px,4vw,80px);bottom:28px;width:clamp(140px,20vw,280px);height:auto;max-height:35vh;object-fit:contain;opacity:.07;pointer-events:none;user-select:none;z-index:0}body>:not(.report-watermark){position:relative;z-index:1}@media(prefers-color-scheme:dark){body{background:#202020;color:#e0e0e0}header,section,details{background:#2b2b2b;border-color:#505050}.brand,nav a{color:#60cfff}.muted,.path,th{color:#b0b0b0}.focus{background:#183c50}th{border-color:#505050}.notice{border-color:#60cfff}.report-watermark{opacity:.12}}@media print{.report-watermark{opacity:.04}}</style></head><body>")
+            writer.WriteLine("<img class='report-watermark' data-beacon-brand='watermark' src='" & logo & "' alt='' aria-hidden='true' draggable='false'>")
+            writer.WriteLine("<header><div class='brand'><img class='report-logo' data-beacon-brand='header' src='" & logo & "' alt='' aria-hidden='true' draggable='false'><span>BEACON</span></div><h1>Search results</h1>")
             Dim mode = SearchModeChoice.All().FirstOrDefault(Function(item) item.Value = report.Run.Mode)
             writer.WriteLine("<p>Search: <strong>" & H(report.Run.QueryText) & "</strong> · " & H(If(mode Is Nothing, report.Run.Mode.ToString(), mode.Label)) & If(report.Run.CaseSensitive, " · Case sensitive", " · Case insensitive") & "</p>")
             writer.WriteLine("<p class='path'>Source: " & H(report.Run.SourceRoot) & "</p><p>" & report.Results.Count.ToString(CultureInfo.InvariantCulture) & " matching file(s) · Saved " & H(report.CapturedUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'")) & "</p>")
             writer.WriteLine("<p class='notice'>" & H(If(report.IsComplete, "Search completed within the selected scope.", report.Coverage.Replace("Incomplete snapshot:", "Partial results:"))) & "</p>")
-            writer.WriteLine("<p class='muted'>" & If(report.IncludesExcerpts, "Includes unredacted matching text and context. Review before sharing.", "Text snippets are not included.") & "</p></header>")
+            Dim privacy = If(report.Results.Any(Function(file) file.HarRedactionEnabled),
+                "HAR presentation redaction is enabled for marked files. Other content, paths and search terms may remain sensitive. Review before sharing.",
+                "Includes unredacted matching text and context. Review before sharing.")
+            writer.WriteLine("<p class='muted'>" & If(report.IncludesExcerpts, privacy, "Text snippets are not included.") & "</p></header>")
             If report.Results.Count > 0 Then
                 writer.WriteLine("<nav aria-label='Matching files'><h2>Matching files</h2>")
                 For index = 0 To report.Results.Count - 1
@@ -191,6 +213,7 @@ Namespace Beacon
                 token.ThrowIfCancellationRequested()
                 writer.WriteLine($"<section id='file-{fileIndex}'><h2>" & H(file.DisplayName) & "</h2><p class='path'>" & H(file.SourcePath) & "</p><p>" & file.StoredDetailCount.ToString(CultureInfo.InvariantCulture) & " saved match location(s)</p>")
                 If Not String.IsNullOrEmpty(file.PartialReason) Then writer.WriteLine("<p class='notice'>" & H(file.PartialReason) & " — additional matches may exist.</p>")
+                If file.HarRedactionEnabled Then writer.WriteLine("<p class='notice'>" & H(HarRedaction.Notice) & "</p>")
                 For Each match In file.Matches
                     token.ThrowIfCancellationRequested()
                     writer.WriteLine("<article><h3>" & H(match.Location) & "</h3>")

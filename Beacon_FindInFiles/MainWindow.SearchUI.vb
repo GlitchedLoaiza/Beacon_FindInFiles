@@ -49,6 +49,7 @@ Namespace Beacon
             If detail.IsMetadata Then
                 ShowMetadataPreview(hit)
             ElseIf hit.MatchingEvents.Count > 0 Then
+                ClearEventFilter(Nothing, Nothing)
                 FindNext_btn.Visibility = Visibility.Collapsed
                 hit.CurrentEventIndex = detail.RecordIndex
                 _currentEventMessageMatchIndex = 0
@@ -59,6 +60,7 @@ Namespace Beacon
                 FindPreviousEvent_btn.Visibility = Visibility.Visible
             ElseIf hit.MatchingRequests.Count > 0 Then
                 FindNext_btn.Visibility = Visibility.Collapsed
+                ClearHarFilter(Nothing, Nothing)
                 hit.CurrentRequestIndex = detail.RecordIndex
                 ShowHarPreviewMode()
                 RenderHarRequest(hit)
@@ -115,13 +117,16 @@ Namespace Beacon
         Private Sub NavigateEventMatch(forward As Boolean)
             Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
             If hit Is Nothing OrElse hit.MatchingEvents.Count = 0 Then Return
-            If hit.CurrentEventIndex < 0 Then hit.CurrentEventIndex = 0
+            Dim visible = VisibleEventIndexes(hit)
+            If visible.Count = 0 Then Return
+            If Not visible.Contains(hit.CurrentEventIndex) Then hit.CurrentEventIndex = visible(0)
             Dim spans = PreviewSpans(hit.MatchingEvents(hit.CurrentEventIndex).Message)
             Dim span = If(forward,
                           spans.FirstOrDefault(Function(item) item.Start >= _currentEventMessageMatchIndex),
                           spans.LastOrDefault(Function(item) item.Start + item.Length < _currentEventMessageMatchIndex))
             If span Is Nothing Then
-                hit.CurrentEventIndex = (hit.CurrentEventIndex + If(forward, 1, hit.MatchingEvents.Count - 1)) Mod hit.MatchingEvents.Count
+                Dim position = visible.IndexOf(hit.CurrentEventIndex)
+                hit.CurrentEventIndex = visible((position + If(forward, 1, visible.Count - 1)) Mod visible.Count)
                 RenderEvent(hit.MatchingEvents(hit.CurrentEventIndex))
                 spans = PreviewSpans(hit.MatchingEvents(hit.CurrentEventIndex).Message)
                 span = If(forward, spans.FirstOrDefault(), spans.LastOrDefault())

@@ -77,17 +77,36 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
                     <TextBlock Text="Windows Event Logs" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Maximum matching events per file"/><TextBox x:Name="EvtxMatches_txt"/>
+                    <TextBlock Text="Pre-scan event filters (blank = any)" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Event IDs (comma-separated, e.g. 1000,1001)"/><TextBox x:Name="EvtxIds_txt"/>
+                    <TextBlock Text="Provider (choose or type; blank = any)"/><ComboBox x:Name="EvtxProvider_cmb" IsEditable="True" IsTextSearchEnabled="False"
+                        ToolTip="Providers from captured events, where available. You can type an exact provider name before scanning."/>
+                    <TextBlock Text="Severity levels"/>
+                    <ContentControl x:Name="EvtxLevels_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
+                    <TextBlock Text="From UTC (inclusive)"/><ContentControl x:Name="EvtxFrom_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
+                    <TextBlock Text="To UTC (inclusive)"/><ContentControl x:Name="EvtxTo_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
                     <CheckBox x:Name="RawXmlFallback_chk" Content="Show raw XML when a message cannot be rendered"/>
                     <TextBlock Text="Missing message-resource behavior"/><ComboBox x:Name="EvtxResourcePolicy_cmb"/>
+                    <TextBlock x:Name="EvtxResourceHelp_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,12"/>
                     <TextBlock Text="HTTP Archive files" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Pre-scan HAR filters (blank = any)" TextWrapping="Wrap"/>
+                    <ContentControl x:Name="HarFilters_host" HorizontalContentAlignment="Stretch" Margin="0,8,0,8"/>
                     <TextBlock Text="Maximum matching requests per file"/><TextBox x:Name="HarMatches_txt"/>
                     <TextBlock Text="Maximum request/response body size (MB)"/><TextBox x:Name="HarBodySize_txt"/>
                     <CheckBox x:Name="DecodeBase64_chk" Content="Decode Base64 HAR bodies"/>
-                    <CheckBox x:Name="RedactHar_chk" Content="Redact authorization headers, cookies, and common tokens"/>
+                    <CheckBox x:Name="RedactHar_chk" Content="Redact captured HAR preview and export data"/>
+                    <TextBlock x:Name="HarPrivacyHelp_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,8"/>
                 </StackPanel></ScrollViewer>
             </TabItem>
             <TabItem Header="Preview and diagnostics">
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+                    <TextBlock Text="Appearance" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Theme"/>
+                    <ComboBox x:Name="Theme_cmb" SelectedValuePath="Tag" IsEditable="False" ToolTip="System theme follows the Windows app color setting. Changes apply when saved.">
+                        <ComboBoxItem Content="Light" Tag="Light"/>
+                        <ComboBoxItem Content="Dark" Tag="Dark"/>
+                        <ComboBoxItem Content="System theme" Tag="System"/>
+                    </ComboBox>
                     <TextBlock Text="Preview" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Font family"/>
                     <ComboBox x:Name="PreviewFont_cmb" IsEditable="False" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False"
@@ -100,6 +119,11 @@
                     <CheckBox x:Name="AbsolutePaths_chk" Content="Display absolute result paths"/>
                     <TextBlock Text="Diagnostics" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Detail level"/><ComboBox x:Name="Diagnostics_cmb"/>
+                    <TextBlock Text="Updates" Style="{StaticResource SectionHeader}"/>
+                    <Button x:Name="CheckUpdates_btn" Content="Check for updates" HorizontalAlignment="Left"
+                            ToolTip="Check GitHub for a newer stable version. No automatic download."/>
+                    <TextBlock x:Name="UpdateCheckStatus_txt" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Foreground="{DynamicResource TextPrimaryBrush}" AutomationProperties.LiveSetting="Polite"/>
                 </StackPanel></ScrollViewer>
             </TabItem>
         </TabControl>

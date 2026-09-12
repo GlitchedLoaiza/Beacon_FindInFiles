@@ -1,5 +1,7 @@
 Imports System.Windows
 Imports System.Windows.Media
+Imports System.Threading
+Imports System.Threading.Tasks
 
 Namespace Beacon
 
@@ -9,9 +11,27 @@ Namespace Beacon
         Public Property SavedSettings As BeaconSettings
         Private _workingSettings As BeaconSettings
         Private ReadOnly _installedFontNames As String()
+        Private ReadOnly _checkForUpdates As Func(Of CancellationToken, Task(Of ReleaseCheckResult))
+        Private ReadOnly _updateCancellation As New CancellationTokenSource()
+        Private _updateCheckRunning As Boolean
+        Private _settingsClosed As Boolean
+        Private ReadOnly EvtxLevels_txt As New BeaconFilterControls.SeveritySelector()
+        Private ReadOnly EvtxFrom_txt As New BeaconFilterControls.UtcDateTimePicker()
+        Private ReadOnly EvtxTo_txt As New BeaconFilterControls.UtcDateTimePicker()
+        Private ReadOnly _harFilters As New HarFilterEditor()
 
         Public Sub New(settings As BeaconSettings, isDarkMode As Boolean)
+            Me.New(settings, isDarkMode, Function(token) ReleaseUpdateChecker.CheckResultAsync(GetType(SettingsWindow).Assembly.GetName().Version, token))
+        End Sub
+
+        Friend Sub New(settings As BeaconSettings, isDarkMode As Boolean, checkForUpdates As Func(Of CancellationToken, Task(Of ReleaseCheckResult)))
             InitializeComponent()
+            EvtxLevels_host.Content = EvtxLevels_txt
+            EvtxFrom_host.Content = EvtxFrom_txt
+            EvtxTo_host.Content = EvtxTo_txt
+            HarFilters_host.Content = _harFilters
+            HarPrivacyHelp_txt.Text = HarRedaction.Notice
+            _checkForUpdates = checkForUpdates
             _workingSettings = BeaconSettingsService.Clone(settings)
             _installedFontNames = Fonts.SystemFontFamilies.Select(Function(family) family.Source).
                 Where(Function(name) Not String.IsNullOrWhiteSpace(name)).
@@ -21,18 +41,53 @@ Namespace Beacon
 
             SearchMode_cmb.ItemsSource = [Enum].GetValues(Of SearchMode)()
             AccessDenied_cmb.ItemsSource = [Enum].GetValues(Of AccessDeniedAction)()
-            EvtxResourcePolicy_cmb.ItemsSource = [Enum].GetValues(Of EvtxResourcePolicy)()
+            EvtxResourcePolicy_cmb.ItemsSource = {EvtxResourcePolicy.OfflineOnly}
+            EvtxResourceHelp_txt.Text = EvtxFilter.ResourceGuidance
             Diagnostics_cmb.ItemsSource = [Enum].GetValues(Of DiagnosticDetail)()
 
             AddHandler Save_btn.Click, AddressOf Save_btn_Click
             AddHandler Cancel_btn.Click, Sub() DialogResult = False
             AddHandler RestoreDefaults_btn.Click, AddressOf RestoreDefaults_btn_Click
+            AddHandler CheckUpdates_btn.Click, AddressOf CheckUpdates_Click
 
             ApplyTheme(isDarkMode)
             LoadControls()
         End Sub
 
+        Private Async Sub CheckUpdates_Click(sender As Object, e As RoutedEventArgs)
+            If _updateCheckRunning OrElse _settingsClosed Then Return
+            _updateCheckRunning = True
+            CheckUpdates_btn.IsEnabled = False
+            UpdateCheckStatus_txt.Text = "Checking for updates…"
+            Try
+                Dim result = Await _checkForUpdates(_updateCancellation.Token)
+                If _settingsClosed Then Return
+                Select Case result.Status
+                    Case ReleaseCheckStatus.UpdateAvailable
+                        Dim version = result.LatestVersion
+                        Dim label = If(version.Revision > 0, version.ToString(4), version.ToString(3))
+                        UpdateCheckStatus_txt.Text = $"A newer version of Beacon is available: v{label}."
+                    Case ReleaseCheckStatus.UpToDate
+                        UpdateCheckStatus_txt.Text = "Beacon is up to date. No updates pending."
+                    Case Else
+                        UpdateCheckStatus_txt.Text = "Couldn't check for updates. Check your connection and try again later."
+                End Select
+            Catch ex As Exception
+                If Not _settingsClosed Then UpdateCheckStatus_txt.Text = "Couldn't check for updates. Please try again later."
+            Finally
+                _updateCheckRunning = False
+                If Not _settingsClosed Then CheckUpdates_btn.IsEnabled = True
+            End Try
+        End Sub
+
+        Protected Overrides Sub OnClosed(e As EventArgs)
+            _settingsClosed = True
+            _updateCancellation.Cancel()
+            MyBase.OnClosed(e)
+        End Sub
+
         Private Sub ApplyTheme(isDarkMode As Boolean)
+            NativeCaptionTheme.Apply(Me, isDarkMode)
             If Not isDarkMode Then Return
             Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
             Resources("CardBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))
@@ -50,6 +105,7 @@ Namespace Beacon
         End Sub
 
         Private Sub LoadControls()
+            Theme_cmb.SelectedValue = _workingSettings.Theme.ToString()
             MaximumTotalResults_txt.Text = _workingSettings.MaximumTotalResults.ToString()
             MaximumStructuredMatches_txt.Text = _workingSettings.MaximumStructuredMatches.ToString()
             SearchMode_cmb.SelectedItem = _workingSettings.DefaultSearchMode
@@ -76,8 +132,14 @@ Namespace Beacon
 
             EvtxMatches_txt.Text = _workingSettings.EvtxMaximumMatches.ToString()
             RawXmlFallback_chk.IsChecked = _workingSettings.ShowRawXmlWhenMessageUnavailable
-            EvtxResourcePolicy_cmb.SelectedItem = _workingSettings.EvtxMessageResourceBehavior
+            EvtxResourcePolicy_cmb.SelectedItem = EvtxResourcePolicy.OfflineOnly
+            EvtxIds_txt.Text = _workingSettings.EvtxEventIds
+            EvtxProvider_cmb.Text = _workingSettings.EvtxProvider
+            EvtxLevels_txt.Text = _workingSettings.EvtxLevels
+            EvtxFrom_txt.Text = _workingSettings.EvtxFromUtc
+            EvtxTo_txt.Text = _workingSettings.EvtxToUtc
             HarMatches_txt.Text = _workingSettings.HarMaximumMatches.ToString()
+            _harFilters.LoadSettings(_workingSettings)
             HarBodySize_txt.Text = _workingSettings.MaximumHarBodySizeMb.ToString()
             DecodeBase64_chk.IsChecked = _workingSettings.DecodeBase64HarBodies
             RedactHar_chk.IsChecked = _workingSettings.RedactSensitiveHarData
@@ -100,6 +162,7 @@ Namespace Beacon
 
         Private Sub Save_btn_Click(sender As Object, e As RoutedEventArgs)
             Try
+                _workingSettings.Theme = [Enum].Parse(Of AppTheme)(CStr(Theme_cmb.SelectedValue))
                 _workingSettings.MaximumTotalResults = ParseInteger(MaximumTotalResults_txt, "Maximum total results")
                 _workingSettings.MaximumStructuredMatches = ParseInteger(MaximumStructuredMatches_txt, "Maximum structured matches")
                 _workingSettings.DefaultSearchMode = DirectCast(SearchMode_cmb.SelectedItem, SearchMode)
@@ -125,9 +188,16 @@ Namespace Beacon
                 _workingSettings.ArchiveProcessTimeoutSeconds = ParseInteger(ArchiveTimeout_txt, "Archive timeout")
 
                 _workingSettings.EvtxMaximumMatches = ParseInteger(EvtxMatches_txt, "Maximum EVTX matches")
+                Dim filter As New EvtxFilter(EvtxIds_txt.Text, EvtxProvider_cmb.Text, EvtxLevels_txt.Text, EvtxFrom_txt.Text, EvtxTo_txt.Text)
+                _workingSettings.EvtxEventIds = EvtxIds_txt.Text.Trim()
+                _workingSettings.EvtxProvider = EvtxProvider_cmb.Text.Trim()
+                _workingSettings.EvtxLevels = EvtxLevels_txt.Text.Trim()
+                _workingSettings.EvtxFromUtc = EvtxFrom_txt.Text.Trim()
+                _workingSettings.EvtxToUtc = EvtxTo_txt.Text.Trim()
                 _workingSettings.ShowRawXmlWhenMessageUnavailable = RawXmlFallback_chk.IsChecked.GetValueOrDefault()
                 _workingSettings.EvtxMessageResourceBehavior = DirectCast(EvtxResourcePolicy_cmb.SelectedItem, EvtxResourcePolicy)
                 _workingSettings.HarMaximumMatches = ParseInteger(HarMatches_txt, "Maximum HAR matches")
+                _harFilters.SaveSettings(_workingSettings)
                 _workingSettings.MaximumHarBodySizeMb = ParseInteger(HarBodySize_txt, "Maximum HAR body size")
                 _workingSettings.DecodeBase64HarBodies = DecodeBase64_chk.IsChecked.GetValueOrDefault()
                 _workingSettings.RedactSensitiveHarData = RedactHar_chk.IsChecked.GetValueOrDefault()
@@ -151,6 +221,13 @@ Namespace Beacon
             Catch ex As Exception
                 MessageBox.Show(Me, ex.Message, "Invalid setting", MessageBoxButton.OK, MessageBoxImage.Warning)
             End Try
+        End Sub
+
+        Public Sub SetProviderSuggestions(providers As IEnumerable(Of String))
+            Dim typed = EvtxProvider_cmb.Text
+            EvtxProvider_cmb.ItemsSource = New String() {""}.Concat(providers.Where(Function(provider) Not String.IsNullOrWhiteSpace(provider)).
+                Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(Function(provider) provider, StringComparer.OrdinalIgnoreCase)).ToArray()
+            EvtxProvider_cmb.Text = typed
         End Sub
 
         Private Sub RestoreDefaults_btn_Click(sender As Object, e As RoutedEventArgs)

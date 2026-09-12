@@ -178,9 +178,14 @@
                         <ToggleButton x:Name="DropDownToggle" Style="{StaticResource ComboToggle}" Background="{TemplateBinding Background}"
                                       BorderBrush="{TemplateBinding BorderBrush}"
                                       IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"/>
-                        <ContentPresenter Margin="10,0,34,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                        <ContentPresenter x:Name="SelectionPresenter" Margin="10,0,34,0" VerticalAlignment="Center" IsHitTestVisible="False"
                                           Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Margin="4,0,34,0" MinHeight="0" Padding="6,3"
+                                 VerticalAlignment="Stretch" Background="{TemplateBinding Background}" Foreground="{TemplateBinding Foreground}"
+                                 IsReadOnly="{TemplateBinding IsReadOnly}" BorderThickness="0">
+                            <TextBox.Template><ControlTemplate TargetType="TextBox"><ScrollViewer x:Name="PART_ContentHost"/></ControlTemplate></TextBox.Template>
+                        </TextBox>
                         <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False"
                                IsOpen="{TemplateBinding IsDropDownOpen}" PopupAnimation="Fade">
                             <Border x:Name="PopupBorder" Margin="0,4,0,0" Padding="4" CornerRadius="4"
@@ -195,6 +200,10 @@
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="SelectionPresenter" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                        </Trigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
                         <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.55"/></Trigger>
                     </ControlTemplate.Triggers>

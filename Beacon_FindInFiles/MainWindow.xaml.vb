@@ -76,6 +76,10 @@ Namespace Beacon
             Public Property EventId As Integer          ' Numeric event identifier
             Public Property TimeCreated As DateTime?    ' Event timestamp
             Public Property Message As String           ' Formatted event description
+            Public Property LevelNumber As Byte?
+            Public Property RawXml As String = ""
+            Public Property XmlShortened As Boolean
+            Public Property MessageUnavailable As Boolean
         End Class
 
         ''' <summary>
@@ -83,17 +87,7 @@ Namespace Beacon
         ''' Contains formatted HTTP request/response details for display in the preview pane.
         ''' </summary>
         Private Class HarRequest
-            Public Property Method As String            ' HTTP method (GET, POST, etc.)
-            Public Property Url As String               ' Request URL
-            Public Property StatusCode As Integer       ' Response status code
-            Public Property StatusText As String        ' Response status text
-            Public Property StartedDateTime As DateTime? ' Request start time
-            Public Property Time As Double              ' Time in milliseconds
-            Public Property RequestHeaders As String    ' Formatted request headers
-            Public Property ResponseHeaders As String   ' Formatted response headers
-            Public Property RequestBody As String       ' Request body/payload
-            Public Property ResponseBody As String      ' Response body content
-            Public Property ServerIpAddress As String   ' Server IP
+            Inherits HarRecord
         End Class
 
         ''' <summary>
@@ -147,7 +141,7 @@ Namespace Beacon
             Public Property CurrentEventIndex As Integer = -1            ' Currently displayed event index
 
             ' --- HAR navigation state ---
-            Public Property MatchingRequests As New List(Of HarRequest)  ' All matching requests in this HAR
+            Public Property MatchingRequests As New List(Of HarRecord)  ' All matching requests in this HAR
             Public Property CurrentRequestIndex As Integer = -1          ' Currently displayed request index
         End Class
 
@@ -207,7 +201,7 @@ Namespace Beacon
 
         ''' <summary>File extensions recognized as archive files (for recursive scanning)</summary>
         Private ReadOnly _supportedArchiveExt As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase) From {
-            ".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".tgz", ".tbz", ".tbz2", ".tar.gz", ".tar.bz2", ".tar.xz", ".txz", ".cab"
+            ".zip", ".7z", ".rar", ".tar", ".gz", ".bz2", ".xz", ".tgz", ".tbz", ".tbz2", ".tar.gz", ".tar.bz2", ".tar.xz", ".txz", ".cab"
         }
 
         ''' <summary>Tracks temporary EVTX files extracted from archives for cleanup</summary>
@@ -282,6 +276,8 @@ Namespace Beacon
             Debug.WriteLine("========================================")
 
             InitializeComponent()
+            InitializeEvtxControls()
+            HarPreviewFilters_host.Content = _harPreviewEditor
             _settings = BeaconSettingsService.Load()
 
             ' Bind results collection to ListBox
@@ -300,8 +296,9 @@ Namespace Beacon
             AddHandler Settings_btn.Click, AddressOf Settings_btn_Click
             AddHandler ExportResults_btn.Click, AddressOf ExportHtmlReport
             AddHandler Diagnostics_btn.Click, AddressOf OpenDiagnostics
-            AddHandler CopyResult_btn.Click, AddressOf CopySelectedResult
             AddHandler CopyPaths_btn.Click, AddressOf CopyResultPaths
+            AddHandler ViewRelease_btn.Click, AddressOf OpenUpdateRelease
+            AddHandler DismissUpdate_btn.Click, AddressOf DismissUpdateNotification
 
             ' Wire navigation and selection handlers
             AddHandler Results_lst.SelectionChanged, AddressOf Results_lst_SelectionChanged
@@ -311,9 +308,6 @@ Namespace Beacon
             AddHandler FindPreviousEvent_btn.Click, AddressOf FindPreviousEvent_btn_Click
             AddHandler FindNextHarRequest_btn.Click, AddressOf FindNextHarRequest_btn_Click
             AddHandler FindPreviousHarRequest_btn.Click, AddressOf FindPreviousHarRequest_btn_Click
-
-            ' Wire theme toggle handler
-            AddHandler ThemeToggle_btn.Click, AddressOf ThemeToggle_btn_Click
 
             ' Wire input change handlers for button state updates
             AddHandler Path_txt.TextChanged, AddressOf AnyInputChanged
@@ -356,9 +350,8 @@ Namespace Beacon
             ShowTextPreviewMode()
             ClearTextPreview()
 
-            ' Initialize dark mode based on system preferences
-            InitializeTheme()
             ApplySettings()
+            AddHandler Microsoft.Win32.SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
 
             ' Initialize WebView2 after window is fully loaded (control must be in visual tree)
             AddHandler Me.Loaded, AddressOf MainWindow_Loaded
@@ -372,6 +365,7 @@ Namespace Beacon
             End If
 
             Dim settingsWindow As New SettingsWindow(_settings, _isDarkMode) With {.Owner = Me}
+            settingsWindow.SetProviderSuggestions(CapturedEventProviders())
             If settingsWindow.ShowDialog() = True Then
                 _settings = settingsWindow.SavedSettings
                 ApplySettings()
@@ -380,6 +374,7 @@ Namespace Beacon
         End Sub
 
         Private Sub ApplySettings()
+            InitializeTheme()
             SearchMode_cmb.SelectedValue = _settings.DefaultSearchMode
             UpdateSearchHint()
             _supportedTextExt.Clear()
@@ -401,12 +396,12 @@ Namespace Beacon
         End Sub
 
         ''' <summary>
-        ''' Initializes theme based on Windows system preferences
+        ''' Initializes theme based on the saved preference and Windows app colors
         ''' </summary>
         Private Sub InitializeTheme()
             Try
-                ' Detect Windows theme using Registry
-                Dim isDarkModeEnabled = IsWindowsDarkModeEnabled()
+                Dim isDarkModeEnabled = _settings.Theme = AppTheme.Dark OrElse
+                    (_settings.Theme = AppTheme.System AndAlso IsWindowsDarkModeEnabled())
 
                 ' Apply the detected theme
                 If isDarkModeEnabled Then
@@ -443,21 +438,11 @@ Namespace Beacon
             Return False
         End Function
 
-        ''' <summary>
-        ''' Handles theme toggle button click - switches between Light and Dark themes
-        ''' </summary>
-        Private Sub ThemeToggle_btn_Click(sender As Object, e As RoutedEventArgs)
-            Try
-                If _isDarkMode Then
-                    ApplyLightTheme()
-                Else
-                    ApplyDarkTheme()
-                End If
-
-                Debug.WriteLine($"Theme manually switched to: {If(_isDarkMode, "Dark", "Light")} mode")
-            Catch ex As Exception
-                Debug.WriteLine($"Error switching theme: {ex.Message}")
-            End Try
+        Private Sub SystemThemeChanged(sender As Object, e As Microsoft.Win32.UserPreferenceChangedEventArgs)
+            If Dispatcher.HasShutdownStarted OrElse Dispatcher.HasShutdownFinished Then Return
+            Dispatcher.BeginInvoke(Sub()
+                                       If Not _isClosing AndAlso _settings.Theme = AppTheme.System Then InitializeTheme()
+                                   End Sub)
         End Sub
 
         ''' <summary>
@@ -465,10 +450,7 @@ Namespace Beacon
         ''' </summary>
         Private Sub ApplyDarkTheme()
             _isDarkMode = True
-
-            ' Update theme button
-            ThemeToggle_btn.Content = "☀️"
-            ThemeToggle_btn.ToolTip = "Switch to Light theme"
+            NativeCaptionTheme.Apply(Me, True)
 
             ' Apply dark theme color palette
             Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))    ' #202020
@@ -500,10 +482,7 @@ Namespace Beacon
         ''' </summary>
         Private Sub ApplyLightTheme()
             _isDarkMode = False
-
-            ' Update theme button
-            ThemeToggle_btn.Content = "🌙"
-            ThemeToggle_btn.ToolTip = "Switch to Dark theme"
+            NativeCaptionTheme.Apply(Me, False)
 
             ' Apply light theme color palette (original colors)
             Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HF3, &HF3, &HF3))    ' #F3F3F3
@@ -546,6 +525,7 @@ Namespace Beacon
         ''' Called when window is fully loaded - safe time to initialize WebView2
         ''' </summary>
         Private Sub MainWindow_Loaded(sender As Object, e As RoutedEventArgs)
+            CheckForUpdatesAtStartup()
             Debug.WriteLine("========================================")
             Debug.WriteLine("MainWindow_Loaded event fired!")
             Debug.WriteLine("========================================")
@@ -644,6 +624,7 @@ Namespace Beacon
             ' Cancel the close event so we can finish cleanup first
             e.Cancel = True
             _isClosing = True
+            _updateCheckCancellation.Cancel()
 
             Try
                 UpdateButtonsState()
@@ -1083,6 +1064,8 @@ Namespace Beacon
                 End If
                 _activeQuery = query
                 _searchOptions = BeaconSettingsService.Clone(_settings)
+                EvtxFilter.FromSettings(_searchOptions)
+                HarFilter.FromSettings(_searchOptions)
             Catch ex As ArgumentException
                 MessageBox.Show(Me, ex.Message, "Invalid search", MessageBoxButton.OK, MessageBoxImage.Warning)
                 Return
@@ -1131,8 +1114,11 @@ Namespace Beacon
             _isScanning = True
             Scan_btn.Content = "Cancel (Esc)"
 
-            Status(If(isRerun, "Re-running search on same source...", "Scanning..."))
+            Status(If(isRerun, "Counting files for the repeated search...", "Counting files, including nested archives..."))
             ShowProgress(True)
+            ScanProgress_pb.Value = 0
+            ScanProgress_pb.IsIndeterminate = True
+            SetCurrentFileDisplayImmediate("Counting files...")
 
             ' Start label throttle timer and reset timestamps
             _pendingFileLabel = ""
@@ -1165,17 +1151,17 @@ Namespace Beacon
                          Dim failure As String = Nothing
 
                          Try
-                             If Directory.Exists(p) Then
-                                 _totalFilesToScan = CountFilesInFolder(p, ct)
-                             ElseIf File.Exists(p) Then
-                                 If Not FileSystemTraversal.IsFileAllowed(p, _settings, AddressOf RecordFileSystemIssue) Then Return
-                                 _totalFilesToScan = CountFilesInArchive(p, ct)
-                             End If
+                             Await CountSourceFilesAsync(p, ct)
                              ct.ThrowIfCancellationRequested()
+                             Dispatcher.Invoke(Sub()
+                                                   _pendingFileLabel = ""
+                                                   ScanProgress_pb.IsIndeterminate = False
+                                                   ScanProgress_pb.Value = 0
+                                                   Status($"Scanning {_totalFilesToScan} counted file(s)...")
+                                                   SetCurrentFileDisplayImmediate($"Scanning 0 of {_totalFilesToScan} counted files")
+                                               End Sub)
                              Await SearchSourceAsync(p, ct)
                          Catch ex As OperationCanceledException
-                             wasCancelled = True
-                         Catch ex As TaskCanceledException
                              wasCancelled = True
                          Catch ex As Exception
                              failure = ex.Message
@@ -1492,7 +1478,7 @@ Namespace Beacon
                 If depth > _settings.ArchiveNestingDepth Then Throw New InvalidDataException("Archive nesting limit reached.")
                 Debug.WriteLine($"=== Starting scan of {Path.GetFileName(archivePath)} (depth {depth}) ===")
 
-                Using archive = OpenArchive(archivePath)
+                Using archive = OpenArchive(archivePath, ct)
                     Dim budget As New ArchiveReadBudget(_settings, New FileInfo(archivePath).Length)
                     For Each entry In archive.Entries
                         ct.ThrowIfCancellationRequested()
@@ -2133,8 +2119,6 @@ Namespace Beacon
                                       End Function)
             Catch ex As OperationCanceledException
                 Return Nothing
-            Catch ex As TaskCanceledException
-                Return Nothing
             Catch ex As Exception
                 Return Nothing
             End Try
@@ -2298,8 +2282,6 @@ Namespace Beacon
 
                                       End Function)
             Catch ex As OperationCanceledException
-                Return Nothing
-            Catch ex As TaskCanceledException
                 Return Nothing
             Catch ex As Exception
                 Return Nothing
@@ -2550,7 +2532,7 @@ Namespace Beacon
         ''' <summary>Loads text file from disk into preview pane</summary>
         Private Sub LoadTextFromDisk(path As String)
             Try
-                SetTextPreview(ReadPreviewFile(path))
+                SetTextPreview(ReadPreviewFile(path).DisplayText)
             Catch ex As Exception
                 SetTextPreview($"[Preview unavailable: {ex.Message}]")
             End Try
@@ -2565,12 +2547,7 @@ Namespace Beacon
                 Using archive = OpenArchive(archivePath)
                     For Each entry In archive.Entries
                         If entry.Key = entryName Then
-                            Dim stream As Stream = entry.OpenEntryStream()
-                            Using stream
-                                Using sr As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True)
-                                    SetTextPreview(sr.ReadToEnd())
-                                End Using
-                            End Using
+                            SetTextPreview(ReadArchivePreview(entry, archivePath).DisplayText)
                             Return
                         End If
                     Next
@@ -2602,7 +2579,7 @@ Namespace Beacon
                 Dim extractedFile = Path.Combine(tempExtractDir, entryName)
                 If File.Exists(extractedFile) Then
                     Dim text = ReadPreviewFile(extractedFile)
-                    SetTextPreview(text)
+                    SetTextPreview(text.DisplayText)
                 Else
                     SetTextPreview($"[Error: File '{entryName}' not found in extracted CAB contents]")
                 End If
@@ -2676,7 +2653,7 @@ Namespace Beacon
             Try
                 ' Read file content and wrap with theme-aware CSS
                 Dim content = ReadPreviewFile(filePath)
-                Await LoadWebContentAsync(content, extension)
+                Await ShowWebPreviewAsync(content, extension)
             Catch ex As Exception
                 Debug.WriteLine($"Error loading content: {ex.Message}")
                 ' On error, show error message in WebView
@@ -2704,13 +2681,7 @@ Namespace Beacon
                 Using archive = OpenArchive(archivePath)
                     For Each entry In archive.Entries
                         If entry.Key = entryName Then
-                            Dim stream As Stream = entry.OpenEntryStream()
-                            Using stream
-                                Using sr As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True)
-                                    Dim content = sr.ReadToEnd()
-                                    Await LoadWebContentAsync(content, extension)
-                                End Using
-                            End Using
+                            Await ShowWebPreviewAsync(ReadArchivePreview(entry, archivePath), extension)
                             Return
                         End If
                     Next
@@ -2753,7 +2724,7 @@ Namespace Beacon
                 Dim extractedFile = Path.Combine(tempExtractDir, entryName)
                 If File.Exists(extractedFile) Then
                     Dim content = ReadPreviewFile(extractedFile)
-                    Await LoadWebContentAsync(content, extension)
+                    Await ShowWebPreviewAsync(content, extension)
                 Else
                     WebPreview_wv2.NavigateToString($"<html><body><h3>Error: File '{System.Security.SecurityElement.Escape(entryName)}' not found in extracted CAB contents</h3></body></html>")
                 End If
@@ -3229,19 +3200,17 @@ Namespace Beacon
         ''' Renders first event in list and highlights first search term occurrence
         ''' </summary>
         Private Sub RenderFirstEvent(hit As SearchHit)
-            If hit.MatchingEvents.Count = 0 Then
-                EventLevel_txt.Text = "[No matches]"
-                EventId_txt.Text = ""
-                EventProvider_txt.Text = ""
-                EventTime_txt.Text = ""
-                EventMessage_txt.Inlines.Clear()
-                EventMatchCounter_lbl.Text = "0 match(es) in this event"
+            Dim visible = VisibleEventIndexes(hit)
+            If visible.Count = 0 Then
+                hit.CurrentEventIndex = -1
+                ClearEventPreview()
+                UpdateEventCounter(hit)
                 Return
             End If
 
-            hit.CurrentEventIndex = 0
+            hit.CurrentEventIndex = visible(0)
             _currentEventMessageMatchIndex = 0
-            RenderEvent(hit.MatchingEvents(0))
+            RenderEvent(hit.MatchingEvents(hit.CurrentEventIndex))
             UpdateEventCounter(hit)
         End Sub
 
@@ -3258,6 +3227,7 @@ Namespace Beacon
         ''' Renders event details and highlights first search term occurrence in message
         ''' </summary>
         Private Sub RenderEvent(ev As EventSummary)
+            RenderEventXml(ev)
             Dim lvl = If(String.IsNullOrWhiteSpace(ev.Level), "Information", ev.Level)
             EventLevel_txt.Text = $"[{lvl}]"
             EventId_txt.Text = $"Event ID {ev.EventId}"
@@ -3288,8 +3258,8 @@ Namespace Beacon
         End Function
 
         Private Sub UpdateEventCounter(hit As SearchHit)
-            EventCounter_lbl.Text =
-        $"Viewing {hit.CurrentEventIndex + 1} of {hit.MatchingEvents.Count} event(s)"
+            Dim visible = VisibleEventIndexes(hit)
+            EventCounter_lbl.Text = $"Viewing {visible.IndexOf(hit.CurrentEventIndex) + 1} of {visible.Count} visible / {hit.MatchingEvents.Count} captured event(s)"
         End Sub
 
 #End Region
@@ -3311,18 +3281,7 @@ Namespace Beacon
         ''' Searches within current request first, then moves to previous request
         ''' </summary>
         Private Sub FindPreviousHarRequest()
-            Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
-            If hit Is Nothing OrElse hit.MatchingRequests.Count = 0 Then Return
-
-            hit.CurrentRequestIndex -= 1
-            If hit.CurrentRequestIndex < 0 Then
-                hit.CurrentRequestIndex = hit.MatchingRequests.Count - 1
-                If Not _isScanning Then Status("Wrapped to last request")
-            Else
-                If Not _isScanning Then Status("Ready")
-            End If
-
-            RenderHarRequest(hit)
+            NavigateHarRequest(False)
         End Sub
 
         ''' <summary>
@@ -3330,27 +3289,21 @@ Namespace Beacon
         ''' Wraps to first request when reaching end
         ''' </summary>
         Private Sub FindNextHarRequest()
-            Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
-            If hit Is Nothing OrElse hit.MatchingRequests.Count = 0 Then Return
-
-            hit.CurrentRequestIndex += 1
-            If hit.CurrentRequestIndex >= hit.MatchingRequests.Count Then
-                hit.CurrentRequestIndex = 0
-                If Not _isScanning Then Status("Wrapped to first request")
-            Else
-                If Not _isScanning Then Status("Ready")
-            End If
-
-            RenderHarRequest(hit)
+            NavigateHarRequest(True)
         End Sub
 
         ''' <summary>
         ''' Renders the first HAR request with highlighting
         ''' </summary>
         Private Sub RenderFirstHarRequest(hit As SearchHit)
-            If hit.MatchingRequests.Count = 0 Then Return
-
-            hit.CurrentRequestIndex = 0
+            Dim visible = VisibleHarIndexes(hit)
+            If visible.Count = 0 Then
+                hit.CurrentRequestIndex = -1
+                ClearHarPreview()
+                HarCounter_lbl.Text = $"Viewing 0 of 0 visible / {hit.MatchingRequests.Count} captured request(s)"
+                Return
+            End If
+            hit.CurrentRequestIndex = visible(0)
             RenderHarRequest(hit)
         End Sub
 
@@ -3361,6 +3314,7 @@ Namespace Beacon
             If hit.CurrentRequestIndex < 0 OrElse hit.CurrentRequestIndex >= hit.MatchingRequests.Count Then Return
 
             Dim req = hit.MatchingRequests(hit.CurrentRequestIndex)
+            HarBodyNotice_txt.Text = $"MIME: {req.MimeType}. {req.BodyNotice}" & If(req.RedactionEnabled, vbCrLf & HarRedaction.Notice, vbCrLf & "HAR redaction is disabled; request data is unredacted.")
             Dim term = If(_activeQuery?.Text, "")
             Dim cs = If(_activeQuery?.CaseSensitive, False)
             Dim comparison = If(cs, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
@@ -3375,8 +3329,8 @@ Namespace Beacon
             Dim statusText = $"{req.StatusCode} {req.StatusText}"
             HighlightTextInBlock(HarStatus_txt, statusText, term, comparison)
 
-            HarTime_txt.Text = If(req.StartedDateTime.HasValue, req.StartedDateTime.Value.ToString("yyyy-MM-dd HH:mm:ss.fff"), "N/A")
-            HarDuration_txt.Text = $"{req.Time:F2} ms"
+            HarTime_txt.Text = If(req.StartedDateTime.HasValue, req.StartedDateTime.Value.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss.fff") & " UTC", "N/A")
+            HarDuration_txt.Text = If(req.Time < 0, "N/A", $"{req.Time:F2} ms")
             RenderMatchedText(HarServerIp_txt, If(String.IsNullOrEmpty(req.ServerIpAddress), "N/A", req.ServerIpAddress))
 
             ' Highlight Request Headers
@@ -3400,7 +3354,8 @@ Namespace Beacon
                                 term, comparison)
 
             ' Update counter
-            HarCounter_lbl.Text = $"Viewing {hit.CurrentRequestIndex + 1} of {hit.MatchingRequests.Count} request(s)"
+            Dim visible = VisibleHarIndexes(hit)
+            HarCounter_lbl.Text = $"Viewing {visible.IndexOf(hit.CurrentRequestIndex) + 1} of {visible.Count} visible / {hit.MatchingRequests.Count} captured request(s)"
 
             ' Count total matches in this request
             Dim totalMatches = 0
@@ -3550,101 +3505,45 @@ Namespace Beacon
         ''' Updates progress bar and file counter based on files scanned
         ''' </summary>
         Private Sub UpdateScanProgress()
+            Dim counting = _isCountingFiles
+            Dim total = _totalFilesToScan
+            Dim scanned = _filesScanned
+            Dim label = _pendingFileLabel
             Dispatcher.BeginInvoke(Sub()
-                                       If _totalFilesToScan > 0 Then
-                                           Dim percentage = (_filesScanned / _totalFilesToScan) * 100
+                                       If counting Then
+                                           CurrentFile_lbl.Text = $"Counting files: {total} found — {label}"
+                                           Return
+                                       End If
+                                       If total > 0 Then
+                                           Dim percentage = (scanned / total) * 100
                                            ScanProgress_pb.Value = Math.Min(percentage, 100)
                                        End If
 
                                        ' Update file label with progress counter
-                                       If Not String.IsNullOrEmpty(_pendingFileLabel) Then
-                                           If _totalFilesToScan > 0 Then
-                                               CurrentFile_lbl.Text = $"Scanning {_filesScanned} (estimated total {_totalFilesToScan}): {_pendingFileLabel}"
+                                       If Not String.IsNullOrEmpty(label) Then
+                                           If total > 0 Then
+                                               CurrentFile_lbl.Text = $"Scanning {scanned} of {total} counted files: {label}"
                                            Else
-                                               CurrentFile_lbl.Text = $"Scanning file {_filesScanned}: {_pendingFileLabel}"
+                                               CurrentFile_lbl.Text = $"Scanning file {scanned}: {label}"
                                            End If
                                        End If
                                    End Sub)
         End Sub
 
         ''' <summary>
-        ''' Counts total files in a folder recursively (for progress calculation)
-        ''' Archives are counted as their contents, not as single files
-        ''' </summary>
-        Private Function CountFilesInFolder(folder As String, ct As CancellationToken) As Integer
-            Try
-                Dim totalCount As Integer = 0
-
-                For Each filePath In FileSystemTraversal.EnumerateFiles(folder, ct,
-                                                                        followReparsePoints:=_settings.FollowReparsePoints,
-                                                                        accessDeniedHandler:=Nothing,
-                                                                        errorHandler:=Nothing, settings:=_settings)
-                    Dim ext = Path.GetExtension(filePath)
-
-                    ' If it's an archive, count its contents instead of counting it as 1 file
-                    If _supportedArchiveExt.Contains(ext) Then
-                        Try
-                            Dim archiveCount = CountFilesInArchive(filePath, ct)
-                            totalCount += archiveCount
-                        Catch ex As Exception
-                            ' If we can't count archive contents, count it as 1 file
-                            totalCount += 1
-                        End Try
-                    Else
-                        ' Regular file - count as 1
-                        totalCount += 1
-                    End If
-                Next
-
-                Return totalCount
-            Catch ex As Exception
-                Return 0
-            End Try
-        End Function
-
-        ''' <summary>
         ''' Opens an archive using the appropriate SharpCompress type based on file extension
         ''' Supports ZIP, 7Z, RAR, TAR, GZ, BZ2 formats
         ''' </summary>
-        Private Function OpenArchive(archivePath As String) As IArchive
+        Private Function OpenArchive(archivePath As String, Optional ct As CancellationToken = Nothing,
+                                     Optional options As BeaconSettings = Nothing) As IArchive
             Try
-                ' Try generic ArchiveFactory which auto-detects format
-                Return SharpCompress.Archives.ArchiveFactory.Open(archivePath)
+                Return ArchiveCompatibility.OpenArchive(archivePath, If(options, _settings), ct)
+            Catch ex As OperationCanceledException
+                Throw
             Catch ex As Exception
                 ' Log the error for debugging
                 Debug.WriteLine($"Failed to open archive {Path.GetFileName(archivePath)}: {ex.Message}")
                 Throw New Exception($"Unsupported or corrupted archive format: {Path.GetFileName(archivePath)}", ex)
-            End Try
-        End Function
-
-        ''' <summary>
-        ''' Counts total entries in an archive file (for progress calculation)
-        ''' Supports ZIP, 7Z, RAR, TAR, CAB and other formats
-        ''' Recursively counts nested archives up to 1 level deep
-        ''' </summary>
-        Private Function CountFilesInArchive(archivePath As String, ct As CancellationToken) As Integer
-            Try
-                Dim totalCount As Integer = 0
-                Dim inspected As Integer = 0
-                ' Do not extract archives or launch external processes to estimate progress.
-                If Path.GetExtension(archivePath).Equals(".cab", StringComparison.OrdinalIgnoreCase) Then
-                    Return 1
-                End If
-                Using archive = OpenArchive(archivePath)
-                    For Each entry In archive.Entries
-                        ct.ThrowIfCancellationRequested()
-                        inspected += 1
-                        If inspected > _settings.MaximumArchiveEntries Then Exit For
-                        If entry.IsDirectory OrElse String.IsNullOrEmpty(entry.Key) Then Continue For
-                        totalCount += 1
-                    Next
-                    Return totalCount
-                End Using
-            Catch ex As OperationCanceledException
-                Throw
-            Catch ex As Exception
-                Debug.WriteLine($"Failed to count files in archive {Path.GetFileName(archivePath)}: {ex.Message}")
-                Return 0
             End Try
         End Function
 
@@ -3703,12 +3602,28 @@ Namespace Beacon
                                          onError:=Sub(ex) RecordFileSystemIssue(filePath, ex))
         End Function
 
-        Private Function ReadPreviewFile(filePath As String) As String
-            Using stream = OpenBoundedDiskFile(filePath, CancellationToken.None, preview:=True)
-                Using reader As New StreamReader(stream, detectEncodingFromByteOrderMarks:=True)
-                    Return reader.ReadToEnd()
-                End Using
+        Private Function ReadPreviewFile(filePath As String) As PreviewText
+            Using stream = OpenBoundedDiskFile(filePath, CancellationToken.None)
+                Return PreviewFormatting.ReadTextPreview(stream, CLng(_settings.MaximumPreviewSizeMb) * 1024 * 1024)
             End Using
+        End Function
+
+        Private Function ReadArchivePreview(entry As IArchiveEntry, archivePath As String) As PreviewText
+            Dim budget As New ArchiveReadBudget(_settings, New FileInfo(archivePath).Length)
+            budget.Register(entry.Key, entry.Size, entry.CompressedSize, entry.IsEncrypted, entry.LinkTarget)
+            Using stream = OpenBoundedArchiveEntry(entry, archivePath, CancellationToken.None, budget)
+                Return PreviewFormatting.ReadTextPreview(stream, CLng(_settings.MaximumPreviewSizeMb) * 1024 * 1024)
+            End Using
+        End Function
+
+        Private Async Function ShowWebPreviewAsync(preview As PreviewText, extension As String) As Task
+            If preview.IsTruncated Then
+                ' Incomplete HTML/XML/JSON is readable evidence, not a complete renderable document.
+                ShowTextPreviewMode()
+                SetTextPreview(preview.DisplayText)
+                Return
+            End If
+            Await LoadWebContentAsync(preview.Text, extension)
         End Function
 
         Private Function OpenBoundedArchiveEntry(entry As IArchiveEntry, archivePath As String,
@@ -3721,7 +3636,7 @@ Namespace Beacon
             End If
             Dim limit = Math.Min(entry.Size, budget.EntryLimit)
             If preview Then limit = Math.Min(limit, CLng(_settings.MaximumPreviewSizeMb) * 1024 * 1024)
-            Return New BoundedReadStream(entry.OpenEntryStream(), limit, ct, budget,
+            Return New BoundedReadStream(ArchiveCompatibility.OpenEntry(entry), limit, ct, budget,
                                          Sub(ex) RecordFileSystemIssue(archivePath & " | " & entry.Key, ex))
         End Function
 
@@ -3756,6 +3671,8 @@ Namespace Beacon
         ''' Cleanup on application close: delete temp files and cancel any active scans
         ''' </summary>
         Protected Overrides Sub OnClosed(e As EventArgs)
+            _updateCheckCancellation.Cancel()
+            RemoveHandler Microsoft.Win32.SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
             CleanupTemp()
             If _scanCts IsNot Nothing Then
                 _scanCts.Cancel()

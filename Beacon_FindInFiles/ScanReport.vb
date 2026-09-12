@@ -49,6 +49,8 @@ Namespace Beacon
         Public Property SourcePath As String
         Public Property FileType As String
         Public Property PartialReason As String
+        Public Property HarRedactionApplied As Boolean
+        Public Property HarRedactionEnabled As Boolean
         Public Property Matches As New List(Of ReportMatch)()
         Public ReadOnly Property StoredDetailCount As Integer
             Get
@@ -72,7 +74,7 @@ Namespace Beacon
         Public Property IncludesTechnicalDetails As Boolean
         Public ReadOnly Property RedactionApplied As Boolean
             Get
-                Return False
+                Return Results.Any(Function(file) file.HarRedactionApplied)
             End Get
         End Property
         Public ReadOnly Property IsComplete As Boolean
@@ -102,6 +104,7 @@ Namespace Beacon
                 .IncludesExcerpts = includeExcerpts, .IncludesTechnicalDetails = includeTechnical,
                 .Results = Results.Select(Function(file) New ReportFile With {
                     .DisplayName = file.DisplayName, .SourcePath = file.SourcePath, .FileType = file.FileType,
+                    .HarRedactionApplied = file.HarRedactionApplied, .HarRedactionEnabled = file.HarRedactionEnabled,
                     .PartialReason = file.PartialReason, .Matches = file.Matches.Select(Function(item) item.Copy(includeExcerpts)).ToList()
                 }).ToList(),
                 .Diagnostics = New DiagnosticSnapshot With {

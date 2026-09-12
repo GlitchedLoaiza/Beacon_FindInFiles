@@ -10,6 +10,7 @@ Module Program
 
     <STAThread>
     Function Main(args As String()) As Integer
+        If args.Length = 3 AndAlso args(0) = "--single-instance-check" Then Return SingleInstanceChecks.RunChildMode(args)
         If args.Length > 0 AndAlso (args(0) = "l" OrElse args(0) = "e") Then Return FakeReader(args)
         If args.Length <> 1 OrElse Not File.Exists(args(0)) Then
             Console.Error.WriteLine("Usage: dotnet run --project tests/Beacon.SafetyChecks -- <path to bundled 7za.exe>")
@@ -133,6 +134,15 @@ Module Program
         Check("Search modes, validation and regex safety", AddressOf SearchChecks.Queries)
         Check("Bounded matching text records", AddressOf SearchChecks.TextRecords)
         Check("Disk, HAR and archive search pipeline", AddressOf SearchChecks.Pipeline)
+        Check("SharpCompress archive formats and byte-exact rereads", Sub() ArchiveChecks.Formats(args(0)))
+        Check("Compressed TAR preview, nesting and logical paths", Sub() ArchiveChecks.PreviewAndNested(args(0)))
+        Check("ZIP hidden and system attributes", AddressOf ArchiveChecks.ZipAttributes)
+        Check("Archive encryption, paths, links and checksums", Sub() ArchiveChecks.RejectionAndChecksums(args(0)))
+        Check("Compressed TAR limits, cancellation and cleanup", Sub() ArchiveChecks.LimitsAndCleanup(args(0)))
+        Check("RAR and RAR5 solid payload hashes", AddressOf ArchiveChecks.RarPayloads)
+        Check("Malicious archive directories and preview limits", AddressOf ArchiveChecks.DirectoryTraversalAndPreviewLimits)
+        Check("ZIP checksum streams and corrupt payload rejection", AddressOf ZipChecksumChecks.Run)
+        Check("Readable bounded previews and Unicode boundaries", AddressOf PreviewLimitChecks.Run)
         Check("Text, event, HAR navigation and CAB search", AddressOf SearchChecks.NavigationAndCab)
         Check("WebView2 query ranges and stale captures", AddressOf WebSearchChecks.Run)
         Check("Bounded concurrent diagnostics", AddressOf ReportChecks.DiagnosticBounds)
@@ -142,6 +152,13 @@ Module Program
         Check("Scan report filtering and dark theme", Sub() SettingsThemeChecks.RunReport(True))
         Check("Main-window report snapshot and action layout", AddressOf ReportChecks.MainWindowSnapshot)
         Check("Five-line context and readable HTML reports", AddressOf ContextReportChecks.Run)
+        Check("Startup stable-release checks and silent failures", AddressOf ReleaseUpdateChecks.Run)
+        Check("Settings inline update results and cancellation", AddressOf ReleaseUpdateChecks.SettingsResults)
+        Check("EVTX filters, XML tools and offline guidance", AddressOf EvtxChecks.Run)
+        Check("Native caption themes preserve Windows frames", AddressOf NativeCaptionChecks.Transitions)
+        Check("Single-instance ownership, activation and crash recovery", AddressOf SingleInstanceChecks.Run)
+        Check("Editable UTC picker, severity and provider dropdowns", AddressOf FilterControlChecks.Run)
+        Check("HAR filters, bounded decoding and redacted exports", AddressOf HarChecks.Run)
         Console.WriteLine($"{_passed} passed; {_failed} failed.")
         Return If(_failed = 0, 0, 1)
     End Function
@@ -217,6 +234,7 @@ Module Program
                         Dim link = Path.Combine(root, "loop")
                         Dim start As New ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmd.exe")) With {.UseShellExecute = False, .CreateNoWindow = True}
                         start.Arguments = $"/c mklink /J ""{link}"" ""{root}"""
+
                         RunProcess(start)
                         Try
                             Using source As New CancellationTokenSource(TimeSpan.FromSeconds(5))

@@ -57,11 +57,9 @@ Namespace Beacon
             End If
             Dim exportButton = TryCast(FindName("ExportResults_btn"), Button)
             If exportButton IsNot Nothing Then
-                exportButton.Content = If(_htmlExportCancellation Is Nothing, "Export HTML report", "Cancel export")
+                exportButton.Content = If(_htmlExportCancellation Is Nothing, "Export…", "Cancel export")
                 exportButton.IsEnabled = available AndAlso (hasReport OrElse _htmlExportCancellation IsNot Nothing)
             End If
-            Dim copyResult = TryCast(FindName("CopyResult_btn"), Button)
-            If copyResult IsNot Nothing Then copyResult.IsEnabled = available AndAlso Results_lst.SelectedItem IsNot Nothing
             Dim copyPaths = TryCast(FindName("CopyPaths_btn"), Button)
             If copyPaths IsNot Nothing Then copyPaths.IsEnabled = available AndAlso _hits.Count > 0
         End Sub
@@ -80,7 +78,7 @@ Namespace Beacon
             End If
             If _isResetting OrElse _isClosing Then Return
             Dim dialog As New SaveFileDialog With {
-                .Title = "Export HTML results — includes unredacted match context",
+                .Title = "Export HTML results — review sensitive data before sharing",
                 .FileName = "Beacon-results-" & DateTime.Now.ToString("yyyyMMdd-HHmmss") & ".html",
                 .Filter = "HTML search report (*.html)|*.html", .DefaultExt = ".html",
                 .AddExtension = True, .OverwritePrompt = True
@@ -104,17 +102,6 @@ Namespace Beacon
                 _htmlExportCancellation = Nothing
                 cancellation.Dispose()
                 If Not _isClosing Then UpdateReportingButtons()
-            End Try
-        End Sub
-
-        Private Sub CopySelectedResult(sender As Object, e As RoutedEventArgs)
-            Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
-            If hit Is Nothing Then Return
-            Try
-                Clipboard.SetText(ScanReportWriter.CopyResult(CreateReportFile(hit)))
-                Status("Selected result copied (no excerpts)")
-            Catch ex As Exception
-                Status("Could not copy result: " & ex.Message)
             End Try
         End Sub
 
@@ -147,6 +134,8 @@ Namespace Beacon
             Dim leaf = logical.Split(New String() {" | "}, StringSplitOptions.None).Last()
             Return New ReportFile With {
                 .DisplayName = hit.DisplayName, .SourcePath = logical,
+                .HarRedactionApplied = hit.MatchingRequests.Any(Function(request) request.RedactionApplied),
+                .HarRedactionEnabled = hit.MatchingRequests.Any(Function(request) request.RedactionEnabled),
                 .FileType = Path.GetExtension(leaf).TrimStart("."c).ToUpperInvariant(), .PartialReason = hit.PartialReason,
                 .Matches = hit.Details.Select(Function(detail) New ReportMatch With {
                     .Location = detail.Location, .LineNumber = detail.LineNumber, .RecordIndex = detail.RecordIndex,

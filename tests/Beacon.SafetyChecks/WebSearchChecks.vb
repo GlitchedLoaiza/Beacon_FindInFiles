@@ -80,7 +80,25 @@ Module WebSearchChecks
             Await LoadHtml(browser, File.ReadAllText(reportPath))
             Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('.snippet tr').length") = "5", "HTML report did not render five context rows.")
             Require(Await browser.ExecuteScriptAsync("document.querySelector('.snippet mark').textContent") = """error""", "HTML report did not highlight the match.")
-            Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('img,script').length") = "0", "Log text became active report content.")
+            Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('script,img:not([data-beacon-brand])').length") = "0", "Log text became active report content.")
+            Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('img[data-beacon-brand]').length") = "2", "Report branding images are missing.")
+            Require(Await browser.ExecuteScriptAsync("Array.from(document.querySelectorAll('img[data-beacon-brand]')).every(img => img.src.startsWith('data:image/png;base64,') && img.complete && img.naturalWidth > 0)") = "true", "Embedded report logos did not load.")
+            Require(Await browser.ExecuteScriptAsync("(() => { const logo=document.querySelector('.brand .report-logo').getBoundingClientRect(); const word=document.querySelector('.brand span').getBoundingClientRect(); return logo.right <= word.left && Math.abs((logo.top+logo.height/2)-(word.top+word.height/2)) < 1; })()") = "true", "Header logo is not aligned to the left of BEACON.")
+            For Each scheme In {CoreWebView2PreferredColorScheme.Light, CoreWebView2PreferredColorScheme.Dark}
+                browser.CoreWebView2.Profile.PreferredColorScheme = scheme
+                Dim expectedDark = If(scheme = CoreWebView2PreferredColorScheme.Dark, "true", "false")
+                Dim matchedScheme As Boolean = False
+                For attempt = 1 To 50
+                    If Await browser.ExecuteScriptAsync("matchMedia('(prefers-color-scheme: dark)').matches") = expectedDark Then
+                        matchedScheme = True
+                        Exit For
+                    End If
+                    Await Task.Delay(20)
+                Next
+                Require(matchedScheme, "Browser did not apply the requested report theme.")
+                Dim expectedOpacity = If(scheme = CoreWebView2PreferredColorScheme.Dark, "0.12", "0.07")
+                Require(Await browser.ExecuteScriptAsync("(() => { const w=document.querySelector('.report-watermark'), s=getComputedStyle(w), r=w.getBoundingClientRect(); return s.position==='fixed' && s.pointerEvents==='none' && Math.abs(Number(s.opacity)-" & expectedOpacity & ") < 0.001 && Number(s.zIndex) < Number(getComputedStyle(document.querySelector('header')).zIndex) && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight && w.getAttribute('aria-hidden')==='true'; })()") = "true", "Report watermark layering, opacity or placement is incorrect.")
+            Next
             Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('.snippet tr.focus').length") = "1", "The matching context line is not identified.")
             Require(Await browser.ExecuteScriptAsync("document.body.scrollWidth <= window.innerWidth + 1") = "true", "HTML report overflows a normal browser viewport.")
         Finally

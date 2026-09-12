@@ -28,7 +28,14 @@ Namespace Beacon
         Detailed
     End Enum
 
+    Public Enum AppTheme
+        System
+        Light
+        Dark
+    End Enum
+
     Public Class BeaconSettings
+        Public Property Theme As AppTheme = AppTheme.System
         Public Property MaximumStructuredMatches As Integer = 300
         Public Property MaximumTotalResults As Integer = 10000
         Public Property MaximumFileSizeMb As Integer = 500
@@ -47,10 +54,22 @@ Namespace Beacon
         Public Property ArchiveProcessTimeoutSeconds As Integer = 60
 
         Public Property EvtxMaximumMatches As Integer = 300
+        Public Property EvtxEventIds As String = ""
+        Public Property EvtxProvider As String = ""
+        Public Property EvtxLevels As String = ""
+        Public Property EvtxFromUtc As String = ""
+        Public Property EvtxToUtc As String = ""
         Public Property ShowRawXmlWhenMessageUnavailable As Boolean = True
         Public Property EvtxMessageResourceBehavior As EvtxResourcePolicy = EvtxResourcePolicy.OfflineOnly
 
         Public Property HarMaximumMatches As Integer = 300
+        Public Property HarMethod As String = ""
+        Public Property HarHost As String = ""
+        Public Property HarStatusCodes As String = ""
+        Public Property HarMimeType As String = ""
+        Public Property HarMinimumDuration As String = ""
+        Public Property HarFromUtc As String = ""
+        Public Property HarToUtc As String = ""
         Public Property MaximumHarBodySizeMb As Integer = 25
         Public Property DecodeBase64HarBodies As Boolean = True
         Public Property RedactSensitiveHarData As Boolean = True
@@ -138,6 +157,7 @@ Namespace Beacon
             settings.PreviewFontSize = Math.Clamp(settings.PreviewFontSize, 8, 48)
             settings.MaximumPreviewSizeMb = Math.Clamp(settings.MaximumPreviewSizeMb, 1, 1024)
             settings.ScanWorkerCount = Math.Clamp(settings.ScanWorkerCount, 0, 64)
+            If Not [Enum].IsDefined(settings.Theme) Then settings.Theme = AppTheme.System
             settings.PreviewFontFamily = If(String.IsNullOrWhiteSpace(settings.PreviewFontFamily), "Consolas", settings.PreviewFontFamily.Trim())
             settings.IncludedExtensions = NormalizeList(settings.IncludedExtensions, ensureExtensionPrefix:=True)
             settings.ExcludedDirectories = NormalizeList(settings.ExcludedDirectories, ensureExtensionPrefix:=False)

@@ -109,8 +109,19 @@ Module ReportChecks
             Dim html = Path.Combine(root, "report.html")
             ScanReportWriter.SaveAsync(report, html, ScanReportFormat.Html, True, False, CancellationToken.None).GetAwaiter().GetResult()
             text = File.ReadAllText(html)
-            Ensure(text.Contains("&lt;script&gt;") AndAlso text.Contains("&lt;img") AndAlso Not text.Contains("<script>") AndAlso Not text.Contains("<img "), "HTML export contains active untrusted markup.")
+            Ensure(text.Contains("&lt;script&gt;") AndAlso text.Contains("&lt;img") AndAlso Not text.Contains("<script>") AndAlso Not text.Contains("<img src=x"), "HTML export contains active untrusted markup.")
             Ensure(text.Contains("Content-Security-Policy") AndAlso Not text.Contains("PRIVATE_STACK_TRACE"), "HTML policy or technical-data omission failed.")
+            Using logo = GetType(ScanReportWriter).Assembly.GetManifestResourceStream("Beacon.ReportLogo.png")
+                Ensure(logo IsNot Nothing, "Export logo was not embedded in the assembly.")
+                Using bytes As New MemoryStream()
+                    logo.CopyTo(bytes)
+                    Dim expected = "data:image/png;base64," & Convert.ToBase64String(bytes.ToArray())
+                    Dim images = System.Text.RegularExpressions.Regex.Matches(text, "src='(data:image/png;base64,[^']+)'")
+                    Ensure(images.Count = 2 AndAlso images.Cast(Of System.Text.RegularExpressions.Match)().All(Function(image) image.Groups(1).Value = expected),
+                           "HTML branding does not embed the actual Beacon logo twice.")
+                End Using
+            End Using
+            Ensure(text.Contains("img-src data:") AndAlso text.Contains("default-src 'none'"), "Report image policy is not restricted to embedded data.")
 
             Using cancelled As New CancellationTokenSource()
                 cancelled.Cancel()
@@ -154,6 +165,17 @@ Module ReportChecks
         DirectCast(hitType.GetProperty("Details").GetValue(hit), List(Of SearchDetail)).Add(New SearchDetail With {.Location = "File name", .IsMetadata = True, .VisibleMatches = 1, .Excerpt = "source.log"})
         Try
             type.GetMethod("AddHit", flags).Invoke(window, {hit})
+            Dim preferences = DirectCast(type.GetField("_settings", flags).GetValue(window), BeaconSettings)
+            For Each theme In {AppTheme.Light, AppTheme.Dark, AppTheme.System}
+                preferences.Theme = theme
+                type.GetMethod("ApplySettings", flags).Invoke(window, Nothing)
+                Dim expectedDark = theme = AppTheme.Dark OrElse (theme = AppTheme.System AndAlso CBool(type.GetMethod("IsWindowsDarkModeEnabled", flags).Invoke(window, Nothing)))
+                Ensure(CBool(type.GetField("_isDarkMode", flags).GetValue(window)) = expectedDark, "Main window did not apply the saved theme.")
+                type.GetMethod("SystemThemeChanged", flags).Invoke(window, {Nothing, New Microsoft.Win32.UserPreferenceChangedEventArgs(Microsoft.Win32.UserPreferenceCategory.General)})
+                window.Dispatcher.Invoke(Sub()
+                                         End Sub, System.Windows.Threading.DispatcherPriority.ContextIdle)
+                Ensure(CBool(type.GetField("_isDarkMode", flags).GetValue(window)) = expectedDark, "System notification overrode the selected theme.")
+            Next
             Dim temporary = Path.Combine(Path.GetTempPath(), "temporary-inner.zip")
             Dim logical = Path.Combine(Path.GetTempPath(), "original.zip") & " | inner.zip"
             type.GetMethod("RememberSourcePath", flags).Invoke(window, {temporary, logical})
@@ -167,8 +189,9 @@ Module ReportChecks
             run.Options.MaximumTotalResults = 1
             Ensure(snapshot.Run.QueryText = "original query" AndAlso snapshot.Run.Options.MaximumTotalResults = 10000, "Main-window snapshot is not isolated.")
             DirectCast(window.FindName("Results_lst"), System.Windows.Controls.ListBox).SelectedItem = hit
-            Ensure(DirectCast(window.FindName("CopyResult_btn"), System.Windows.Controls.Button).IsEnabled AndAlso
-                   DirectCast(window.FindName("ExportResults_btn"), System.Windows.Controls.Button).IsEnabled, "Reporting actions did not enable for captured results.")
+            Ensure(window.FindName("CopyResult_btn") Is Nothing, "The removed Copy result button is still present.")
+            Dim exportButton = DirectCast(window.FindName("ExportResults_btn"), System.Windows.Controls.Button)
+            Ensure(exportButton.IsEnabled AndAlso CStr(exportButton.Content) = "Export…", "Export action has the wrong label or state.")
             window.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual
             window.WindowState = System.Windows.WindowState.Normal
             window.Left = -10000
@@ -176,24 +199,111 @@ Module ReportChecks
             window.ShowActivated = False
             window.ShowInTaskbar = False
             window.Show()
+            Dim notification = DirectCast(window.FindName("UpdateNotification"), System.Windows.Controls.Border)
+            Ensure(notification.Visibility = System.Windows.Visibility.Collapsed, "Update notification appeared without a newer release.")
+            type.GetMethod("ShowUpdateNotification", flags).Invoke(window, {New Version(2, 10, 0, 0)})
+            Ensure(notification.Visibility = System.Windows.Visibility.Visible AndAlso
+                   DirectCast(window.FindName("UpdateVersion_txt"), System.Windows.Controls.TextBlock).Text.Contains("2.10.0"), "New-release notification is missing.")
+            DirectCast(window.FindName("DismissUpdate_btn"), System.Windows.Controls.Button).RaiseEvent(New System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent))
+            Ensure(window.FindName("TestUpdate_btn") Is Nothing, "Dummy update button must not ship in the application.")
+            Ensure(type.GetMethod("TestUpdateNotification", flags) Is Nothing, "Dummy notification handler must not ship in the application.")
+            type.GetMethod("ShowUpdateNotification", flags).Invoke(window, {New Version(2, 10, 0, 0)})
+            Ensure(notification.Visibility = System.Windows.Visibility.Visible AndAlso
+                   DirectCast(window.FindName("UpdateVersion_txt"), System.Windows.Controls.TextBlock).Text = "Version 2.10.0", "Notification contains incorrect version or dummy text.")
             For Each name In {"NextFile_btn", "FindPreviousEvent_btn", "FindNextEvent_btn"}
                 DirectCast(window.FindName(name), System.Windows.Controls.Button).Visibility = System.Windows.Visibility.Visible
             Next
             For Each width In {1000.0, 1400.0, 2200.0}
                 window.Width = width
+                Dim bar = DirectCast(window.FindName("ResultActionsBar"), System.Windows.Controls.Grid)
+                Dim layout = DirectCast(bar.Parent, System.Windows.Controls.Grid)
+                For Each leftWidth In {320.0, 460.0}
+                layout.ColumnDefinitions(0).Width = New System.Windows.GridLength(leftWidth)
                 window.UpdateLayout()
                 window.Dispatcher.Invoke(Sub()
                                          End Sub, System.Windows.Threading.DispatcherPriority.ContextIdle)
-                Dim bar = DirectCast(window.FindName("ResultActionsBar"), System.Windows.Controls.Grid)
-                For Each name In {"ExportResults_btn", "CopyResult_btn", "CopyPaths_btn", "Diagnostics_btn", "NextFile_btn", "FindPreviousEvent_btn", "FindNextEvent_btn"}
+                Dim preview = DirectCast(DirectCast(window.FindName("TextPreview_grp"), System.Windows.FrameworkElement).Parent, System.Windows.FrameworkElement)
+                Dim previewLeft = preview.TranslatePoint(New System.Windows.Point(), window).X
+                For Each action In {"ViewRelease_btn", "DismissUpdate_btn"}
+                    Dim button = DirectCast(window.FindName(action), System.Windows.Controls.Button)
+                    Dim bounds = button.TransformToAncestor(notification).TransformBounds(New System.Windows.Rect(button.RenderSize))
+                    Ensure(bounds.Left >= 0 AndAlso bounds.Right <= notification.ActualWidth, "Update notification actions overflow.")
+                Next
+                Ensure(Math.Abs(bar.TranslatePoint(New System.Windows.Point(), window).X - previewLeft) <= 1,
+                       "Bottom actions do not follow the preview-pane divider.")
+                Dim sidebar = DirectCast(window.FindName("SearchResultsPane"), System.Windows.Controls.Grid)
+                Dim splitter = layout.Children.OfType(Of System.Windows.Controls.GridSplitter)().Single()
+                Ensure(System.Windows.Controls.Grid.GetRowSpan(sidebar) = 2 AndAlso System.Windows.Controls.Grid.GetRowSpan(splitter) = 2, "Left pane or divider does not span the action row.")
+                Dim sidebarBounds = sidebar.TransformToAncestor(layout).TransformBounds(New System.Windows.Rect(sidebar.RenderSize))
+                Ensure(Math.Abs(sidebarBounds.Bottom - (layout.ActualHeight - sidebar.Margin.Bottom)) <= 1, "Left pane does not reach the bottom content edge.")
+                Dim details = DirectCast(window.FindName("MatchDetails_exp"), System.Windows.Controls.Expander)
+                details.IsExpanded = True
+                window.UpdateLayout()
+                Dim detailsBounds = details.TransformToAncestor(layout).TransformBounds(New System.Windows.Rect(details.RenderSize))
+                Ensure(Math.Abs(detailsBounds.Bottom - sidebarBounds.Bottom) <= 1, "Expanded Match details does not use the extended left pane.")
+                details.IsExpanded = False
+                For Each name In {"ExportResults_btn", "CopyPaths_btn", "Diagnostics_btn", "NextFile_btn", "FindPreviousEvent_btn", "FindNextEvent_btn"}
                     Dim button = DirectCast(window.FindName(name), System.Windows.Controls.Button)
                     Dim bounds = button.TransformToAncestor(bar).TransformBounds(New System.Windows.Rect(button.RenderSize))
                     Ensure(bounds.Left >= -1 AndAlso bounds.Right <= bar.ActualWidth + 1, "Reporting/navigation controls overflow the bottom bar.")
                 Next
+                Next
             Next
+            DirectCast(window.FindName("DismissUpdate_btn"), System.Windows.Controls.Button).RaiseEvent(New System.Windows.RoutedEventArgs(System.Windows.Controls.Button.ClickEvent))
+            PumpNotification(window, 400)
+            Ensure(notification.Visibility = System.Windows.Visibility.Collapsed, "Update notification could not be dismissed.")
+            Dim timer = DirectCast(type.GetProperty("_updateNotificationTimer", flags).GetValue(window), System.Windows.Threading.DispatcherTimer)
+            Ensure(timer.Interval <= TimeSpan.FromSeconds(1) AndAlso Not timer.IsEnabled, "Countdown timer or manual-dismiss cleanup is incorrect.")
+            type.GetMethod("ShowUpdateNotification", flags).Invoke(window, {New Version(2, 10, 0, 0)})
+            window.UpdateLayout()
+            Dim popup = DirectCast(window.FindName("UpdatePopup"), System.Windows.Controls.Primitives.Popup)
+            Dim host = DirectCast(window.FindName("UpdatePopupHost"), System.Windows.Controls.Grid)
+            Dim message = DirectCast(window.FindName("UpdateMessage_txt"), System.Windows.Controls.TextBlock)
+            Ensure(popup.IsOpen AndAlso timer.IsEnabled AndAlso message.Text = "A newer version of Beacon is available (5s)", "Popup or initial countdown is incorrect.")
+            Ensure(host.ClipToBounds AndAlso popup.Placement = System.Windows.Controls.Primitives.PlacementMode.AbsolutePoint,
+                   "Notification still uses window-relative placement.")
+            PumpNotification(window, 150)
+            Dim initialPosition = host.PointToScreen(New System.Windows.Point())
+            Dim screenBottomRight = host.PointToScreen(New System.Windows.Point(host.ActualWidth, host.ActualHeight))
+            Dim expected = DirectCast(type.GetMethod("NotificationDesktopPosition", Reflection.BindingFlags.NonPublic Or Reflection.BindingFlags.Static).
+                Invoke(Nothing, {CInt(Math.Round(screenBottomRight.X - initialPosition.X)), CInt(Math.Round(screenBottomRight.Y - initialPosition.Y))}), System.Windows.Point)
+            Ensure(Math.Abs(initialPosition.X - expected.X) <= 2 AndAlso Math.Abs(initialPosition.Y - expected.Y) <= 2,
+                   "Actual popup screen coordinates do not match the desktop-taskbar target.")
+            For Each width In {1000.0, 1400.0, 2200.0}
+                window.Width = width
+                window.Left += 40
+                window.Top += 25
+                window.UpdateLayout()
+                PumpNotification(window, 150)
+                Dim actual = host.PointToScreen(New System.Windows.Point())
+                Ensure(Math.Abs(actual.X - initialPosition.X) <= 2 AndAlso Math.Abs(actual.Y - initialPosition.Y) <= 2,
+                       "Notification moved away from the desktop taskbar when Beacon moved or resized.")
+            Next
+            type.GetMethod("ShowUpdateNotification", flags).Invoke(window, {New Version(2, 10, 0, 0)})
+            PumpNotification(window, 1200)
+            Ensure(message.Text.Contains("(4s)"), "Countdown did not decrease.")
+            type.GetMethod("ShowUpdateNotification", flags).Invoke(window, {New Version(2, 10, 0, 0)})
+            Ensure(message.Text.Contains("(5s)"), "Repeated notification did not restart countdown.")
+            Dim elapsed = System.Diagnostics.Stopwatch.StartNew()
+            While popup.IsOpen AndAlso elapsed.Elapsed < TimeSpan.FromSeconds(7)
+                window.Dispatcher.Invoke(Sub()
+                                         End Sub, System.Windows.Threading.DispatcherPriority.ContextIdle)
+                System.Threading.Thread.Sleep(20)
+            End While
+            Ensure(elapsed.Elapsed >= TimeSpan.FromSeconds(4.5) AndAlso notification.Visibility = System.Windows.Visibility.Collapsed AndAlso Not timer.IsEnabled,
+                   "Notification did not automatically dismiss after five seconds.")
         Finally
             window.Close()
         End Try
+    End Sub
+
+    Private Sub PumpNotification(window As MainWindow, milliseconds As Integer)
+        Dim elapsed = System.Diagnostics.Stopwatch.StartNew()
+        While elapsed.ElapsedMilliseconds < milliseconds
+            window.Dispatcher.Invoke(Sub()
+                                     End Sub, System.Windows.Threading.DispatcherPriority.ContextIdle)
+            System.Threading.Thread.Sleep(10)
+        End While
     End Sub
 
     Private Sub Ensure(condition As Boolean, message As String)
