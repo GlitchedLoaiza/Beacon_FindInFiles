@@ -258,6 +258,8 @@ Module SettingsThemeChecks
             Require(toolbar.FindName("ExactMatch_chk") Is Nothing, "Duplicate whole-word checkbox is still displayed.")
             Require(toolbar.FindName("ThemeToggle_btn") Is Nothing, "Theme toggle is still on the toolbar.")
             Dim settingsButton = DirectCast(toolbar.FindName("Settings_btn"), Button)
+            Dim helpButton = DirectCast(toolbar.FindName("Help_btn"), Button)
+            Require(helpButton IsNot Nothing AndAlso System.Windows.Automation.AutomationProperties.GetName(helpButton) = "Help", "Accessible Help action is missing.")
             Dim icon = Descendants(settingsButton).OfType(Of TextBlock)().Single(Function(item) item.FontFamily.Source = "Segoe MDL2 Assets")
             Require(icon.Text = ChrW(&HE90F), "Settings wrench glyph is missing.")
             Dim glyphs As GlyphTypeface = Nothing
@@ -277,6 +279,7 @@ Module SettingsThemeChecks
                     Next
                 Next
                 Dim options = DirectCast(toolbar.FindName("SearchOptionsToolbar"), WrapPanel)
+                Require(helpButton.TranslatePoint(New Point(), toolbar).X < settingsButton.TranslatePoint(New Point(), toolbar).X, "Help is not left of Settings.")
                 Dim actions = DirectCast(toolbar.FindName("SearchActionsPanel"), StackPanel)
                 Require(actions.Parent Is options.Parent AndAlso TypeOf actions.Parent Is Grid, "Search options and actions must share the same row.")
                 Dim actionBounds = actions.TransformToAncestor(toolbar).TransformBounds(New Rect(actions.RenderSize))

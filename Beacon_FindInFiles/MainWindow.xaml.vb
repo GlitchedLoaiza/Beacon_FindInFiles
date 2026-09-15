@@ -71,15 +71,7 @@ Namespace Beacon
         ''' Contains formatted event details for display in the preview pane.
         ''' </summary>
         Private Class EventSummary
-            Public Property Level As String             ' Error, Warning, Information, etc.
-            Public Property Provider As String          ' Event source (e.g., "Application")
-            Public Property EventId As Integer          ' Numeric event identifier
-            Public Property TimeCreated As DateTime?    ' Event timestamp
-            Public Property Message As String           ' Formatted event description
-            Public Property LevelNumber As Byte?
-            Public Property RawXml As String = ""
-            Public Property XmlShortened As Boolean
-            Public Property MessageUnavailable As Boolean
+            Inherits EventRecordSummary
         End Class
 
         ''' <summary>
@@ -137,7 +129,7 @@ Namespace Beacon
             Public Property TempEvtxPath As String      ' Temporary file path for EVTX extracted from ZIP
 
             ' --- EVTX navigation state ---
-            Public Property MatchingEvents As New List(Of EventSummary)  ' All matching events in this EVTX
+            Public Property MatchingEvents As New List(Of EventRecordSummary)  ' All matching events in this EVTX
             Public Property CurrentEventIndex As Integer = -1            ' Currently displayed event index
 
             ' --- HAR navigation state ---
@@ -294,6 +286,7 @@ Namespace Beacon
             AddHandler Scan_btn.Click, AddressOf Scan_btn_Click
             AddHandler Reset_btn.Click, AddressOf Reset_btn_Click
             AddHandler Settings_btn.Click, AddressOf Settings_btn_Click
+            AddHandler Help_btn.Click, AddressOf OpenHelp
             AddHandler ExportResults_btn.Click, AddressOf ExportHtmlReport
             AddHandler Diagnostics_btn.Click, AddressOf OpenDiagnostics
             AddHandler CopyPaths_btn.Click, AddressOf CopyResultPaths
@@ -355,6 +348,20 @@ Namespace Beacon
 
             ' Initialize WebView2 after window is fully loaded (control must be in visual tree)
             AddHandler Me.Loaded, AddressOf MainWindow_Loaded
+        End Sub
+
+        Private _helpWindow As HelpWindow
+
+        Private Sub OpenHelp(sender As Object, e As RoutedEventArgs)
+            If _isClosing Then Return
+            If _helpWindow IsNot Nothing Then
+                If _helpWindow.WindowState = WindowState.Minimized Then SystemCommands.RestoreWindow(_helpWindow)
+                _helpWindow.Activate()
+                Return
+            End If
+            _helpWindow = New HelpWindow(Me, _isDarkMode)
+            AddHandler _helpWindow.Closed, Sub() _helpWindow = Nothing
+            _helpWindow.Show()
         End Sub
 
         Private Sub Settings_btn_Click(sender As Object, e As RoutedEventArgs)
@@ -1485,7 +1492,7 @@ Namespace Beacon
                         If Volatile.Read(_resultLimitReached) Then Exit For
                         budget.Register(entry.Key, entry.Size, entry.CompressedSize, entry.IsEncrypted, entry.LinkTarget)
                         If entry.IsDirectory OrElse ArchiveSafety.IsExcluded(entry.Key, _settings) Then Continue For
-                        Dim entryAttributes = GetArchiveAttributes(entry)
+                        Dim entryAttributes = SourceSearchService.AttributesOf(entry)
                         If entryAttributes.HasValue Then
                             Dim attributes = entryAttributes.Value
                             If Not _settings.IncludeHiddenFiles AndAlso (attributes And FileAttributes.Hidden) <> 0 Then Continue For
@@ -2544,16 +2551,8 @@ Namespace Beacon
         ''' </summary>
         Private Sub LoadTextFromArchive(archivePath As String, entryName As String)
             Try
-                Using archive = OpenArchive(archivePath)
-                    For Each entry In archive.Entries
-                        If entry.Key = entryName Then
-                            SetTextPreview(ReadArchivePreview(entry, archivePath).DisplayText)
-                            Return
-                        End If
-                    Next
-                    ' Entry not found
-                    SetTextPreview("[Entry not found]")
-                End Using
+                Dim preview = New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadArchive(archivePath, entryName)
+                SetTextPreview(If(preview Is Nothing, "[Entry not found]", preview.DisplayText))
             Catch ex As Exception
                 SetTextPreview($"[Error loading from archive: {ex.Message}]")
             End Try
@@ -2564,36 +2563,11 @@ Namespace Beacon
         ''' Uses 7-Zip command line for extraction
         ''' </summary>
         Private Sub LoadTextFromCab(cabPath As String, entryName As String)
-            Dim tempExtractDir As String = Nothing
             Try
-                ' Extract entire CAB to temp directory using 7-Zip
-                tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabPreview_" & Guid.NewGuid().ToString("N"))
-
-                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir, _settings, report:=AddressOf RecordFileSystemIssue)
-                If Not success Then
-                    SetTextPreview($"[Error: Failed to extract CAB file]")
-                    Return
-                End If
-
-                ' Find the extracted file
-                Dim extractedFile = Path.Combine(tempExtractDir, entryName)
-                If File.Exists(extractedFile) Then
-                    Dim text = ReadPreviewFile(extractedFile)
-                    SetTextPreview(text.DisplayText)
-                Else
-                    SetTextPreview($"[Error: File '{entryName}' not found in extracted CAB contents]")
-                End If
+                Dim preview = New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadCab(cabPath, entryName)
+                SetTextPreview(If(preview Is Nothing, $"[Error: File '{entryName}' not found in extracted CAB contents]", preview.DisplayText))
             Catch ex As Exception
                 SetTextPreview($"[Error loading CAB preview: {ex.Message}]")
-            Finally
-                ' Cleanup temp directory
-                If tempExtractDir IsNot Nothing AndAlso Directory.Exists(tempExtractDir) Then
-                    Try
-                        Directory.Delete(tempExtractDir, True)
-                    Catch
-                        ' Ignore cleanup errors
-                    End Try
-                End If
             End Try
         End Sub
 
@@ -2678,16 +2652,12 @@ Namespace Beacon
             End If
 
             Try
-                Using archive = OpenArchive(archivePath)
-                    For Each entry In archive.Entries
-                        If entry.Key = entryName Then
-                            Await ShowWebPreviewAsync(ReadArchivePreview(entry, archivePath), extension)
-                            Return
-                        End If
-                    Next
-                    ' Entry not found
+                Dim preview = New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadArchive(archivePath, entryName)
+                If preview Is Nothing Then
                     WebPreview_wv2.NavigateToString("<html><body><h3>Error: Entry not found in archive</h3></body></html>")
-                End Using
+                Else
+                    Await ShowWebPreviewAsync(preview, extension)
+                End If
             Catch ex As Exception
                 WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading from archive:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
             End Try
@@ -2709,36 +2679,15 @@ Namespace Beacon
                 Return
             End If
 
-            Dim tempExtractDir As String = Nothing
             Try
-                ' Extract entire CAB to temp directory using 7-Zip
-                tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabPreview_" & Guid.NewGuid().ToString("N"))
-
-                Dim success = SevenZipHelper.ExtractCab(cabPath, tempExtractDir, _settings, report:=AddressOf RecordFileSystemIssue)
-                If Not success Then
-                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error: Failed to extract CAB file</h3></body></html>")
-                    Return
-                End If
-
-                ' Find the extracted file
-                Dim extractedFile = Path.Combine(tempExtractDir, entryName)
-                If File.Exists(extractedFile) Then
-                    Dim content = ReadPreviewFile(extractedFile)
+                Dim content = New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadCab(cabPath, entryName)
+                If content IsNot Nothing Then
                     Await ShowWebPreviewAsync(content, extension)
                 Else
                     WebPreview_wv2.NavigateToString($"<html><body><h3>Error: File '{System.Security.SecurityElement.Escape(entryName)}' not found in extracted CAB contents</h3></body></html>")
                 End If
             Catch ex As Exception
                 WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading CAB preview:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
-            Finally
-                ' Cleanup temp directory
-                If tempExtractDir IsNot Nothing AndAlso Directory.Exists(tempExtractDir) Then
-                    Try
-                        Directory.Delete(tempExtractDir, True)
-                    Catch
-                        ' Ignore cleanup errors
-                    End Try
-                End If
             End Try
         End Sub
 
@@ -3226,7 +3175,7 @@ Namespace Beacon
         ''' <summary>
         ''' Renders event details and highlights first search term occurrence in message
         ''' </summary>
-        Private Sub RenderEvent(ev As EventSummary)
+        Private Sub RenderEvent(ev As EventRecordSummary)
             RenderEventXml(ev)
             Dim lvl = If(String.IsNullOrWhiteSpace(ev.Level), "Information", ev.Level)
             EventLevel_txt.Text = $"[{lvl}]"
@@ -3246,7 +3195,7 @@ Namespace Beacon
         ''' Renders event message with inline highlighting of specific occurrence
         ''' Uses TextBlock.Inlines with colored Run for highlighted text
         ''' </summary>
-        Private Sub RenderEventWithHighlight(ev As EventSummary, highlightStart As Integer, highlightLength As Integer)
+        Private Sub RenderEventWithHighlight(ev As EventRecordSummary, highlightStart As Integer, highlightLength As Integer)
             RenderMatchedText(EventMessage_txt, ev.Message, highlightStart)
         End Sub
 
@@ -3603,17 +3552,7 @@ Namespace Beacon
         End Function
 
         Private Function ReadPreviewFile(filePath As String) As PreviewText
-            Using stream = OpenBoundedDiskFile(filePath, CancellationToken.None)
-                Return PreviewFormatting.ReadTextPreview(stream, CLng(_settings.MaximumPreviewSizeMb) * 1024 * 1024)
-            End Using
-        End Function
-
-        Private Function ReadArchivePreview(entry As IArchiveEntry, archivePath As String) As PreviewText
-            Dim budget As New ArchiveReadBudget(_settings, New FileInfo(archivePath).Length)
-            budget.Register(entry.Key, entry.Size, entry.CompressedSize, entry.IsEncrypted, entry.LinkTarget)
-            Using stream = OpenBoundedArchiveEntry(entry, archivePath, CancellationToken.None, budget)
-                Return PreviewFormatting.ReadTextPreview(stream, CLng(_settings.MaximumPreviewSizeMb) * 1024 * 1024)
-            End Using
+            Return New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadFile(filePath)
         End Function
 
         Private Async Function ShowWebPreviewAsync(preview As PreviewText, extension As String) As Task
@@ -3644,6 +3583,10 @@ Namespace Beacon
         ''' Deletes all temporary EVTX files extracted from archives
         ''' </summary>
         Private Sub CleanupTemp()
+            For Each service In _sourceSearches
+                service.Dispose()
+            Next
+            _sourceSearches.Clear()
             For Each f In _tempToDelete.ToList()
                 SafeDelete(f)
             Next

@@ -86,7 +86,7 @@ Namespace Beacon
         Public Property SearchFileContents As Boolean = True
         Public Property SearchFileNames As Boolean = False
         Public Property SearchFullPaths As Boolean = False
-        Public Property StopAfterFirstMatchPerFile As Boolean = True
+        Public Property StopAfterFirstMatchPerFile As Boolean = False
         Public Property ScanWorkerCount As Integer = 0
         Public Property Diagnostics As DiagnosticDetail = DiagnosticDetail.Summary
 

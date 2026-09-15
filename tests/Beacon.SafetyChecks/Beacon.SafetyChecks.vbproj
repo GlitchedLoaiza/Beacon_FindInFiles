@@ -19,8 +19,13 @@
     <Compile Include="../../Beacon_FindInFiles/CabExtractor.vb" Link="Production/CabExtractor.vb" />
     <Compile Include="../../Beacon_FindInFiles/FileSystemTraversal.vb" Link="Production/FileSystemTraversal.vb" />
     <Compile Include="../../Beacon_FindInFiles/PreviewFormatting.vb" Link="Production/PreviewFormatting.vb" />
+    <Compile Include="../../Beacon_FindInFiles/PreviewContentService.vb" Link="Production/PreviewContentService.vb" />
     <Compile Include="../../Beacon_FindInFiles/SettingsWindow.xaml.vb" Link="SettingsWindow.xaml.vb" />
     <Page Include="../../Beacon_FindInFiles/SettingsWindow.xaml" Link="SettingsWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/HelpContent.vb" Link="Production/HelpContent.vb" />
+    <Compile Include="../../Beacon_FindInFiles/RegexHelpContent.vb" Link="Production/RegexHelpContent.vb" />
+    <Compile Include="../../Beacon_FindInFiles/HelpWindow.xaml.vb" Link="HelpWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/HelpWindow.xaml" Link="HelpWindow.xaml" />
     <Page Include="../../Beacon_FindInFiles/SettingsStyles.xaml" Link="SettingsStyles.xaml" />
     <Compile Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml.vb" Link="UtcDateTimePicker.xaml.vb" />
     <Page Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml" Link="UtcDateTimePicker.xaml" />
@@ -32,6 +37,11 @@
     <None Update="Fixtures/Archives/*" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../Beacon_FindInFiles/SearchQuery.vb" Link="Production/SearchQuery.vb" />
     <Compile Include="../../Beacon_FindInFiles/SearchResults.vb" Link="Production/SearchResults.vb" />
+    <Compile Include="../../Beacon_FindInFiles/StructuredSearchResult.vb" Link="Production/StructuredSearchResult.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SourceSearchResult.vb" Link="Production/SourceSearchResult.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SourceSearchService.vb" Link="Production/SourceSearchService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/HarSearchService.vb" Link="Production/HarSearchService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/EvtxSearchService.vb" Link="Production/EvtxSearchService.vb" />
     <Compile Include="../../Beacon_FindInFiles/MatchContext.vb" Link="Production/MatchContext.vb" />
     <Compile Include="../../Beacon_FindInFiles/WebSearchScripts.vb" Link="Production/WebSearchScripts.vb" />
     <Compile Include="../../Beacon_FindInFiles/MainWindow.xaml.vb" Link="MainWindow.xaml.vb" />

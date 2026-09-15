@@ -44,7 +44,7 @@ Namespace Beacon
             ApplyEventFilter(sender, e)
         End Sub
 
-        Private Sub RenderEventXml(ev As EventSummary)
+        Private Sub RenderEventXml(ev As EventRecordSummary)
             EventXml_txt.Text = If(ev.XmlShortened, ev.RawXml, PreviewFormatting.FormatXml(ev.RawXml, True, 65536))
             EventXmlStatus_txt.Text = If(ev.XmlShortened, "XML shortened to the capture limit; copying is disabled to avoid an incomplete XML document.",
                 If(String.IsNullOrEmpty(ev.RawXml), "Raw XML is unavailable for this captured event.", "Captured event XML. Copying includes unredacted event data."))
