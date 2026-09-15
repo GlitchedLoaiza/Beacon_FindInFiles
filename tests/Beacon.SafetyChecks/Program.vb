@@ -166,6 +166,7 @@ Module Program
         Check("Headless preview service limits, sources and cleanup", AddressOf PreviewContentChecks.Run)
         Check("Headless source traversal, snapshots and lifetime", AddressOf SourceSearchChecks.Run)
         Check("Once-only optional welcome tour and splash version", AddressOf TourChecks.Run)
+        Check("Optimized line-context order and isolation", AddressOf OptimizationChecks.TextContextParity)
         Console.WriteLine($"{_passed} passed; {_failed} failed.")
         Return If(_failed = 0, 0, 1)
     End Function

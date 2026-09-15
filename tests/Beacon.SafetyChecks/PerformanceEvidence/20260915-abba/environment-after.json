@@ -1,0 +1,15 @@
+{
+  "CapturedUtc": "2026-09-15T20:00:14.5808032+00:00",
+  "Processor": [
+    {
+      "Name": "12th Gen Intel(R) Core(TM) i7-12800H",
+      "NumberOfCores": 14,
+      "NumberOfLogicalProcessors": 20
+    }
+  ],
+  "OS": "Microsoft Windows NT 10.0.26200.0",
+  "PowerScheme": "Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)",
+  "DotNet": "10.0.401",
+  "BenchmarkHash": "B4F38E8B56726DF3FC122623E557E7C2D2A0B94A8A33F537F9E710805452B8AD",
+  "HostHash": "9C544A3B4AB8EF1D7379BC16AA63394CDA50A5BBFCB788EB5625E1319B423C46"
+}

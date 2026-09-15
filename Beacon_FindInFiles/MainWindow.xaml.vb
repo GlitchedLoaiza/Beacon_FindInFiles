@@ -21,7 +21,7 @@ Imports SharpCompress.Common
 ' ============================================================================
 ' Beacon: Find in Files - Advanced Log Search Utility
 ' ============================================================================
-' This software was developed by Loaiza (luislo@microsoft)
+' This software was developed by GlitchedLoaiza
 ' 
 ' Purpose: Searches for text patterns across multiple file types including:
 '   - Plain text files (.txt, .log, .json, .xml, .csv, .html, .reg, .ini, .cfg, .config, .nfo)

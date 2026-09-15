@@ -1,0 +1,27 @@
+{
+  "Path": "C:\\Users\\luislo\\source\\repos\\Beacon_FindInFiles\\Beacon_FindInFiles\\bin\\Release\\performance-abba-20260915-140418\\Beacon.exe",
+  "FileVersion": "2.1.0.0",
+  "ProductVersion": "2.1.0+120daa4a5888aea05d63a93b169d0d74abcbd413",
+  "Length": 85809150,
+  "SHA256": "3685916E8524B4DC34EE5F8C78B69A238022D423CCB42F0FB57CFCE2B2DBFF5E",
+  "Signature": "NotSigned",
+  "SourceSHA256": "50DB802123AD30C9A1385A4805B9DA9064D9F70E5070A539BB20195BEDD4E708",
+  "Files": [
+    {
+      "Name": "Beacon.exe",
+      "Length": 85809150
+    },
+    {
+      "Name": "Microsoft.Web.WebView2.Core.xml",
+      "Length": 626091
+    },
+    {
+      "Name": "Microsoft.Web.WebView2.WinForms.xml",
+      "Length": 41393
+    },
+    {
+      "Name": "Microsoft.Web.WebView2.Wpf.xml",
+      "Length": 143352
+    }
+  ]
+}

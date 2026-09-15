@@ -10,6 +10,10 @@
     <ApplicationIcon>beacon_no_bg.ico</ApplicationIcon>
     <ApplicationManifest>My Project\app.manifest</ApplicationManifest>
     <AssemblyName>Beacon</AssemblyName>
+    <Company>GlitchedLoaiza</Company>
+    <Authors>GlitchedLoaiza</Authors>
+    <PublisherName>GlitchedLoaiza</PublisherName>
+    <Copyright>© GlitchedLoaiza</Copyright>
     <Version>2.1.0</Version>
     <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <FileVersion>2.1.0.0</FileVersion>
@@ -33,10 +37,15 @@
     <PackageReference Include="SharpCompress" Version="0.50.4" />
   </ItemGroup>
 
-  <!-- Exclude XML documentation files from publish -->
-  <ItemGroup>
-    <Content Remove="**\*.xml" />
-  </ItemGroup>
+  <!-- Package documentation is resolved after project Content items are evaluated. -->
+  <Target Name="ExcludeWebView2DocumentationFromPublish" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="'%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'Microsoft.Web.WebView2.Core.xml' Or
+                                        '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'Microsoft.Web.WebView2.WinForms.xml' Or
+                                        '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'Microsoft.Web.WebView2.Wpf.xml'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <None Remove="beacon_no_bg.png" />

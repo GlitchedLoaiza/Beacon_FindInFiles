@@ -72,7 +72,7 @@ Namespace Beacon
         Public Property HarToUtc As String = ""
         Public Property MaximumHarBodySizeMb As Integer = 25
         Public Property DecodeBase64HarBodies As Boolean = True
-        Public Property RedactSensitiveHarData As Boolean = True
+        Public Property RedactSensitiveHarData As Boolean = False
 
         Public Property PreviewFontFamily As String = "Consolas"
         Public Property PreviewFontSize As Integer = 13

@@ -4,6 +4,8 @@
 
 **Superseded candidate:** the source now targets **2.1.0** and includes first-launch onboarding plus a splash version label. The 2.0.1 binary, checksum and published smoke results below are historical evidence only and do not validate the new 2.1 build. Rebuild/publish 2.1, regenerate its hash, repeat startup checks (first launch, skipped/exited tour and second launch), and complete the manual gates before shipping. Do not distribute the old candidate as 2.1.
 
+**Later optimization validation:** [PERFORMANCE-AUDIT.md](PERFORMANCE-AUDIT.md) records the 2026-09-15 controlled A/B result, reversible production patch, 71 passing groups in Debug and Release, and a successful local 2.1 single-file publish. That optimized candidate has its own executable hash and is unsigned; it was not interactively smoke-tested in that pass. It does not inherit the historical 2.0.1 smoke-test sign-off below. The manual and distribution gates still apply to the exact final shipping binary.
+
 **Automated validation and a limited published-executable smoke test passed. Distribution approval is pending the manual gates below.** This is not a claim that every archive, Windows installation, or provider configuration is supported without further testing. No release was uploaded, no app version was changed, and no signing operation was performed.
 
 ## Validated baseline

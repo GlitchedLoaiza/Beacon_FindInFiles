@@ -7,7 +7,7 @@ Module StructuredSearchChecks
     Private Const HarEntry As String = "{""request"":{""method"":""GET"",""url"":""https://example.invalid/""},""response"":{""status"":503,""content"":{""mimeType"":""application/json"",""text"":""{\""token\"":\""PRIVATE_SECRET\"",\""safe\"":\""error\""}""}}}"
 
     Public Sub Har()
-        Dim options As New BeaconSettings With {.StopAfterFirstMatchPerFile = False, .MaximumStructuredMatches = 2, .HarMaximumMatches = 2}
+        Dim options As New BeaconSettings With {.StopAfterFirstMatchPerFile = False, .MaximumStructuredMatches = 2, .HarMaximumMatches = 2, .RedactSensitiveHarData = True}
         Dim service As New HarSearchService(New SearchQuery("PRIVATE_SECRET", SearchMode.PlainText, False), options)
         options.RedactSensitiveHarData = False
         options.HarStatusCodes = "200"

@@ -25,6 +25,38 @@ Module HarChecks
         End Using
     End Function
     Public Sub Run()
+        Require(Not BeaconSettings.CreateDefaults().RedactSensitiveHarData, "HAR redaction must be opt-in.")
+        Require(Not JsonSerializer.Deserialize(Of BeaconSettings)("{}").RedactSensitiveHarData, "A missing redaction setting must use the unchecked default.")
+        Require(BeaconSettingsService.Clone(New BeaconSettings With {.RedactSensitiveHarData = True}).RedactSensitiveHarData,
+                "Explicitly saved HAR redaction must be preserved.")
+        For Each dark In {False, True}
+            For Each enabled In {False, True}
+                Dim preferences As New BeaconSettings With {.RedactSensitiveHarData = enabled}
+                Dim settingsWindow As New SettingsWindow(preferences, dark)
+                Try
+                    Dim checkbox = DirectCast(settingsWindow.FindName("RedactHar_chk"), CheckBox)
+                    Dim help = DirectCast(settingsWindow.FindName("HarPrivacyHelp_txt"), TextBlock)
+                    Require(checkbox.IsChecked.GetValueOrDefault() = enabled, "Settings did not load the redaction preference.")
+                    Require(help.Text.StartsWith(If(enabled, "HAR redaction: On.", "HAR redaction: Off.")),
+                            "Loaded HAR privacy guidance contradicts the checkbox.")
+                    checkbox.IsChecked = True
+                    Require(help.Text.StartsWith("HAR redaction: On.") AndAlso help.Text.Contains("matching values can be hidden"),
+                            "Enabling HAR redaction did not update its guidance.")
+                    checkbox.IsChecked = False
+                    Require(help.Text.StartsWith("HAR redaction: Off.") AndAlso Not help.Text.Contains("redaction is enabled"),
+                            "Disabled HAR redaction still claims to be enabled.")
+                    Require(help.Text.Contains("Save and run a new scan") AndAlso help.Text.Contains("Existing results keep"),
+                            "Privacy guidance must distinguish unsaved choices from captured results.")
+                    checkbox.IsChecked = True
+                    DirectCast(settingsWindow.FindName("RestoreDefaults_btn"), Button).RaiseEvent(New RoutedEventArgs(Button.ClickEvent))
+                    Require(Not checkbox.IsChecked.GetValueOrDefault() AndAlso help.Text.StartsWith("HAR redaction: Off."),
+                            "Restore defaults must show unchecked HAR redaction and matching guidance.")
+                    Require(preferences.RedactSensitiveHarData = enabled, "Unsaved changes modified the caller's redaction setting.")
+                Finally
+                    settingsWindow.Close()
+                End Try
+            Next
+        Next
         Dim json = Entry("{""token"":""BODY_SECRET"",""nested"":{""password"":""NESTED_SECRET""},""safe"":""error visible""}")
         Dim original = Read(json)
         Dim filtered As New HarFilter("get", "example.invalid", "500,503", "json", "125.5", "2026-01-02 03:04:05", "2026-01-02 03:04:05")
@@ -59,9 +91,10 @@ Module HarChecks
         Require(Read(Entry(Convert.ToBase64String({CByte(255)}), "base64")).BodyIncomplete, "Binary response was not omitted.")
         Require(Read(Entry(New String("x"c, 1048577), mime:="text/plain"), New BeaconSettings With {.MaximumHarBodySizeMb = 1}).ResponseBody = "", "Oversized body was retained.")
         Require(HarRedaction.Present(Read(Entry("FREE_SECRET", mime:="text/plain")), True, CancellationToken.None).ResponseBody.Contains("withheld"), "Unstructured body was exposed with redaction enabled.")
-        Pipeline(json)
+        Pipeline(json, False)
+        Pipeline(json, True)
     End Sub
-    Private Sub Pipeline(entry As String)
+    Private Sub Pipeline(entry As String, redact As Boolean)
         Dim root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "BeaconHarChecks-" & Guid.NewGuid().ToString("N"))
         Directory.CreateDirectory(root)
         Dim path = System.IO.Path.Combine(root, "sample.har")
@@ -72,6 +105,7 @@ Module HarChecks
         RemoveHandler window.Closing, DirectCast(type.GetMethod("MainWindow_Closing", flags).CreateDelegate(GetType(ComponentModel.CancelEventHandler), window), ComponentModel.CancelEventHandler)
         Try
             Dim options As New BeaconSettings With {.StopAfterFirstMatchPerFile = False, .HarStatusCodes = "503"}
+            If redact Then options.RedactSensitiveHarData = True
             type.GetField("_settings", flags).SetValue(window, options)
             type.GetField("_searchOptions", flags).SetValue(window, options)
             type.GetField("_activeQuery", flags).SetValue(window, New SearchQuery("BODY_SECRET", SearchMode.PlainText, False))
@@ -106,17 +140,29 @@ Module HarChecks
                 DirectCast(window.FindName("ApplyHarFilter_btn"), Button).RaiseEvent(New RoutedEventArgs(Button.ClickEvent))
                 Require(DirectCast(window.FindName("HarBodyNotice_txt"), TextBlock).Text.Contains("No captured"), "Empty preview filter retained request data.")
                 DirectCast(window.FindName("ClearHarFilter_btn"), Button).RaiseEvent(New RoutedEventArgs(Button.ClickEvent))
-                Require(DirectCast(window.FindName("HarBodyNotice_txt"), TextBlock).Text.Contains("redaction is enabled"), "Clearing HAR filters did not restore safe request preview.")
+                Require(DirectCast(window.FindName("HarBodyNotice_txt"), TextBlock).Text.Contains(If(redact, "redaction is enabled", "redaction is disabled")),
+                        "HAR preview notice does not reflect the captured redaction preference.")
+                Dim body = DirectCast(window.FindName("HarResponseBody_txt"), TextBlock)
+                Dim rendered = New System.Windows.Documents.TextRange(body.ContentStart, body.ContentEnd).Text
+                Require(rendered.Contains("BODY_SECRET") = Not redact, "HAR preview did not honor opt-in redaction.")
+                If Not redact Then
+                    Require(body.Inlines.OfType(Of System.Windows.Documents.Run)().Any(Function(run) run.Text.Contains("BODY_SECRET") AndAlso run.Background IsNot Nothing),
+                            "Default HAR preview did not highlight the search match.")
+                End If
             Next
             Dim snapshot = DirectCast(type.GetMethod("BuildReportSnapshot", flags).Invoke(window, Nothing), ScanReportSnapshot)
-            Require(snapshot.RedactionApplied AndAlso snapshot.ForExport(True, False).RedactionApplied, "Redaction state was lost in report snapshots.")
+            Require(snapshot.RedactionApplied = redact AndAlso snapshot.ForExport(True, False).RedactionApplied = redact, "Redaction state was lost in report snapshots.")
             For Each reportFormat As ScanReportFormat In {ScanReportFormat.Html, ScanReportFormat.Json, ScanReportFormat.Csv}
                 Dim output = System.IO.Path.Combine(root, "report." & reportFormat.ToString())
                 ScanReportWriter.SaveAsync(snapshot, output, reportFormat, True, False, CancellationToken.None).GetAwaiter().GetResult()
                 Dim text = File.ReadAllText(output)
-                For Each secret In {"BODY_SECRET", "HEADER_SECRET", "COOKIE_SECRET", "QUERY_SECRET", "FORM_SECRET"}
-                    Require(Not text.Contains(secret), "Export leaked original HAR data: " & secret)
-                Next
+                If redact Then
+                    For Each secret In {"BODY_SECRET", "HEADER_SECRET", "COOKIE_SECRET", "QUERY_SECRET", "FORM_SECRET"}
+                        Require(Not text.Contains(secret), "Export leaked original HAR data: " & secret)
+                    Next
+                Else
+                    Require(text.Contains("BODY_SECRET"), "Default HAR export hid the matched text.")
+                End If
             Next
         Finally
             window.Close()

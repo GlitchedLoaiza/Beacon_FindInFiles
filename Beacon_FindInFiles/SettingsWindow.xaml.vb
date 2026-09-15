@@ -30,7 +30,6 @@ Namespace Beacon
             EvtxFrom_host.Content = EvtxFrom_txt
             EvtxTo_host.Content = EvtxTo_txt
             HarFilters_host.Content = _harFilters
-            HarPrivacyHelp_txt.Text = HarRedaction.Notice
             _checkForUpdates = checkForUpdates
             _workingSettings = BeaconSettingsService.Clone(settings)
             _installedFontNames = Fonts.SystemFontFamilies.Select(Function(family) family.Source).
@@ -49,6 +48,8 @@ Namespace Beacon
             AddHandler Cancel_btn.Click, Sub() DialogResult = False
             AddHandler RestoreDefaults_btn.Click, AddressOf RestoreDefaults_btn_Click
             AddHandler CheckUpdates_btn.Click, AddressOf CheckUpdates_Click
+            AddHandler RedactHar_chk.Checked, AddressOf UpdateHarPrivacyHelp
+            AddHandler RedactHar_chk.Unchecked, AddressOf UpdateHarPrivacyHelp
 
             ApplyTheme(isDarkMode)
             LoadControls()
@@ -84,6 +85,13 @@ Namespace Beacon
             _settingsClosed = True
             _updateCancellation.Cancel()
             MyBase.OnClosed(e)
+        End Sub
+
+        Private Sub UpdateHarPrivacyHelp(sender As Object, e As RoutedEventArgs)
+            HarPrivacyHelp_txt.Text = If(RedactHar_chk.IsChecked.GetValueOrDefault(),
+                "HAR redaction: On. Recognized sensitive fields are hidden and unstructured bodies are withheld in newly captured HAR previews and exports. Searches still use original bounded data, so matching values can be hidden. Redaction is not full anonymization; review before sharing.",
+                "HAR redaction: Off. Newly captured HAR previews and exports retain original matching text; body size and decoding limits still apply. Review sensitive data before sharing.") & vbCrLf & vbCrLf &
+                "Save and run a new scan to apply this choice. Existing results keep the redaction setting used when they were collected."
         End Sub
 
         Private Sub ApplyTheme(isDarkMode As Boolean)
@@ -143,6 +151,7 @@ Namespace Beacon
             HarBodySize_txt.Text = _workingSettings.MaximumHarBodySizeMb.ToString()
             DecodeBase64_chk.IsChecked = _workingSettings.DecodeBase64HarBodies
             RedactHar_chk.IsChecked = _workingSettings.RedactSensitiveHarData
+            UpdateHarPrivacyHelp(Nothing, Nothing)
 
             PreviewFont_cmb.SelectedItem = _installedFontNames.FirstOrDefault(
                 Function(name) String.Equals(name, _workingSettings.PreviewFontFamily, StringComparison.OrdinalIgnoreCase))
