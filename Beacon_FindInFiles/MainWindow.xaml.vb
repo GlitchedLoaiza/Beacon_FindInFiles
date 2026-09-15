@@ -532,6 +532,7 @@ Namespace Beacon
         ''' Called when window is fully loaded - safe time to initialize WebView2
         ''' </summary>
         Private Sub MainWindow_Loaded(sender As Object, e As RoutedEventArgs)
+            Dispatcher.BeginInvoke(Sub() OfferWelcomeTour(), Threading.DispatcherPriority.ContextIdle)
             CheckForUpdatesAtStartup()
             Debug.WriteLine("========================================")
             Debug.WriteLine("MainWindow_Loaded event fired!")
@@ -542,6 +543,18 @@ Namespace Beacon
 
             ' Initialize WebView2 asynchronously - control is now in visual tree
             InitializeWebView2Async()
+        End Sub
+
+        Private _tourOfferChecked As Boolean
+        Private _tourWindow As TourWindow
+
+        Private Sub OfferWelcomeTour()
+            If _tourOfferChecked OrElse _isClosing OrElse Not IsVisible Then Return
+            _tourOfferChecked = True
+            If Not WelcomeTourState.TryClaimOffer() Then Return
+            _tourWindow = New TourWindow(Me, _isDarkMode)
+            AddHandler _tourWindow.Closed, Sub() _tourWindow = Nothing
+            _tourWindow.Show()
         End Sub
 
         ''' <summary>Starts WebView2 initialization without blocking window startup.</summary>

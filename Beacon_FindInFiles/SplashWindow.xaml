@@ -176,6 +176,8 @@
                 </Grid>
                 <TextBlock x:Name="LoadingStatus_txt" Text="Preparing your workspace…" FontFamily="Segoe UI" FontSize="15" Foreground="#9EBBE0"
                            HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,548,0,0" AutomationProperties.LiveSetting="Polite"/>
+                <TextBlock x:Name="SplashVersion_txt" FontFamily="Segoe UI" FontSize="13" Foreground="#9EBBE0"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,16"/>
             </Grid>
         </Viewbox>
     </Border>

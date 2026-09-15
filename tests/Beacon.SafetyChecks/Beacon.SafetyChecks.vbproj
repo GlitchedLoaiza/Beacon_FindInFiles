@@ -26,6 +26,9 @@
     <Compile Include="../../Beacon_FindInFiles/RegexHelpContent.vb" Link="Production/RegexHelpContent.vb" />
     <Compile Include="../../Beacon_FindInFiles/HelpWindow.xaml.vb" Link="HelpWindow.xaml.vb" />
     <Page Include="../../Beacon_FindInFiles/HelpWindow.xaml" Link="HelpWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/WelcomeTour.vb" Link="Production/WelcomeTour.vb" />
+    <Compile Include="../../Beacon_FindInFiles/TourWindow.xaml.vb" Link="TourWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/TourWindow.xaml" Link="TourWindow.xaml" />
     <Page Include="../../Beacon_FindInFiles/SettingsStyles.xaml" Link="SettingsStyles.xaml" />
     <Compile Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml.vb" Link="UtcDateTimePicker.xaml.vb" />
     <Page Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml" Link="UtcDateTimePicker.xaml" />

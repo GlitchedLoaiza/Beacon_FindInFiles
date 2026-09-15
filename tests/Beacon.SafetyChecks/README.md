@@ -10,7 +10,15 @@ dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- "$P
 
 A nonzero exit code indicates a failure. This is an executable regression runner, not a Test Explorer/MSTest project. Solution builds compile it; run the command above to execute the checks.
 
+## Step 12 release validation
+
+See [RELEASE-VALIDATION.md](RELEASE-VALIDATION.md) for the validated source commit, Release test/build/audit evidence, candidate checksum, published-executable smoke results and outstanding manual release gates. The 2026-09-15 pass completed 69 Release regression groups and a local published startup/duplicate-launch/normal-exit check. It does not authorize distribution: representative-file/target-machine testing, release version, signing and redistribution notices still require sign-off. Historical validation counts below describe earlier snapshots, not the current release candidate.
+
 ## Beginner help and multi-record defaults
+
+Beacon 2.1 adds a once-only optional welcome tour after the main window opens. Start tour follows eight coaching steps beside source/search/mode/scan/results/details/export/diagnostics controls; Not now or Exit tour dismisses it at any stage. Back and Next/Finish are always user-driven. The tour never selects sources, changes search input, starts scans or saves exports automatically. It can explain disabled controls before results exist. The owned coaching window follows owner movement/resize and closes with the owner.
+
+The offer is remembered per user in `%LOCALAPPDATA%/Beacon/welcome-tour.offered`, separately from Settings. Existing users also receive one offer when first running this implementation. Skipping or closing counts as offered, so the second and later launches do not show it again. Restore defaults does not reset onboarding. An unwritable marker location skips the offer safely. Tests use temporary marker paths, not the user's real state. The splash displays the running assembly's version at the lower-right; release metadata is 2.1.0 / 2.1.0.0, displayed as 2.1.
 
 The accessible ? Help button immediately left of Settings opens one owned, nonmodal Help window. Its offline guide includes quick-start instructions, all search modes/targets, counts and partial results, navigation, EVTX/HAR tools, date/provider/severity selectors, archive safeguards, redaction, exports, Settings, updates, shortcuts and troubleshooting. Search filters titles and descriptions; text can be selected/copied. Help follows the theme at opening and keeps native window controls.
 

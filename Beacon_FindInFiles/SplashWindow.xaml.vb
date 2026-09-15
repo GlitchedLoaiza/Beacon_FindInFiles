@@ -26,6 +26,8 @@ Namespace Beacon
 
         Friend Sub New(autoTransition As Boolean)
             InitializeComponent()
+            Dim version = GetType(SplashWindow).Assembly.GetName().Version
+            SplashVersion_txt.Text = "Version " & version.ToString(If(version.Build > 0, 3, 2))
             _autoTransition = autoTransition
         End Sub
 
