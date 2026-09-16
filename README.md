@@ -9,7 +9,7 @@
 
 Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-> **Getting ready for 2.1!** This README describes the prepared 2.1.0 build. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. Release-preparation details live [here](docs/releases/2.1.0/PREPARATION.md); the previous version is preserved on [`Beacon2.0.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.0.1).
+> **Beacon 2.1 source:** This README describes the current 2.1.0 source, including Beacon Theme. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for published downloads and their release notes; promoting source to `master` does not publish a binary. Validation and packaging details live [here](docs/releases/2.1.0/PREPARATION.md); v2.0.1 is preserved on [`Beacon2.0.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.0.1).
 
 ## 🎯 Features at a glance
 
@@ -27,11 +27,11 @@ Whether you're tracking an error across diagnostic bundles, finding a configurat
 ## 📦 Download and run
 
 1. Visit the official [Releases page](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases).
-2. Download the ZIP for your chosen version and its `SHA256SUMS.txt` verification file.
-3. Verify the download using the instructions below, then extract it to a folder you can write to.
+2. Download the ZIP for your chosen release. Also download `SHA256SUMS.txt` if that release provides one.
+3. Review the checksum guidance below, then extract the ZIP to a folder you can write to.
 4. Run **`Beacon.exe`**. That's it—no installer or separate .NET installation is needed.
 
-Keep the included `LICENSE` and `licenses` folder with the app when sharing it. You don't need the source code, benchmarks, or test files to use Beacon.
+Keep the included `LICENSE`, `THIRD-PARTY-NOTICES.md`, and `licenses` folder with the app when sharing it. You don't need the source code, benchmarks, or test files to use Beacon.
 
 ### 🖥️ What you'll need
 
@@ -42,16 +42,16 @@ Keep the included `LICENSE` and `licenses` folder with the app when sharing it. 
 
 ### 🔐 Verify your download
 
-Use the checksum for the **same file and version** you downloaded. The [2.1.0 checksum list](docs/releases/2.1.0/SHA256SUMS.txt) includes separate values for the ZIP and EXE.
+Use the checksum for the **same file and version** you downloaded, from that release's notes or `SHA256SUMS.txt`. The [archived 2.1.0 checksum list](docs/releases/2.1.0/SHA256SUMS.txt) identifies only the local pre-theme package below—not v2.0.1 or a new theme-enabled build.
 
 <details>
-<summary>Show the prepared 2.1.0 hashes and PowerShell verification steps</summary>
+<summary>Show the archived 2.1.0 hashes and PowerShell verification steps</summary>
 
-These values identify the exact prepared package. The [artifact manifest](docs/releases/2.1.0/release-manifest.json) contains the full build details.
+These values identify one historical local package. The [archived artifact manifest](docs/releases/2.1.0/release-manifest.json) contains its full build details.
 
-**Source update:** the package recorded below predates Beacon Theme. Its hashes still identify that earlier download; a rebuilt theme-enabled release needs fresh packaging and checksums.
+**Not a current-release checksum:** the package recorded below predates Beacon Theme and was not uploaded as a GitHub release during its preparation. A theme-enabled release needs fresh packaging, validation, and checksums.
 
-<!-- RELEASE-HASHES: copied from the verified 2.1.0 package; regenerate after rebuilding or repackaging. -->
+<!-- RELEASE-HASHES: historical pre-theme 2.1.0 package; replace only with verified shipping-artifact data. -->
 Prepared locally on **2026-09-16 UTC** from `experiments-latest` at `90f960dd` (Release, win-x64, self-contained single-file, ReadyToRun off):
 
 | File | Size (bytes) | SHA-256 |
@@ -59,10 +59,10 @@ Prepared locally on **2026-09-16 UTC** from `experiments-latest` at `90f960dd` (
 | `Beacon.exe` | 77,624,725 | `C35F908A02A52E361B58E82E31E00B531864C31CD7F8CA420D5A3CE68E97A686` |
 | `Beacon-2.1.0-win-x64.zip` | 72,071,577 | `EDDF545A27265041DAD7862DFDF2C3A0F069324C424AB417DBE5CC8F0E786BAB` |
 
-These hashes replace the earlier local EXE-only package's hashes. Check the release notes before comparing a different 2.1.0 download; this preparation has not uploaded a new GitHub release.
+These hashes superseded an earlier local EXE-only package, not the published v2.0.1 download. Do not reuse them for another build, even if its version number is also 2.1.0.
 <!-- /RELEASE-HASHES -->
 
-In PowerShell, run this in the download folder:
+In PowerShell, run this in the download folder, replacing the example ZIP name with the exact downloaded filename:
 
 ```powershell
 Get-FileHash -LiteralPath '.\Beacon-2.1.0-win-x64.zip' -Algorithm SHA256
@@ -70,7 +70,7 @@ Get-FileHash -LiteralPath '.\Beacon-2.1.0-win-x64.zip' -Algorithm SHA256
 Get-FileHash -LiteralPath '.\Beacon.exe' -Algorithm SHA256
 ```
 
-Compare the full `Hash` value with that file's entry in `SHA256SUMS.txt`. If they differ, don't run the file: confirm the version and download it again from the official release.
+Compare the full `Hash` value with that file's checksum in the same release's notes or `SHA256SUMS.txt`. ZIP and EXE hashes are different. If no checksum is published for that file, this comparison is unavailable—do not substitute one from another artifact. If the values differ, don't run the file: confirm the version and download it again from the official release.
 
 Rebuilding, repackaging, or signing changes the checksum. A self-built copy may differ from a published one. Hashes verify matching bytes—not publisher identity or whether an application is harmless.
 
@@ -264,7 +264,7 @@ Share bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Find
 
 ## 📋 Changelog
 
-### v2.1.0 — prepared for release
+### v2.1.0 — source changelog
 
 #### ✨ Added
 
