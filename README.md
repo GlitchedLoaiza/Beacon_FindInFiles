@@ -1,43 +1,63 @@
-# Beacon: Find in Files 2.1
+# Beacon: Find in Files v2.1 — Your logs, easier to explore
 
 ![Version](https://img.shields.io/badge/version-2.1.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)
 ![Framework](https://img.shields.io/badge/.NET-10-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**Find information in logs without opening every file yourself.** Beacon searches text files, Windows event logs (EVTX), saved web requests (HAR), and supported archives. Choose a source, search for words or a pattern, inspect matches, and export a readable report.
+**Less time opening files. More time finding answers.** Beacon is a Windows desktop tool for finding words, error codes, and patterns across logs and archives. Choose a folder or archive, enter your search, and explore the matching files—all in one place.
 
-Maintained by **GlitchedLoaiza**. This branch describes **2.1.0 prepared for release**; it does not mean the branch has been merged into `master` or that the 2.1.0 download has already been uploaded. The previous `master` contents are preserved on [`Beacon2.0.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.0.1).
+Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-## Download and run
+> **Getting ready for 2.1!** This README describes the prepared 2.1.0 build. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. Release-preparation details live [here](docs/releases/2.1.0/PREPARATION.md); the previous version is preserved on [`Beacon2.0.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.0.1).
 
-1. Open the official [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) page and select the version you want.
-2. Download its ZIP and matching `SHA256SUMS.txt`. For the prepared 2.1.0 package, the ZIP is named `Beacon-2.1.0-win-x64.zip`.
-3. Verify the download as described below, then extract the ZIP to a folder you can write to.
-4. Run **`Beacon.exe`**. No installer or separate .NET installation is required for the published self-contained build.
+## 🎯 Features at a glance
 
-The release ZIP contains `Beacon.exe`, Beacon's license, and third-party license notices. Keep those notices when redistributing it. The benchmark runner, regression fixtures, and WebView2 API-documentation XML files are not application dependencies and are not included in the release ZIP.
+- **Search across file types:** text logs, Windows events (EVTX), saved web traffic (HAR), and supported archives.
+- **Search your way:** literal text, whole words, regex patterns, or combinations of terms, with optional case sensitivity.
+- **Explore without losing your place:** highlighted previews, matching locations, and navigation between files, events, and requests.
+- **Look inside nested archives:** configurable depth and limits, with matching files shown under their original archive paths.
+- **Investigate events and requests:** collapsible EVTX/HAR tools, editable date pickers, and filters that help narrow the view.
+- **Share a readable report:** export matching files and nearby context to a self-contained HTML file.
+- **Make it comfortable:** Light, Dark, and System themes, adjustable previews, and native Windows window controls.
+- **Get help as you go:** an optional welcome tour and searchable offline Help, including a beginner regex guide.
 
-### Requirements
+Whether you're tracking an error across diagnostic bundles, finding a configuration value, or reviewing a saved web request, Beacon helps you get to the relevant text.
 
-- **Windows 11 x64** is the primary validated environment. Other Windows versions and managed-device policies require their own testing; native caption coloring falls back where unsupported.
-- **.NET 10 is bundled** in the published EXE. Building from source requires the .NET 10 SDK.
-- **Microsoft Edge WebView2 Runtime** is used for complete HTML/XML/JSON previews. It is often already installed on Windows but is not bundled with Beacon. A text fallback is available if initialization fails.
-- A writable user profile and temporary directory are needed for settings and bounded archive extraction. Security policies must allow the bundled CAB helper to run.
+## 📦 Download and run
 
-### Verify the exact downloaded file
+1. Visit the official [Releases page](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases).
+2. Download the ZIP for your chosen version and its `SHA256SUMS.txt` verification file.
+3. Verify the download using the instructions below, then extract it to a folder you can write to.
+4. Run **`Beacon.exe`**. That's it—no installer or separate .NET installation is needed.
 
-The prepared 2.1.0 [SHA-256 list](docs/releases/2.1.0/SHA256SUMS.txt) and [artifact manifest](docs/releases/2.1.0/release-manifest.json) identify the precise EXE and ZIP built for this preparation. **Use checksums for the same version and artifact; an EXE checksum is not a ZIP checksum.** Different rebuilds, packaging changes, or signing produce different hashes even if the version number stays the same.
+Keep the included `LICENSE` and `licenses` folder with the app when sharing it. You don't need the source code, benchmarks, or test files to use Beacon.
+
+### 🖥️ What you'll need
+
+- **Windows 11 x64** is the primary tested environment. Other Windows versions need separate testing.
+- **.NET 10 is included** in the published executable.
+- **Microsoft Edge WebView2 Runtime** provides HTML/XML/JSON previews. It's often already on Windows; Beacon offers a text fallback if it can't initialize WebView2.
+- Writable settings/temp folders and permission to run the bundled CAB helper. Workplace device policies may restrict these.
+
+### 🔐 Verify your download
+
+Use the checksum for the **same file and version** you downloaded. The [2.1.0 checksum list](docs/releases/2.1.0/SHA256SUMS.txt) includes separate values for the ZIP and EXE.
+
+<details>
+<summary>Show the prepared 2.1.0 hashes and PowerShell verification steps</summary>
+
+These values identify the exact prepared package. The [artifact manifest](docs/releases/2.1.0/release-manifest.json) contains the full build details.
 
 <!-- RELEASE-HASHES: copied from the verified 2.1.0 package; regenerate after rebuilding or repackaging. -->
-Prepared locally on **2026-09-16 UTC** from `experiments-latest` at `90f960dd`, using Release / win-x64 / self-contained / single-file with ReadyToRun **off**:
+Prepared locally on **2026-09-16 UTC** from `experiments-latest` at `90f960dd` (Release, win-x64, self-contained single-file, ReadyToRun off):
 
 | File | Size (bytes) | SHA-256 |
 | --- | ---: | --- |
 | `Beacon.exe` | 77,624,725 | `C35F908A02A52E361B58E82E31E00B531864C31CD7F8CA420D5A3CE68E97A686` |
 | `Beacon-2.1.0-win-x64.zip` | 72,071,577 | `EDDF545A27265041DAD7862DFDF2C3A0F069324C424AB417DBE5CC8F0E786BAB` |
 
-These hashes supersede the earlier local 2.1.0 EXE-only ZIP, not every file with the same version name. No new GitHub release upload or branch promotion was performed as part of this preparation.
+These hashes replace the earlier local EXE-only package's hashes. Check the release notes before comparing a different 2.1.0 download; this preparation has not uploaded a new GitHub release.
 <!-- /RELEASE-HASHES -->
 
 In PowerShell, run this in the download folder:
@@ -48,15 +68,19 @@ Get-FileHash -LiteralPath '.\Beacon-2.1.0-win-x64.zip' -Algorithm SHA256
 Get-FileHash -LiteralPath '.\Beacon.exe' -Algorithm SHA256
 ```
 
-Compare the full `Hash` value with the corresponding file in the version's official `SHA256SUMS.txt`. If it differs, do not run the file: confirm the version and redownload from the official release. Hashes detect changed bytes; they **do not provide a verified publisher, prove a file is harmless, or bypass Windows protection**. Self-built copies are not expected to match a published binary automatically.
+Compare the full `Hash` value with that file's entry in `SHA256SUMS.txt`. If they differ, don't run the file: confirm the version and download it again from the official release.
 
-### Windows SmartScreen and signing
+Rebuilding, repackaging, or signing changes the checksum. A self-built copy may differ from a published one. Hashes verify matching bytes—not publisher identity or whether an application is harmless.
 
-The prepared executable is **unsigned**, not self-signed. Windows may show **“Windows protected your PC”** or **“Unknown publisher”** for an unrecognized download. A reputation warning is different from Defender naming a specific malware threat; neither should be ignored without review. The `GlitchedLoaiza` company/copyright metadata is branding, not an Authenticode signature.
+</details>
 
-Use the official source/download, verify the matching checksum, and follow your organization's software policy. Do not disable SmartScreen or Defender to use Beacon. No certificate purchase, signing service, or guaranteed warning-free launch is promised by this release.
+### ⚠️ A note about Windows SmartScreen
 
-## Your first search
+Beacon is currently **unsigned**, not self-signed. Windows may show **“Windows protected your PC”** or **“Unknown publisher”** for an unfamiliar download. This is different from an antivirus detection naming a specific threat.
+
+Download from the official release, verify its checksum, and follow your organization's software policy. Please don't disable SmartScreen or Defender. The GlitchedLoaiza branding is not a verified signing certificate.
+
+## 🚀 Your first search
 
 1. Click **Folder** to choose a folder, or **Archive** to choose a compressed archive. **Path** displays the selected source.
 2. Choose **Literal text** in **Search mode** and enter a term such as **"error"** in **Search for**. Leave out the surrounding example quotes.
@@ -64,7 +88,7 @@ Use the official source/download, verify the matching checksum, and follow your 
 4. Wait while Beacon counts eligible files and then searches them. Select a file in **Matched Files** to read its preview.
 5. Expand **Match details** to select a matching line, event, or request. Use the preview's navigation buttons to explore additional matches.
 
-The optional welcome tour explains these steps and exporting. You can decline or exit it at any point; it is offered only once per user. The **? Help** button immediately left of **Settings** opens a searchable offline guide, including five beginner regex lessons and examples checked against Beacon's search engine. No tour step searches files or exports data automatically.
+💡 **New to Beacon?** Try the optional welcome tour, or click **? Help** beside Settings whenever you need a hand. You can skip or exit the tour at any point; it never runs a search or export for you. Help works offline and includes five beginner regex lessons.
 
 ### Search modes
 
@@ -76,21 +100,26 @@ The optional welcome tour explains these steps and exporting. You can decline or
 | **Any term** | At least one search term is enough | **"error timeout"** finds either word. |
 | **All terms** | Every term must occur in the same record | **"error timeout"** requires both words, in either order. |
 
-Double quotes above label examples; do not type them unless grouping a phrase in **Any term** or **All terms**. For a phrase plus another term, the actual field can contain `"connection failed" timeout`. Ordinary text is searched line by line; EVTX and HAR matching works within one event/request. Regex operations have a timeout; inputs are limited to 4,096 characters and Any/All searches to 32 terms. The in-app tutorial links to [Microsoft's .NET regex reference](https://learn.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-language-quick-reference).
+The double quotes above label examples—leave them out when typing. In **Any term** or **All terms**, quotes can instead keep a phrase together: the actual field can contain `"connection failed" timeout`.
+
+Not sure about regex? Start with **Literal text**, then explore the in-app lessons or [Microsoft's .NET regex reference](https://learn.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-language-quick-reference). Regex searches have a time limit; Any/All accept up to 32 terms, with 4,096 characters allowed in the search field.
 
 ### Changing, cancelling, and resetting
 
-- Change the search or source, then click **Scan** again. Editing the search box does not change an existing result set or its highlights.
-- Click **Cancel** or press **Esc** to cancel an active scan. Cancellation is cooperative: an in-progress codec or native operation may take time to return. Results already collected may be partial.
+- Change the search or source, then click **Scan** again. Existing results keep their original search until you rescan.
+- Click **Cancel** or press **Esc** to stop an active scan. Some file-reading operations take a moment to finish; results collected so far may be partial.
 - **Reset** clears the current work. Export any results you need before resetting. It is different from **Restore defaults** in Settings.
 
 ### Reading counts and limits
 
-A *record* is a matching text line, EVTX event, or HAR request. Several highlighted words can belong to one record. A **+** beside a count indicates partial results; hover for the reason and review **Diagnostics**. The counted/scanned file total includes files with no match and is not the matching-file count.
+A *record* is a text line, Windows event, or web request. Several highlighted words can belong to one record. A **+** beside a count means there may be more results; hover over it for the reason or check **Diagnostics**. The scanned-file count also includes files with no match.
 
-New settings collect multiple records and leave HAR redaction off. Explicit saved preferences remain intact. If only one event/request appears, check **Settings → Search → Stop after the first matching line, event, or request per file**, clear preview filters if needed, save, and rescan.
+Seeing only one event or request? Check the first-match option under **Settings → Search**, clear any Event/HAR tools filters, and rescan. Saved preferences remain in effect when you update Beacon.
 
-Selected defaults (configurable, not unlimited guarantees):
+<details>
+<summary>Default limits and how to collect more results</summary>
+
+Adjust these in Settings, save, and run the search again. Higher limits can use more memory, disk space, and time.
 
 | Setting | Default |
 | --- | ---: |
@@ -102,60 +131,68 @@ Selected defaults (configurable, not unlimited guarantees):
 | Maximum request/response body size | 25 MB per body |
 | Archive nesting depth | 1; configurable from 0 to 5 |
 
-Archive entry counts, expanded bytes, compression ratios, and helper timeouts have additional safeguards. Counting uses the same eligible-file traversal as scanning, including nested archives, so it can add startup work. Files changing between passes, read errors, cancellation, or limits can prevent scan totals from reaching the pre-count.
+Archive entry counts, expanded bytes, compression ratios, and helper timeouts have additional safeguards. Beacon counts before searching, including inside nested archives. That can take time, and changing files, read errors, or cancellation can leave the final scanned count below the original total.
 
-## Investigating events and web requests
+New settings leave first-match mode and HAR redaction unchecked. Existing explicitly saved choices are preserved.
+
+</details>
+
+## 🔎 Explore events and web requests
 
 ### EVTX: Windows event logs
 
-- Read event ID, provider, severity, timestamp, and message in the event preview.
-- Use **Settings → EVTX and HAR** for pre-scan event ID/provider/severity/UTC filters; save and rescan.
-- Open the collapsible **Event tools** pane on the right to narrow already-collected events. Clearing it restores captured events; it does not recover data omitted by the original scan.
-- **Raw event XML** stays beneath the message. View it or copy it when the captured document is complete; shortened XML is labeled and cannot be copied as complete data.
-- Missing messages can require provider resources from the source computer. XML stays searchable, and Event tools explains the supported offline export/LocaleMetaData workflow. Beacon does **not** download or register provider DLLs.
+- Select an EVTX result to read its event ID, provider, severity, time, and message.
+- Open **Event tools** on the right to narrow the events you see—for example, choose **Error** and click **Apply filters**. **Clear filters** brings the other collected events back.
+- To filter the next scan instead, use **Settings → EVTX and HAR**, save, and rescan.
+- Expand **Raw event XML** beneath the message to inspect or copy the event's structured data. Incomplete XML is clearly labeled.
+- Missing a readable message? Event tools explains how to get a portable log from the source computer. XML remains searchable; Beacon doesn't download provider DLLs.
 
 ### HAR: saved HTTP traffic
 
-- Inspect method, URL, status, UTC time, duration, headers, and available request/response bodies. Beacon reads the saved capture; it does not replay web requests.
-- Filter before scanning in Settings or narrow the captured view using the collapsible **HAR tools** pane: method, exact host, status codes, MIME text, minimum duration, and UTC range.
-- Optional Base64 decoding supports bounded UTF-8 text. Oversized, invalid, binary, or unsupported encodings produce omission notices rather than unbounded reads.
-- **HAR redaction is opt-in.** Unchecked, original matching data remains visible in new previews and exports. When enabled, searches still use original bounded data, but header values, URL query/user information, recognized JSON/form secrets, and unstructured bodies may be hidden afterward. A sensitive-only match can therefore have no visible highlight.
-- Changing redaction requires saving and rescanning; a previously redacted result cannot reveal discarded values. The Settings On/Off explanation follows the checkbox.
+- Read request methods, URLs, statuses, timings, headers, and available bodies. Beacon examines the saved HAR file; it doesn't replay requests.
+- Use **HAR tools** to filter the view by method, host, status, content type, duration, or time. The same filters in Settings apply to your next scan.
+- Optional Base64 decoding reveals supported encoded text. Body-size and decoding notices explain when content can't be shown.
+- **Redaction is your choice.** Leave it unchecked to see original matching data. Enabling it hides recognized sensitive values and withholds unstructured bodies, including some search matches. Save and rescan after changing it.
 
-**Redaction is not anonymization.** Search terms, file/URL paths, server addresses, unrecognized fields, diagnostics, and non-HAR results can remain sensitive. Review everything before sharing, regardless of redaction state.
+🕒 Date filters use **UTC** and include both endpoints. Pick a date with the arrows, type it directly, or choose **Any time** to remove the limit. Provider suggestions and named severity choices make event filtering easier, too.
 
-Both sets of filters use editable UTC date/time pickers with arrows, direct text input, Apply/Cancel, and **Any time**. EVTX severity supports multiple named selections; provider dropdowns suggest captured providers and accept manual text. All filled-in filter fields must match. Dates are inclusive and use UTC, not automatically the local incident time.
+🔒 **Review before sharing.** HAR redaction isn't full anonymization: paths, search terms, and other fields can still contain private data. An earlier redacted result needs a new scan to reveal values again.
 
-## Exporting and diagnosing problems
+## 📤 Save results and investigate problems
 
-- **Export…** saves a self-contained HTML report grouped by file, with source paths, jump links, highlighted snippets, and up to five captured context lines. Logos are embedded. Long lines can be shortened.
-- Reports retain the scan's query, settings, filter scope, partial-coverage warnings, and HAR redaction state. **Preview-only filters do not remove results from exports.** A running/cancelled scan exports only what has been captured so far.
-- **Copy paths** copies result source locations, including logical paths inside archives.
-- **Diagnostics** opens the separate problem list. Filter it, refresh its snapshot, or copy diagnostic information. It is not a second export screen.
-- Writes use a temporary destination and replace the report only on success. Cancelling export preserves an existing destination report. Source-overwrite safeguards remain in place.
+- **Export…** creates a readable HTML report you can open in a browser, with matching files, highlighted snippets, and up to five nearby lines. The logo and styling travel with the file.
+- **Copy paths** copies the matching files' locations, including paths inside archives.
+- **Diagnostics** explains skipped sources, errors, and limits. Use it when you expected more results; you can filter, refresh, and copy the problem list.
 
-## Files and archives
+Reports keep the scan's settings and privacy state. **Filters in Event tools or HAR tools only change the preview—not which results are exported.** Exporting during or after a cancelled scan includes only the results collected so far. Cancelling an export keeps an existing destination report intact.
+
+## 📄 Supported files and archives
 
 Default text extensions: `.txt`, `.log`, `.json`, `.xml`, `.csv`, `.html`, `.reg`, `.ini`, `.cfg`, `.config`, `.nfo`. Specialized readers handle `.evtx` and `.har`. Text extensions and excluded folders are configurable under **Files and access**.
 
-| Container | Engine / scope |
+| Container | Support |
 | --- | --- |
-| ZIP, 7z, RAR/RAR5, TAR | SharpCompress 0.50.4; common and solid fixtures are regression-tested. |
-| GZIP text; compressed TAR (GZIP, BZIP2, XZ) and aliases such as `.tgz`, `.tbz2`, `.txz` | Bounded wrapper handling preserves nested paths and preview reopening. Raw non-TAR BZIP2/XZ payloads are not newly guaranteed as supported. |
-| CAB | Bundled 7-Zip Extra `7za.exe` from 7-Zip.CommandLine 25.1.0. |
+| ZIP, 7z, RAR/RAR5, TAR | Search entries and reopen their previews; common and solid-archive fixtures are tested. |
+| GZIP text; compressed TAR (GZIP, BZIP2, XZ) | Includes aliases such as `.tgz`, `.tbz2`, and `.txz`. Raw non-TAR BZIP2/XZ payloads are not guaranteed. |
+| CAB | Read using the bundled 7-Zip helper—no separate installation needed. |
 
-An archive inside another archive counts toward nesting depth; depth 0 disables entering nested archives. Encrypted entries, unsafe paths, and reported links are rejected. Byte, entry, ratio, and time limits can stop processing early. A partial read is not a whole-archive integrity certification. Customer multipart/ZIP64 edge cases and very large solid archives still require representative testing.
+Set nesting depth in **Settings → Archives**: the default is 1, with values from 0 to 5. Depth 0 skips archives inside another archive. Encrypted entries, unsafe paths, and archive links are rejected, and size/expansion limits can stop processing early. Check Diagnostics for the reason.
 
-## Appearance, Help, and updates
+## 🎨 Make Beacon yours
 
-- **Settings → Preview and diagnostics → Appearance** offers **Light**, **Dark**, and **System theme**. There is no separate toolbar theme-toggle button.
-- Native Windows title bars and controls remain; supported caption colors follow the app. Fonts, wrapping, formatting, preview size, and diagnostic detail are configurable.
-- **Help** is searchable offline. The optional borderless first-launch tour explains simple searching and exporting and will not be offered again on later launches, including after skipping it.
-- Startup checks notify about newer stable GitHub releases without blocking the app. The taskbar-centered notice has a five-second countdown; **View release** opens GitHub only on a click. No updates are automatically downloaded or installed.
-- **Settings → Preview and diagnostics → Updates → Check for updates** shows a persistent inline result. Failed checks are distinct from being up to date.
-- Beacon is single-instance per Windows user/session. A second launch requests activation of the existing window; Windows still controls foreground focus.
+- Choose **Light**, **Dark**, or **System theme** under **Settings → Preview and diagnostics → Appearance**.
+- Adjust fonts, wrapping, formatting, and preview size to suit your reading style.
+- Expand the side panes when you need extra tools and collapse them when you want more room.
+- Keep familiar Windows title-bar buttons, dragging, and snapping. Supported title-bar colors follow the app's theme.
+- Launch Beacon again and it asks Windows to bring your existing window forward rather than opening a second copy.
 
-### Keyboard shortcuts
+### 🔄 Stay up to date
+
+Beacon checks for a newer stable release at startup. A brief notification offers **View release** and disappears after five seconds. Prefer to check yourself? Open **Settings → Preview and diagnostics → Updates → Check for updates** for a message that stays in Settings.
+
+**You're in control:** updates are never downloaded or installed automatically. An unsuccessful check is reported separately from being up to date.
+
+## ⌨️ Keyboard shortcuts
 
 | Shortcut | Action |
 | --- | --- |
@@ -169,19 +206,24 @@ An archive inside another archive counts toward nesting depth; depth 0 disables 
 
 Use the visible navigation buttons when a shortcut does not apply to the active preview. Native window buttons, system menu, dragging, and snapping are retained.
 
-## Known limitations and safe use
+## ❓ Helpful tips and known limitations
 
-- Searches and previews operate within configured limits; no “unlimited file size,” “instant cancellation,” or “cannot crash” guarantee is made.
-- HAR input is parsed as a bounded JSON document; large captures can still use substantial memory. Unstructured bodies may be withheld when redaction is enabled.
-- HTML/XML/JSON text search uses extracted text, not a full browser search model. Source matches and displayed highlights can differ. Truncated documents are shown as text rather than rendered as incomplete HTML.
-- EVTX message rendering depends on native Windows/provider resources. Portable locale metadata should stay next to its EVTX on disk; individual archive-entry extraction does not bring sibling metadata automatically.
-- The exposed scan worker count is reserved for future work and is not a parallelism or speed guarantee.
-- The full pre-count can repeat extraction work; temporary nested files are retained for previews until Reset/close. Do not delete them while the app uses them.
-- Access-denied ownership recovery is optional, confirmed, and nonrecursive; it can request administrator approval. Only test it on disposable, authorized paths. Ownership does not necessarily grant read access.
-- Network locations and security-policy restrictions may add delays or prevent file/helper access. Record failures in Diagnostics rather than assuming the source contains no match.
-- Signing, distribution notices, representative-file checks, and target-machine smoke tests remain release-owner responsibilities. See [release preparation](docs/releases/2.1.0/PREPARATION.md) for current evidence and outstanding sign-off.
+- **No matches?** Check the source, search mode, capitalization, and filters. Diagnostics may explain why files were skipped.
+- **A match isn't highlighted?** It may be in a name/path, hidden by HAR redaction, or displayed differently in a formatted document. Regex can also match a position without selecting characters; Help explains this.
+- **A preview is shortened?** Raise the preview limit in Settings if appropriate. Incomplete HTML/XML/JSON is shown as text so you can still read the available content.
+- **Large or unusual files?** HAR documents can use considerable memory. Multipart/ZIP64 edge cases and large solid archives need testing with your representative files; a partial read isn't a full archive integrity check.
+- **An EVTX message is missing?** Check Raw event XML and the offline guidance in Event tools. Logs brought from another machine may need its exported locale metadata alongside the EVTX.
+- **Network or access problems?** Network latency and workplace policies can limit access. Ownership recovery is optional and asks for confirmation; don't try it casually on system or evidence files.
+- **Looking for more speed?** The scan worker count is reserved for future work. Counting can repeat archive extraction, and temporary nested files remain available for previews until Reset/close. Leave those files alone while Beacon uses them.
 
-## Build, test, and package from source
+The in-app **Help** guide has step-by-step troubleshooting. Maintainer validation and release sign-off are tracked separately in the [release preparation checklist](docs/releases/2.1.0/PREPARATION.md).
+
+## 🔧 For developers
+
+Want to build Beacon or help improve it? The source, regression tests, benchmarks, and rollback evidence are all included.
+
+<details>
+<summary>Build, test, and package from source</summary>
 
 Use the **.NET 10 SDK** on Windows and Visual Studio with .NET 10/WPF support (the current validation environment uses Visual Studio 2026). The solution file is **`Beacon_FindInFiles.slnx`**.
 
@@ -192,7 +234,7 @@ dotnet build Beacon_FindInFiles.slnx -c Release
 dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -c Release -- "$PWD/Beacon_FindInFiles/7za.exe"
 ```
 
-The regression runner is a console application, not a Test Explorer assembly. It tests headless services, actual WPF controls, real WebView2 rendering, archive fixtures, lifecycle/cleanup, redaction, help, and onboarding without using customer logs. Full run instructions and limitations are in [tests/Beacon.SafetyChecks/README.md](tests/Beacon.SafetyChecks/README.md).
+The regression runner is a console application, not a Test Explorer assembly. It exercises services, WPF controls, WebView2, archive safety, and workflows using test fixtures. See the [test guide](tests/Beacon.SafetyChecks/README.md) for full instructions and limitations.
 
 Create a self-contained release package and fresh checksums with PowerShell 7:
 
@@ -200,22 +242,28 @@ Create a self-contained release package and fresh checksums with PowerShell 7:
 .\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.1.0"
 ```
 
-The script defaults to ReadyToRun off, matching the current Folder profile; `-ReadyToRun` opts in when no profile is supplied. `-PublishProfilePath` accepts a full `.pubxml` path. User-specific profiles are ignored by Git, so no maintainer's OneDrive path is required to build the project. Raw `dotnet publish` defaults to the project's ReadyToRun setting (on); different configurations produce different hashes. The script stages output, includes legal notices, checks ZIP entries, preserves previous destination artifacts, and writes `SHA256SUMS.txt` plus `release-manifest.json`. It does not merge, commit, sign, or upload anything.
+The script creates the EXE/ZIP, includes legal notices, verifies the contents, preserves old artifacts, and writes checksums and a manifest. It does not commit, sign, or upload anything. It defaults to ReadyToRun off; `-ReadyToRun` opts in without a profile, and `-PublishProfilePath` accepts a `.pubxml` path. Raw `dotnet publish` uses the project's ReadyToRun default (on), so its hash may differ. User-specific publish paths are not required.
 
-The [`BenchmarkSuite1`](BenchmarkSuite1/BenchmarkSuite1.csproj) measurement project is development-only. Its recorded [A–B–B–A results and rollback patch](tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md) cover specific text/stored-ZIP workloads, not an application-wide speed guarantee. Regression tests, benchmarks, and historical evidence are intentionally retained for future diagnosis.
+The development-only [`BenchmarkSuite1`](BenchmarkSuite1/BenchmarkSuite1.csproj) has [measured results and a rollback log](tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md). Its findings apply to the tested text/stored-ZIP workloads, not every scan.
 
-## Contributing and feedback
+For final packaging and branch-promotion checks, follow [release preparation](docs/releases/2.1.0/PREPARATION.md). Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+</details>
+
+## 🤝 Contributing and feedback
+
+Ideas, bug reports, and suggestions are welcome—especially if something could be clearer or easier to use.
 
 - **GlitchedLoaiza** — lead developer and maintainer.
 - **sgtxjosue** — HAR module and debugging contributions.
 
-Report bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/issues) or discuss features in [GitHub Discussions](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/discussions). Include the version, relevant settings, expected/actual behavior, and a sanitized sample where possible. Do not upload credentials, private logs, or unreviewed HAR captures.
+Share bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/issues) or talk about features in [GitHub Discussions](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/discussions). Please include your version, what you expected, and what happened. If you attach a sample, remove passwords, credentials, and private data first.
 
-## Changelog
+## 📋 Changelog
 
 ### v2.1.0 — prepared for release
 
-#### Added
+#### ✨ Added
 
 - Dedicated Settings window with validated file/archive/record limits, Light/Dark/System themes, and installed-font selection.
 - Five search modes: Literal text, Whole word, Regular expression, Any term, and All terms, plus file-name/full-path targets.
@@ -229,7 +277,7 @@ Report bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Fin
 - Startup update notifications and Settings-only manual update checks; no automatic update downloads or installation.
 - Single-instance startup with existing-window activation and crash recovery, plus theme-aware native title bars.
 
-#### Fixed and changed
+#### 🛠️ Fixed and changed
 
 - Full nested-file pre-count shares the same eligibility/depth rules as searching; CABs are counted by their contents rather than as one file.
 - First-match-per-file and HAR redaction now default to unchecked. Explicit saved preferences remain intact; changed scan settings require rescanning.
@@ -240,7 +288,7 @@ Report bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Fin
 - Standardized first-party company, author, copyright, and publisher branding to GlitchedLoaiza. This does not create a verified signing identity.
 - Excluded the three WebView2 API-documentation XML files from publish output; release packaging now includes the required legal notices and artifact checksums.
 
-#### Security, compatibility, and maintenance
+#### 🛡️ Security, compatibility, and maintenance
 
 - Upgraded SharpCompress from 0.38.0 to **0.50.4**, addressing the reported traversal advisory and adding the required factory/stream compatibility changes. Retained **7-Zip.CommandLine 25.1.0** for CAB.
 - Added bounded compressed-TAR handling, explicit ZIP size/CRC validation for complete entry reads, and traversal/link/encrypted-entry protections. Limits and CRC checks were not disabled to accept malformed inputs.
@@ -262,11 +310,11 @@ Report bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Fin
 
 ---
 
-## License and acknowledgments
+## 📜 License and acknowledgments
 
-Beacon is available under the [MIT License](LICENSE), copyright (c) 2025 **GlitchedLoaiza**. The existing copyright year and contributor credits are preserved.
+Beacon is available under the [MIT License](LICENSE), copyright (c) 2025 **GlitchedLoaiza**.
 
-Thanks to **SharpCompress**, **7-Zip**, **Microsoft WebView2**, and **.NET/WPF**. Their original license attributions remain separate from Beacon's branding. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the packaged `licenses` directory for the bundled components.
+Special thanks to **SharpCompress**, **7-Zip**, **Microsoft WebView2**, and **.NET/WPF** for helping make Beacon possible. Their original license attributions are included in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the release's `licenses` folder.
 
 ---
 
