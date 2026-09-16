@@ -1,0 +1,57 @@
+{
+  "Version": "2.1.0",
+  "FileVersion": "2.1.0.0",
+  "ProductVersion": "2.1.0+90f960dd88e71679c31c2da1c4e0579ebae60dac",
+  "Company": "GlitchedLoaiza",
+  "Signature": "NotSigned",
+  "BuiltUtc": "2026-09-16T01:14:29.9313109+00:00",
+  "SourceCommit": "90f960dd88e71679c31c2da1c4e0579ebae60dac",
+  "SourceBranch": "experiments-latest",
+  "SourceHasUncommittedChanges": true,
+  "Configuration": "Release",
+  "RuntimeIdentifier": "win-x64",
+  "SelfContained": true,
+  "PublishSingleFile": true,
+  "PublishReadyToRun": false,
+  "RuntimeFrameworks": [
+    {
+      "name": "Microsoft.NETCore.App",
+      "version": "10.0.12"
+    },
+    {
+      "name": "Microsoft.WindowsDesktop.App",
+      "version": "10.0.12"
+    }
+  ],
+  "Packages": {
+    "SharpCompress": "0.50.4",
+    "7-Zip.CommandLine": "25.1.0",
+    "Microsoft.Web.WebView2": "1.0.2792.45"
+  },
+  "Artifacts": [
+    {
+      "File": "Beacon.exe",
+      "Bytes": 77624725,
+      "SHA256": "C35F908A02A52E361B58E82E31E00B531864C31CD7F8CA420D5A3CE68E97A686"
+    },
+    {
+      "File": "Beacon-2.1.0-win-x64.zip",
+      "Bytes": 72071577,
+      "SHA256": "EDDF545A27265041DAD7862DFDF2C3A0F069324C424AB417DBE5CC8F0E786BAB"
+    }
+  ],
+  "ZipEntries": [
+    "Beacon.exe",
+    "LICENSE",
+    "licenses/7-Zip-LICENSE.txt",
+    "licenses/7-Zip-README.txt",
+    "licenses/LGPL-2.1.txt",
+    "licenses/Microsoft.NETCore.App-LICENSE.txt",
+    "licenses/Microsoft.NETCore.App-THIRD-PARTY-NOTICES.txt",
+    "licenses/Microsoft.WindowsDesktop.App-LICENSE.txt",
+    "licenses/SharpCompress-0.50.4-LICENSE.txt",
+    "licenses/WebView2-SDK-LICENSE.txt",
+    "licenses/WebView2-SDK-NOTICE.txt",
+    "THIRD-PARTY-NOTICES.md"
+  ]
+}

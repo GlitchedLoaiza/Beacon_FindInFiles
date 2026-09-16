@@ -16,6 +16,8 @@ See [PERFORMANCE-AUDIT.md](PERFORMANCE-AUDIT.md) for the original source baselin
 
 ## Step 12 release validation
 
+The [2.1.0 promotion preparation record](../../docs/releases/2.1.0/PREPARATION.md) contains the refreshed local EXE/ZIP checksums, package manifest, legal-notice inventory, latest 71-group Release run, and the review-only checklist for a later move to master. It does not perform or authorize a merge, push, or release upload. Its artifacts supersede earlier local downloads, not the historical evidence below.
+
 See [RELEASE-VALIDATION.md](RELEASE-VALIDATION.md) for the validated source commit, Release test/build/audit evidence, candidate checksum, published-executable smoke results and outstanding manual release gates. The 2026-09-15 pass completed 69 Release regression groups and a local published startup/duplicate-launch/normal-exit check. It does not authorize distribution: representative-file/target-machine testing, release version, signing and redistribution notices still require sign-off. Historical validation counts below describe earlier snapshots, not the current release candidate.
 
 ## Beginner help and multi-record defaults
