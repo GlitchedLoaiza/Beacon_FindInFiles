@@ -1,3 +1,7 @@
 <Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj" />
+  </Folder>
   <Project Path="Beacon_FindInFiles/Beacon_FindInFiles.vbproj" />
+  <Project Path="BenchmarkSuite1/BenchmarkSuite1.csproj" />
 </Solution>

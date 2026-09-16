@@ -1,8 +1,9 @@
+Imports System.ComponentModel
+Imports System.Windows
+Imports System.Windows.Automation.Peers
 Imports System.Windows.Threading
 Imports System.Windows.Media.Animation
-Imports System.Windows.Controls
 Imports System.Windows.Media
-Imports System.Windows.Shapes
 Imports System.Linq
 Imports System.Diagnostics
 
@@ -10,251 +11,159 @@ Namespace Beacon
 
     Public Partial Class SplashWindow
 
-        Private ReadOnly _rng As New Random()
-
-        Private _logTimer As DispatcherTimer
-        Private _particleTimer As DispatcherTimer
+        Private ReadOnly _autoTransition As Boolean
         Private _autoCloseTimer As DispatcherTimer
+        Private _motionStoryboard As Storyboard
+        Private _fadeStoryboard As Storyboard
+        Private _loadedOnce As Boolean
+        Private _transitioning As Boolean
+        Private _mainWindowShown As Boolean
+        Private _closed As Boolean
 
-        Private Const LogLineCount As Integer = 18
+        Public Sub New()
+            Me.New(True)
+        End Sub
 
-        Private ReadOnly _fakeLogPool As String() = {
-            "INFO  [Scanner] Enumerating files…",
-            "INFO  [Zip] Opening archive…",
-            "INFO  [EVTX] Parsing events…",
-            "WARN  [IO] Access denied, skipping…",
-            "INFO  [Match] Pattern hit: 0x80070005",
-            "INFO  [Match] Keyword hit: 'EnrollmentStatus' ",
-            "INFO  [Index] Building in-memory map…",
-            "INFO  [Search] Searching: 'Error' ",
-            "INFO  [Search] Searching: 'Failed' ",
-            "INFO  [Search] Searching: 'Timeout' ",
-            "INFO  [Path] C:\Logs\Device\…",
-            "INFO  [Path] C:\Windows\CCM\Logs\…",
-            "INFO  [Path] %TEMP%\Beacon\…",
-            "INFO  [Done] Rendering preview…"
-        }
+        Friend Sub New(autoTransition As Boolean)
+            InitializeComponent()
+            Dim version = GetType(SplashWindow).Assembly.GetName().Version
+            SplashVersion_txt.Text = "Version " & version.ToString(If(version.Build > 0, 3, 2))
+            _autoTransition = autoTransition
+        End Sub
 
         Private Sub Window_Loaded(sender As Object, e As RoutedEventArgs)
-
-            ' Start the lupe sweep storyboard
-            Dim lupeSb = TryCast(Me.FindResource("LupeSweep"), Storyboard)
-            lupeSb?.Begin()
-
-            ' Build initial moving log lines
-            CreateLogLines()
-
-            ' Timers:
-            '  - Log refresh cadence (occasionally re-randomize a line's text)
-            _logTimer = New DispatcherTimer With {.Interval = TimeSpan.FromMilliseconds(450)}
-            AddHandler _logTimer.Tick, AddressOf LogTimer_Tick
-            _logTimer.Start()
-
-            '  - Particle spawn cadence
-            _particleTimer = New DispatcherTimer With {.Interval = TimeSpan.FromMilliseconds(180)}
-            AddHandler _particleTimer.Tick, AddressOf ParticleTimer_Tick
-            _particleTimer.Start()
-
-            ' OPTIONAL: auto transition after a short delay
-            _autoCloseTimer = New DispatcherTimer With {.Interval = TimeSpan.FromSeconds(3.2)}
-            AddHandler _autoCloseTimer.Tick,
-                Sub()
-                    _autoCloseTimer.Stop()
-                    TransitionToMainWindow()
-                End Sub
-            _autoCloseTimer.Start()
-
-        End Sub
-
-        ' -----------------------------
-        ' REAL MOVING "TEXT-LIKE LOGS"
-        ' -----------------------------
-        Private Sub CreateLogLines()
-            LogCanvas.Children.Clear()
-
-            For i = 0 To LogLineCount - 1
-                Dim tb As New TextBlock() With {
-                    .Text = RandomLog(),
-                    .FontFamily = New FontFamily("Consolas"),
-                    .FontSize = 12,
-                    .Foreground = New SolidColorBrush(Color.FromArgb(110, 180, 220, 255)),
-                    .Opacity = 0.55
-                }
-
-                ' Random start positions within the log area
-                Dim x = _rng.Next(0, 260)
-                Dim y = _rng.Next(0, 140)
-
-                Canvas.SetLeft(tb, x)
-                Canvas.SetTop(tb, y)
-
-                ' Animate: drift upward + slight horizontal sway, forever
-                Dim tg As New TransformGroup()
-                Dim tt As New TranslateTransform()
-                tg.Children.Add(tt)
-                tb.RenderTransform = tg
-
-                ' Upward motion (wrap effect simulated by reset in tick)
-                Dim dur = TimeSpan.FromSeconds(1.6 + _rng.NextDouble() * 1.8)
-
-                Dim animY As New DoubleAnimation With {
-                    .From = 0,
-                    .To = -(60 + _rng.Next(0, 90)),
-                    .Duration = New Duration(dur),
-                    .RepeatBehavior = RepeatBehavior.Forever
-                }
-
-                ' Horizontal subtle motion
-                Dim animX As New DoubleAnimation With {
-                    .From = 0,
-                    .To = (-12 + _rng.Next(0, 25)),
-                    .Duration = New Duration(TimeSpan.FromSeconds(1.2 + _rng.NextDouble() * 1.2)),
-                    .AutoReverse = True,
-                    .RepeatBehavior = RepeatBehavior.Forever
-                }
-
-                tt.BeginAnimation(TranslateTransform.YProperty, animY)
-                tt.BeginAnimation(TranslateTransform.XProperty, animX)
-
-                LogCanvas.Children.Add(tb)
-            Next
-        End Sub
-
-        Private Sub LogTimer_Tick(sender As Object, e As EventArgs)
-            ' Occasionally re-randomize one line text to keep it "alive"
-            If LogCanvas.Children.Count = 0 Then Return
-            Dim idx = _rng.Next(0, LogCanvas.Children.Count)
-
-            Dim tb = TryCast(LogCanvas.Children(idx), TextBlock)
-            If tb Is Nothing Then Return
-
-            If _rng.NextDouble() < 0.55 Then
-                tb.Text = RandomLog()
+            If _loadedOnce OrElse _closed Then Return
+            _loadedOnce = True
+            If _autoTransition Then
+                Dim area = SystemParameters.WorkArea
+                Dim size = CalculateSplashSize(New Size(area.Width, area.Height))
+                Width = size.Width
+                Height = size.Height
+                Left = area.Left + (area.Width - Width) / 2
+                Top = area.Top + (area.Height - Height) / 2
+            End If
+            If (RenderCapability.Tier >> 16) = 0 Then
+                FarLogLayer.Effect = Nothing
+                MiddleLogLayer.Effect = Nothing
+            End If
+            AddHandler SystemParameters.StaticPropertyChanged, AddressOf SystemAnimationPreferenceChanged
+            UpdateAnimationState(SystemParameters.ClientAreaAnimation)
+            If _autoTransition Then
+                _autoCloseTimer = New DispatcherTimer(DispatcherPriority.Background) With {.Interval = TimeSpan.FromSeconds(3.2)}
+                AddHandler _autoCloseTimer.Tick, AddressOf AutoCloseTimer_Tick
+                _autoCloseTimer.Start()
             End If
         End Sub
 
-        Private Function RandomLog() As String
-            Dim baseMsg = _fakeLogPool(_rng.Next(0, _fakeLogPool.Length))
-            Dim ms = _rng.Next(10, 9999).ToString("0000")
-            Return $"{DateTime.Now:HH:mm:ss}.{ms}  {baseMsg}"
+        Friend Shared Function CalculateSplashSize(workArea As Size) As Size
+            Dim scale = Math.Min(1.0, Math.Min(Math.Max(1, workArea.Width - 32) / 900,
+                                             Math.Max(1, workArea.Height - 32) / 600))
+            Return New Size(900 * scale, 600 * scale)
         End Function
 
-        ' -----------------------------
-        ' PARTICLE "MATCH" SPAWNING
-        ' -----------------------------
-        Private Sub ParticleTimer_Tick(sender As Object, e As EventArgs)
-            ' Spawn fewer particles randomly for subtlety
-            If _rng.NextDouble() < 0.35 Then Return
+        Private Sub SystemAnimationPreferenceChanged(sender As Object, e As PropertyChangedEventArgs)
+            If e.PropertyName <> NameOf(SystemParameters.ClientAreaAnimation) OrElse _closed Then Return
+            If Dispatcher.CheckAccess() Then
+                UpdateAnimationState(SystemParameters.ClientAreaAnimation)
+            Else
+                Dispatcher.BeginInvoke(New Action(Sub() UpdateAnimationState(SystemParameters.ClientAreaAnimation)))
+            End If
+        End Sub
 
-            Dim dot As New Ellipse() With {
-                .Width = 4 + _rng.Next(0, 5),
-                .Height = 4 + _rng.Next(0, 5),
-                .Fill = New SolidColorBrush(Color.FromArgb(170, 255, 60, 60)),
-                .Opacity = 0.0
-            }
+        Private Sub UpdateAnimationState(enabled As Boolean)
+            If _closed OrElse Not _loadedOnce OrElse _transitioning Then Return
+            If enabled Then
+                If _motionStoryboard IsNot Nothing Then Return
+                _motionStoryboard = DirectCast(FindResource("AmbientMotion"), Storyboard).Clone()
+                _motionStoryboard.Begin(Me, HandoffBehavior.SnapshotAndReplace, True)
+            ElseIf _motionStoryboard IsNot Nothing Then
+                _motionStoryboard.Remove(Me)
+                _motionStoryboard = Nothing
+            End If
+        End Sub
 
-            Dim x = _rng.Next(20, 460)
-            Dim y = _rng.Next(35, 165)
+        Private Sub AutoCloseTimer_Tick(sender As Object, e As EventArgs)
+            TransitionToMainWindow()
+        End Sub
 
-            Canvas.SetLeft(dot, x)
-            Canvas.SetTop(dot, y)
-
-            ' Scale + fade in/out, then remove
-            Dim st As New ScaleTransform(1, 1)
-            dot.RenderTransform = st
-            dot.RenderTransformOrigin = New Point(0.5, 0.5)
-
-            ParticleCanvas.Children.Add(dot)
-
-            Dim sb As New Storyboard()
-
-            Dim fadeIn As New DoubleAnimation With {.From = 0, .To = 0.95, .Duration = New Duration(TimeSpan.FromMilliseconds(90))}
-            Storyboard.SetTarget(fadeIn, dot)
-            Storyboard.SetTargetProperty(fadeIn, New PropertyPath("Opacity"))
-            sb.Children.Add(fadeIn)
-
-            Dim fadeOut As New DoubleAnimation With {.From = 0.95, .To = 0, .BeginTime = TimeSpan.FromMilliseconds(220), .Duration = New Duration(TimeSpan.FromMilliseconds(380))}
-            Storyboard.SetTarget(fadeOut, dot)
-            Storyboard.SetTargetProperty(fadeOut, New PropertyPath("Opacity"))
-            sb.Children.Add(fadeOut)
-
-            Dim grow As New DoubleAnimation With {.From = 1, .To = 3.1, .Duration = New Duration(TimeSpan.FromMilliseconds(520))}
-            Storyboard.SetTarget(grow, dot)
-            Storyboard.SetTargetProperty(grow, New PropertyPath("RenderTransform.ScaleX"))
-            sb.Children.Add(grow)
-
-            Dim growY As New DoubleAnimation With {.From = 1, .To = 3.1, .Duration = New Duration(TimeSpan.FromMilliseconds(520))}
-            Storyboard.SetTarget(growY, dot)
-            Storyboard.SetTargetProperty(growY, New PropertyPath("RenderTransform.ScaleY"))
-            sb.Children.Add(growY)
-
-            AddHandler sb.Completed,
-                Sub()
-                    ParticleCanvas.Children.Remove(dot)
-                End Sub
-
-            sb.Begin()
+        Private Sub StopStartupTimer()
+            If _autoCloseTimer Is Nothing Then Return
+            _autoCloseTimer.Stop()
+            RemoveHandler _autoCloseTimer.Tick, AddressOf AutoCloseTimer_Tick
+            _autoCloseTimer = Nothing
         End Sub
 
         ' -----------------------------
         ' FADE-OUT + MAIN WINDOW TRANSITION
         ' -----------------------------
         Public Sub TransitionToMainWindow()
-            ' Stop timers
-            _logTimer?.Stop()
-            _particleTimer?.Stop()
-
-            Dim fadeSb = TryCast(Me.FindResource("FadeOutStoryboard"), Storyboard)
-            If fadeSb Is Nothing Then
+            If _transitioning OrElse _closed Then Return
+            _transitioning = True
+            StopStartupTimer()
+            LoadingStatus_txt.Text = "Opening Beacon…"
+            _motionStoryboard?.Pause(Me)
+            If Not SystemParameters.ClientAreaAnimation Then
                 ShowMainAndClose()
                 Return
             End If
+            _fadeStoryboard = DirectCast(FindResource("FadeOutStoryboard"), Storyboard).Clone()
+            AddHandler _fadeStoryboard.Completed, AddressOf FadeCompleted
+            _fadeStoryboard.Begin(Me, HandoffBehavior.SnapshotAndReplace, True)
+        End Sub
 
-            AddHandler fadeSb.Completed,
-                Sub()
-                    ShowMainAndClose()
-                End Sub
-
-            fadeSb.Begin(Me)
+        Private Sub FadeCompleted(sender As Object, e As EventArgs)
+            ShowMainAndClose()
         End Sub
 
         Private Sub ShowMainAndClose()
-            ' SIMPLEST APPROACH: Find existing MainWindow (VB.NET auto-creates it), or create new one
-            ' Don't try to close anything - just use what exists!
+            If _closed OrElse _mainWindowShown Then Return
+            Try
+                Dim main = Application.Current.Windows.OfType(Of MainWindow)().FirstOrDefault()
+                If main Is Nothing Then main = New MainWindow()
+                Application.Current.MainWindow = main
+                main.Show()
+                _mainWindowShown = True
+                Close()
+            Catch ex As Exception
+                Debug.WriteLine($"Beacon startup failed: {ex}")
+                MessageBox.Show(Me, $"Beacon could not start: {ex.Message}", "Beacon", MessageBoxButton.OK, MessageBoxImage.Error)
+                Close()
+            End Try
+        End Sub
 
-            Dim mw As MainWindow = Nothing
+        Protected Overrides Function OnCreateAutomationPeer() As AutomationPeer
+            Return New SplashAutomationPeer(Me)
+        End Function
 
-            ' Check if VB.NET already auto-created a MainWindow
-            For Each win As Window In Application.Current.Windows
-                If TypeOf win Is MainWindow Then
-                    mw = CType(win, MainWindow)
-                    Debug.WriteLine("Found existing auto-created MainWindow - reusing it!")
-                    Exit For
-                End If
-            Next
+        Private NotInheritable Class SplashAutomationPeer
+            Inherits WindowAutomationPeer
 
-            ' If no MainWindow exists, create one
-            If mw Is Nothing Then
-                mw = New MainWindow()
-                Debug.WriteLine("No existing MainWindow found, created new one")
+            Public Sub New(owner As SplashWindow)
+                MyBase.New(owner)
+            End Sub
+
+            Protected Overrides Function GetChildrenCore() As List(Of AutomationPeer)
+                Dim splash = DirectCast(Owner, SplashWindow)
+                Dim status = UIElementAutomationPeer.CreatePeerForElement(splash.LoadingStatus_txt)
+                Return If(status Is Nothing, New List(Of AutomationPeer)(), New List(Of AutomationPeer) From {status})
+            End Function
+        End Class
+
+        Protected Overrides Sub OnClosed(e As EventArgs)
+            _closed = True
+            StopStartupTimer()
+            RemoveHandler SystemParameters.StaticPropertyChanged, AddressOf SystemAnimationPreferenceChanged
+            If _motionStoryboard IsNot Nothing Then
+                _motionStoryboard.Remove(Me)
+                _motionStoryboard = Nothing
             End If
-
-            ' Set it as THE MainWindow
-            Application.Current.MainWindow = mw
-
-            ' Wire up manual shutdown when MainWindow closes (since we're in OnExplicitShutdown mode)
-            AddHandler mw.Closed, Sub(s, e)
-                                       Debug.WriteLine("MainWindow closed, calling Shutdown()")
-                                       Application.Current.Shutdown()
-                                   End Sub
-
-            ' Show MainWindow
-            mw.Show()
-            Debug.WriteLine("MainWindow shown")
-
-            ' Close splash screen
-            Me.Close()
-            Debug.WriteLine("Splash closed")
+            If _fadeStoryboard IsNot Nothing Then
+                RemoveHandler _fadeStoryboard.Completed, AddressOf FadeCompleted
+                _fadeStoryboard.Remove(Me)
+                _fadeStoryboard = Nothing
+            End If
+            MyBase.OnClosed(e)
+            If _autoTransition AndAlso Not _mainWindowShown Then Application.Current?.Shutdown()
         End Sub
 
     End Class

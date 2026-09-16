@@ -29,6 +29,28 @@
         <SolidColorBrush x:Key="InputBackgroundBrush" Color="White"/>
         <SolidColorBrush x:Key="InputBorderBrush" Color="#CCCCCC"/>
         <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#FAFAFA"/>
+        <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="#E5F1FF"/>
+
+        <Style x:Key="SearchResultItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ResultBorder" CornerRadius="4" Margin="2" Padding="{TemplateBinding Padding}"
+                                Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ResultBorder" Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/></Trigger>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="ResultBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ResultBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <!-- Modern Button Style -->
         <Style TargetType="Button">
@@ -36,9 +58,9 @@
             <Setter Property="MinWidth" Value="90"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="14,6"/>
-            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ActionButtonBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ActionButtonForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ActionButtonBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -51,17 +73,22 @@
                                 CornerRadius="4"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"/>
+                                            VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ActionButtonHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonPressedBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ActionButtonPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ActionButtonFocusBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.5"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ActionButtonDisabledBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource ActionButtonDisabledForegroundBrush}"/>
+                                <Setter Property="Opacity" Value="{DynamicResource ActionButtonDisabledOpacity}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -71,13 +98,41 @@
 
         <!-- Modern TextBox Style -->
         <Style TargetType="TextBox">
-            <Setter Property="Height" Value="32"/>
+            <Setter Property="MinHeight" Value="32"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}"/>
+            <Setter Property="SelectionTextBrush" Value="{DynamicResource TextSelectionForegroundBrush}"/>
+            <Setter Property="SelectionOpacity" Value="{DynamicResource TextSelectionOpacity}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="InputBorder" CornerRadius="4"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="CheckBox">
@@ -108,12 +163,38 @@
             <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
         </Style>
 
+        <Style x:Key="BeaconTextPreviewStyle" TargetType="RichTextBox" BasedOn="{StaticResource {x:Type RichTextBox}}">
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}"/>
+            <Setter Property="SelectionTextBrush" Value="{DynamicResource TextSelectionForegroundBrush}"/>
+            <Setter Property="SelectionOpacity" Value="{DynamicResource TextSelectionOpacity}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RichTextBox">
+                        <Border x:Name="PreviewBorder" CornerRadius="4" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
+                                          HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                          VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PreviewBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="PreviewBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
     <!-- ========================= -->
     <!-- ROOT GRID                 -->
     <!-- ========================= -->
-    <Grid Background="{DynamicResource WindowBackgroundBrush}">
+    <Grid x:Name="NotificationAnchor" Background="{DynamicResource WindowBackgroundBrush}">
 
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -124,9 +205,11 @@
         <!-- ========================= -->
         <!-- TOP BAR                  -->
         <!-- ========================= -->
-        <Grid Grid.Row="0" Margin="12">
+        <Grid x:Name="MainToolbar" Grid.Row="0" Margin="12">
 
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
@@ -134,7 +217,6 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
@@ -152,29 +234,27 @@
                      Margin="0,0,12,0"
                      IsEnabled="False"/>
 
-            <StackPanel Grid.Row="0"
+            <StackPanel x:Name="SourceActionsPanel" Grid.Row="0"
                         Grid.Column="2"
-                        Orientation="Horizontal"
-                        Margin="0,0,8,0">
+                        Orientation="Horizontal">
 
                 <Button x:Name="BrowseFolder_btn"
                         Content="📁 Folder"
                         Width="90"
-                        Margin="0,0,6,0"
+                        Margin="0,0,8,0"
                         ToolTip="Select a folder to scan recursively"/>
 
                 <Button x:Name="BrowseZip_btn"
                         Content="📦 Archive"
                         Width="100"
+                        Margin="0,0,8,0"
                         ToolTip="Select an archive to scan (ZIP, 7Z, RAR, TAR, GZ, etc.)"/>
 
+                <Button x:Name="Scan_btn"
+                        Content="Scan (Enter)"
+                        MinWidth="110"
+                        IsEnabled="False"/>
             </StackPanel>
-
-            <Button Grid.Row="0"
-                    Grid.Column="3"
-                    x:Name="Scan_btn"
-                    Content="Scan (Enter)"
-                    IsEnabled="False"/>
 
             <!-- SEARCH -->
             <TextBlock Grid.Row="1"
@@ -186,43 +266,48 @@
 
             <TextBox Grid.Row="1"
                      Grid.Column="1"
+                     Grid.ColumnSpan="2"
                      x:Name="Search_txt"
-                     Margin="0,10,12,0"/>
+                     Margin="0,10,0,0"/>
 
-            <StackPanel Grid.Row="1"
-                        Grid.Column="2"
-                        Grid.ColumnSpan="2"
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Margin="0,10,0,0">
+            <Grid Grid.Row="2" Grid.ColumnSpan="3" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Image x:Name="ToolbarWatermark" Grid.ColumnSpan="2"
+                       Source="/beacon_no_bg.png" Width="36" Height="36"
+                       HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,0,0,4"
+                       Opacity="0.28" IsHitTestVisible="False" Focusable="False"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <WrapPanel x:Name="SearchOptionsToolbar" Grid.Column="0" Margin="0,0,12,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,4">
+                    <TextBlock Text="Search mode:" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="SearchMode_cmb" Width="190" Margin="0" IsEditable="False">
+                        <ComboBox.Resources><ResourceDictionary Source="SettingsStyles.xaml"/></ComboBox.Resources>
+                    </ComboBox>
+                </StackPanel>
 
-                <StackPanel Orientation="Vertical"
-                            Margin="0,0,12,0">
                     <CheckBox x:Name="CaseSensitive_chk"
                               Content="Case sensitive"
                               VerticalAlignment="Center"
-                              Margin="0,0,0,4"/>
+                              Margin="0,0,12,4"/>
+                </WrapPanel>
 
-                    <CheckBox x:Name="ExactMatch_chk"
-                              Content="Exact match"
-                              VerticalAlignment="Center"
-                              IsChecked="False"/>
+                <StackPanel x:Name="SearchActionsPanel" Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,0,4">
+                    <Button x:Name="Help_btn" Content="?" Width="36" MinWidth="36" Padding="0" Margin="0,0,8,0"
+                            FontSize="18" FontWeight="SemiBold" ToolTip="Help — learn how to use Beacon" AutomationProperties.Name="Help"/>
+                    <Button x:Name="Settings_btn" MinWidth="110" Margin="0,0,8,0"
+                            ToolTip="Configure Beacon" AutomationProperties.Name="Settings">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE90F;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="Settings" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="Reset_btn" Content="Reset (Ctrl+R)" IsEnabled="False"/>
                 </StackPanel>
-
-                <!-- Theme Toggle Button -->
-                <Button x:Name="ThemeToggle_btn"
-                        Content="🌙"
-                        Width="36"
-                        MinWidth="36"
-                        FontSize="16"
-                        Padding="0"
-                        Margin="0,0,12,0"
-                        ToolTip="Toggle Light/Dark theme"/>
-
-                <Button x:Name="Reset_btn"
-                        Content="Reset (Ctrl+R)"
-                        IsEnabled="False"/>
-            </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- ========================= -->
@@ -242,17 +327,77 @@
             </Grid.ColumnDefinitions>
 
             <!-- MATCHED FILES -->
-            <GroupBox Grid.Row="0"
-                      Grid.Column="0"
-                      Header="Matched Files"
-                      Margin="8">
+            <Grid x:Name="SearchResultsPane" Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Margin="8">
+                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <GroupBox Header="Matched Files">
+                    <ListBox x:Name="Results_lst" FontSize="13" ItemContainerStyle="{StaticResource SearchResultItem}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingStackPanel.IsVirtualizing="True">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ToolTip="{Binding LogicalPath}">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding CompactCount}" FontSize="12" Margin="10,0,0,0"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="{Binding MatchSummary}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </GroupBox>
+                <Expander x:Name="MatchDetails_exp" Grid.Row="1" Header="Match details" IsExpanded="False" Margin="0,8,0,0"
+                          Foreground="{DynamicResource TextPrimaryBrush}" ToolTip="Expand to see matches in the selected file and jump to a line, event, or request.">
+                    <Expander.Template>
+                        <ControlTemplate TargetType="Expander">
+                            <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="4">
+                                <StackPanel>
+                                    <ToggleButton x:Name="DetailsToggle" Content="{TemplateBinding Header}" Foreground="{TemplateBinding Foreground}"
+                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                        <ToggleButton.Template>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border x:Name="HeaderBorder" Padding="10,8" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent" Background="Transparent">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Path x:Name="Chevron" Data="M 0,0 L 4,4 L 0,8" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.5" Width="10" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                        <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chevron" Property="Data" Value="M 0,0 L 4,4 L 8,0"/></Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/></Trigger>
+                                                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="HeaderBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </ToggleButton.Template>
+                                    </ToggleButton>
+                                    <ContentPresenter x:Name="DetailsContent" Visibility="Collapsed"/>
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsExpanded" Value="True"><Setter TargetName="DetailsContent" Property="Visibility" Value="Visible"/></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Expander.Template>
+                    <StackPanel>
+                        <TextBlock Text="Select a match to jump to its line, event, or request." TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="10,0,10,8"/>
+                    <ListBox x:Name="Details_lst" Height="180" Margin="4,0,4,4" ItemContainerStyle="{StaticResource SearchResultItem}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel ToolTip="{Binding Excerpt}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Location}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CountLabel}" Margin="8,0,0,0" Foreground="{DynamicResource TextSecondaryBrush}" ToolTip="Visible matched spans; zero-width regex matches have no visible highlight."/>
+                                    </Grid>
+                                    <TextBlock Text="{Binding Excerpt}" FontSize="12" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    </StackPanel>
+                </Expander>
+            </Grid>
 
-                <ListBox x:Name="Results_lst"
-                         FontFamily="Consolas"
-                         FontSize="13"/>
-            </GroupBox>
-
-            <GridSplitter Grid.Row="0"
+            <GridSplitter Grid.Row="0" Grid.RowSpan="2"
                           Grid.Column="1"
                           Width="5"
                           HorizontalAlignment="Stretch"
@@ -282,13 +427,17 @@
                           Visibility="Collapsed">
 
                     <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <!-- Scrollable event content -->
-                        <ScrollViewer Grid.Row="0"
+                        <ScrollViewer x:Name="EventContentScroll" Grid.Row="0"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
 
@@ -316,14 +465,88 @@
                                            TextWrapping="Wrap"
                                            FontSize="13"
                                            Margin="0,12,0,0"/>
+                                <Expander x:Name="EventXml_exp" Header="Raw event XML" IsExpanded="False" Margin="0,12,0,0"
+                                          Foreground="{DynamicResource TextPrimaryBrush}" Template="{Binding ElementName=MatchDetails_exp, Path=Template}">
+                                    <StackPanel Margin="10">
+                                        <TextBlock x:Name="EventXmlStatus_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                        <TextBox x:Name="EventXml_txt" IsReadOnly="True" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap"
+                                                 VerticalScrollBarVisibility="Auto" MaxHeight="300" Margin="0,6,0,6"/>
+                                        <Button x:Name="CopyEventXml_btn" Content="Copy XML" HorizontalAlignment="Left" IsEnabled="False"/>
+                                    </StackPanel>
+                                </Expander>
                             </StackPanel>
                         </ScrollViewer>
 
-                        <!-- FIXED event counter -->
-                        <Border Grid.Row="1"
-                                Padding="8,6"
-                                Background="#F0F0F0"
-                                BorderBrush="#D0D0D0"
+                        <Expander x:Name="EventToolsPane" Grid.Column="1" Header="Event tools" IsExpanded="False"
+                                  Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,8,8,8">
+                            <Expander.Template>
+                                <ControlTemplate TargetType="Expander">
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
+                                            BorderThickness="1" CornerRadius="4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                            <ContentPresenter x:Name="ToolsContent" Visibility="Collapsed"/>
+                                            <ToggleButton x:Name="ToolsToggle" Grid.Column="1" Width="32" VerticalAlignment="Stretch"
+                                                          AutomationProperties.Name="Expand or collapse event tools"
+                                                          ToolTip="Expand or collapse event filters and offline resource guidance"
+                                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                                <ToggleButton.Template>
+                                                    <ControlTemplate TargetType="ToggleButton">
+                                                        <Border x:Name="ToolsToggleBorder" Background="{DynamicResource ButtonBackgroundBrush}" BorderBrush="Transparent"
+                                                                BorderThickness="1" CornerRadius="4" Padding="4,8">
+                                                            <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center">
+                                                                <TextBlock x:Name="ToolsArrow" Text="‹" FontSize="18" HorizontalAlignment="Center" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                                                <TextBlock Text="{Binding Header, RelativeSource={RelativeSource AncestorType=Expander}}" Margin="0,6,0,0" Foreground="{DynamicResource TextPrimaryBrush}">
+                                                                    <TextBlock.LayoutTransform><RotateTransform Angle="90"/></TextBlock.LayoutTransform>
+                                                                </TextBlock>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsChecked" Value="True"><Setter TargetName="ToolsArrow" Property="Text" Value="›"/></Trigger>
+                                                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ToolsToggleBorder" Property="Background" Value="{DynamicResource ButtonHoverBrush}"/></Trigger>
+                                                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ToolsToggleBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </ToggleButton.Template>
+                                            </ToggleButton>
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsExpanded" Value="True"><Setter TargetName="ToolsContent" Property="Visibility" Value="Visible"/></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Expander.Template>
+                            <ScrollViewer Width="300" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel Margin="10">
+                                    <TextBlock Text="Filter collected events" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Only filters captured matches; first-match and scan limits still apply. Reports retain all captured matches." TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Event IDs (comma-separated)"/><TextBox x:Name="EventFilterIds_txt"/>
+                                    <TextBlock Text="Provider (choose or type; blank = any)" TextWrapping="Wrap"/>
+                                    <ComboBox x:Name="EventFilterProvider_cmb" IsEditable="True" IsTextSearchEnabled="False" Margin="0,5,0,8"
+                                              ToolTip="Providers from captured events. You can also type an exact provider name.">
+                                        <ComboBox.Resources><ResourceDictionary Source="SettingsStyles.xaml"/></ComboBox.Resources>
+                                    </ComboBox>
+                                    <TextBlock Text="Severity levels"/>
+                                    <ContentControl x:Name="EventFilterLevels_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,8"/>
+                                    <TextBlock Text="From UTC (inclusive)"/><ContentControl x:Name="EventFilterFrom_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,8"/>
+                                    <TextBlock Text="To UTC (inclusive)"/><ContentControl x:Name="EventFilterTo_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,8"/>
+                                    <WrapPanel Margin="0,8,0,0">
+                                        <Button x:Name="ApplyEventFilter_btn" Content="Apply filters" Margin="0,0,8,0"/>
+                                        <Button x:Name="ClearEventFilter_btn" Content="Clear filters"/>
+                                    </WrapPanel>
+                                    <TextBlock x:Name="EventFilterStatus_txt" TextWrapping="Wrap" Margin="0,6,0,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <Separator Margin="0,12,0,12"/>
+                                    <TextBlock Text="Missing message resources / offline guidance" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <TextBlock x:Name="EventResourceGuidance_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Expander>
+
+                        <!-- Event counter -->
+                        <Border x:Name="EventCounterBar" Grid.Row="1" Grid.ColumnSpan="2"
+                                Padding="12,8" MinHeight="34" CornerRadius="0,0,4,4"
+                                Background="{DynamicResource ButtonBackgroundBrush}"
+                                BorderBrush="{DynamicResource CardBorderBrush}"
                                 BorderThickness="0,1,0,0">
 
                             <Grid>
@@ -334,6 +557,8 @@
 
                                 <TextBlock x:Name="EventMatchCounter_lbl"
                                            Grid.Column="0"
+                                           FontSize="12" Margin="0,0,12,0" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontWeight="SemiBold"
                                            Text="0 match(es) in this event"
                                            HorizontalAlignment="Left"
@@ -341,7 +566,8 @@
 
                                 <TextBlock x:Name="EventCounter_lbl"
                                            Grid.Column="1"
-                                           FontWeight="SemiBold"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            Text="Viewing 0 of 0 event(s)"
                                            HorizontalAlignment="Right"
                                            VerticalAlignment="Center"/>
@@ -356,13 +582,14 @@
                           Visibility="Collapsed">
 
                     <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
                         <!-- Scrollable HAR content -->
-                        <ScrollViewer Grid.Row="0"
+                        <ScrollViewer x:Name="HarContentScroll" Grid.Row="0"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">
 
@@ -372,19 +599,20 @@
                                 <TextBlock x:Name="HarMethod_txt"
                                            FontSize="16"
                                            FontWeight="Bold"
-                                           Foreground="#0066CC"
+                                           Foreground="{DynamicResource AccentBrush}"
                                            Margin="0,0,0,4"/>
 
                                 <TextBlock x:Name="HarUrl_txt"
                                            FontFamily="Consolas"
                                            FontSize="12"
                                            TextWrapping="Wrap"
-                                           Foreground="#333"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            Margin="0,0,0,8"
-                                           Background="#F9F9F9"
+                                           Background="{DynamicResource CodeBackgroundBrush}"
                                            Padding="4"/>
 
                                 <!-- Status and Timing -->
+                                <TextBlock x:Name="HarBodyNotice_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8"/>
                                 <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -508,10 +736,25 @@
                         </ScrollViewer>
 
                         <!-- HAR request counter -->
-                        <Border Grid.Row="1"
-                                Padding="8,6"
-                                Background="#F0F0F0"
-                                BorderBrush="#D0D0D0"
+                        <Expander x:Name="HarToolsPane" Grid.Column="1" Header="HAR tools" IsExpanded="False" Margin="0,8,8,8"
+                                  Template="{Binding ElementName=EventToolsPane, Path=Template}" Foreground="{DynamicResource TextPrimaryBrush}">
+                            <ScrollViewer Width="300" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel Margin="10">
+                                    <TextBlock Text="Filter collected requests" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Only narrows captured requests. First-match and scan limits still apply; exports retain all captured results." TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <ContentControl x:Name="HarPreviewFilters_host" HorizontalContentAlignment="Stretch" Margin="0,8,0,0"/>
+                                    <WrapPanel>
+                                        <Button x:Name="ApplyHarFilter_btn" Content="Apply filters" Margin="0,0,8,0"/>
+                                        <Button x:Name="ClearHarFilter_btn" Content="Clear filters"/>
+                                    </WrapPanel>
+                                    <TextBlock x:Name="HarFilterStatus_txt" TextWrapping="Wrap" Margin="0,8,0,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Expander>
+                        <Border x:Name="HarCounterBar" Grid.Row="1" Grid.ColumnSpan="2"
+                                Padding="12,8" MinHeight="34" CornerRadius="0,0,4,4"
+                                Background="{DynamicResource ButtonBackgroundBrush}"
+                                BorderBrush="{DynamicResource CardBorderBrush}"
                                 BorderThickness="0,1,0,0">
 
                             <Grid>
@@ -522,6 +765,8 @@
 
                                 <TextBlock x:Name="HarMatchCounter_lbl"
                                            Grid.Column="0"
+                                           FontSize="12" Margin="0,0,12,0" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            FontWeight="SemiBold"
                                            Text="0 match(es) in this request"
                                            HorizontalAlignment="Left"
@@ -529,7 +774,8 @@
 
                                 <TextBlock x:Name="HarCounter_lbl"
                                            Grid.Column="1"
-                                           FontWeight="SemiBold"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
                                            Text="Viewing 0 of 0 request(s)"
                                            HorizontalAlignment="Right"
                                            VerticalAlignment="Center"/>
@@ -552,27 +798,27 @@
             <!-- ========================= -->
             <!-- BOTTOM COMMAND BAR        -->
             <!-- ========================= -->
-            <Grid Grid.Row="1"
-      Grid.Column="0"
-      Grid.ColumnSpan="3"
+            <Grid x:Name="ResultActionsBar" Grid.Row="1"
+      Grid.Column="2"
       Margin="8,0,8,8">
-
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="320"/>
-                    <ColumnDefinition Width="5"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+                <WrapPanel>
 
                 <!-- LEFT SIDE -->
-                <Button Grid.Column="0"
-            x:Name="NextFile_btn"
-            Content="Next File (Ctrl+↓)"
-            Visibility="Collapsed"/>
+                <StackPanel x:Name="ReportActionsPanel" Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Top">
+                    <Button x:Name="ExportResults_btn" Content="Export…" IsEnabled="False" Margin="0,0,8,0"
+                            ToolTip="Save a readable HTML report with files, highlighted matches, and up to five context lines. Includes unredacted text; review before sharing."/>
+                    <Button x:Name="CopyPaths_btn" Content="Copy paths" IsEnabled="False" Margin="0,0,8,0"
+                            ToolTip="Copy all current logical result paths, including archive entry paths."/>
+                    <Button x:Name="Diagnostics_btn" Content="Diagnostics" IsEnabled="False"
+                            ToolTip="View skipped sources, errors, limits, and scan snapshot information."/>
+                </StackPanel>
 
                 <!-- RIGHT SIDE -->
-                <StackPanel Grid.Column="2"
+                <WrapPanel
                 Orientation="Horizontal"
-                HorizontalAlignment="Right">
+                HorizontalAlignment="Left">
+
+                    <Button x:Name="NextFile_btn" Content="Next File (Ctrl+↓)" Visibility="Collapsed" Margin="0,0,8,0"/>
 
                     <Button x:Name="FindPreviousEvent_btn"
                 Content="Previous Event (Shift+F3)"
@@ -597,7 +843,8 @@
                 Content="Find Next Request (F3)"
                 Visibility="Collapsed"/>
 
-                </StackPanel>
+                </WrapPanel>
+                </WrapPanel>
             </Grid>
         </Grid>
 
@@ -637,7 +884,7 @@
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource TextSecondaryBrush}"
-                           Margin="60,0,12,0"/>
+                           Margin="12,0,12,0"/>
 
                 <ProgressBar x:Name="ScanProgress_pb"
                              Grid.Column="3"
@@ -675,5 +922,29 @@
             </Grid>
         </Border>
 
+        <Popup x:Name="UpdatePopup" Placement="AbsolutePoint"
+               AllowsTransparency="True" StaysOpen="True" Focusable="False" PopupAnimation="None">
+            <Grid x:Name="UpdatePopupHost" Width="560" Height="110" ClipToBounds="True" Background="{x:Null}">
+                <Border x:Name="UpdateNotification" Visibility="Collapsed" VerticalAlignment="Bottom"
+                        Margin="8,0,8,12" Padding="14,10" CornerRadius="8"
+                        Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                    <Border.RenderTransform><TranslateTransform x:Name="UpdateSlide"/></Border.RenderTransform>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                            <TextBlock x:Name="UpdateMessage_txt" Text="A newer version of Beacon is available" FontSize="13" FontWeight="SemiBold"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" AutomationProperties.LiveSetting="Polite"/>
+                            <TextBlock x:Name="UpdateVersion_txt" FontSize="12" Margin="0,3,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="ViewRelease_btn" Content="View release" FontSize="12" Height="30" MinWidth="0" Padding="8,3" Margin="0,0,6,0"
+                                    ToolTip="Open Beacon's GitHub release page. No automatic download."/>
+                            <Button x:Name="DismissUpdate_btn" Content="×" FontSize="14" Height="30" MinWidth="0" Padding="8,2"
+                                    ToolTip="Dismiss update notification" AutomationProperties.Name="Dismiss update notification"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Popup>
     </Grid>
 </Window>

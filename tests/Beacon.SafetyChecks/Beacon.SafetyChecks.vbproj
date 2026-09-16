@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace></RootNamespace>
+    <OptionStrict>On</OptionStrict>
+    <OptionExplicit>On</OptionExplicit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Beacon_FindInFiles/ArchiveSafety.vb" Link="Production/ArchiveSafety.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ArchiveCompatibility.vb" Link="Production/ArchiveCompatibility.vb" />
+    <Compile Include="../../Beacon_FindInFiles/BeaconSettings.vb" Link="Production/BeaconSettings.vb" />
+    <Compile Include="../../Beacon_FindInFiles/BeaconThemePalette.vb" Link="Production/BeaconThemePalette.vb" />
+    <Compile Include="../../Beacon_FindInFiles/NativeCaptionTheme.vb" Link="Production/NativeCaptionTheme.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SingleInstanceCoordinator.vb" Link="Production/SingleInstanceCoordinator.vb" />
+    <Compile Include="../../Beacon_FindInFiles/InstanceWindowActivation.vb" Link="Production/InstanceWindowActivation.vb" />
+    <Compile Include="../../Beacon_FindInFiles/CabExtractor.vb" Link="Production/CabExtractor.vb" />
+    <Compile Include="../../Beacon_FindInFiles/FileSystemTraversal.vb" Link="Production/FileSystemTraversal.vb" />
+    <Compile Include="../../Beacon_FindInFiles/PreviewFormatting.vb" Link="Production/PreviewFormatting.vb" />
+    <Compile Include="../../Beacon_FindInFiles/PreviewContentService.vb" Link="Production/PreviewContentService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SettingsWindow.xaml.vb" Link="SettingsWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/SettingsWindow.xaml" Link="SettingsWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/HelpContent.vb" Link="Production/HelpContent.vb" />
+    <Compile Include="../../Beacon_FindInFiles/RegexHelpContent.vb" Link="Production/RegexHelpContent.vb" />
+    <Compile Include="../../Beacon_FindInFiles/HelpWindow.xaml.vb" Link="HelpWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/HelpWindow.xaml" Link="HelpWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/WelcomeTour.vb" Link="Production/WelcomeTour.vb" />
+    <Compile Include="../../Beacon_FindInFiles/TourWindow.xaml.vb" Link="TourWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/TourWindow.xaml" Link="TourWindow.xaml" />
+    <Page Include="../../Beacon_FindInFiles/SettingsStyles.xaml" Link="SettingsStyles.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml.vb" Link="UtcDateTimePicker.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml" Link="UtcDateTimePicker.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/SeveritySelector.xaml.vb" Link="SeveritySelector.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/SeveritySelector.xaml" Link="SeveritySelector.xaml" />
+    <Resource Include="../../Beacon_FindInFiles/beacon_no_bg.png" Link="beacon_no_bg.png" />
+    <EmbeddedResource Include="../../Beacon_FindInFiles/beacon_no_bg.png" LogicalName="Beacon.ReportLogo.png" />
+    <None Include="../../Beacon_FindInFiles/MainWindow.xaml" Link="Fixtures/MainWindow.xaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures/Archives/*" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../Beacon_FindInFiles/SearchQuery.vb" Link="Production/SearchQuery.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SearchResults.vb" Link="Production/SearchResults.vb" />
+    <Compile Include="../../Beacon_FindInFiles/StructuredSearchResult.vb" Link="Production/StructuredSearchResult.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SourceSearchResult.vb" Link="Production/SourceSearchResult.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SourceSearchService.vb" Link="Production/SourceSearchService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/HarSearchService.vb" Link="Production/HarSearchService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/EvtxSearchService.vb" Link="Production/EvtxSearchService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MatchContext.vb" Link="Production/MatchContext.vb" />
+    <Compile Include="../../Beacon_FindInFiles/WebSearchScripts.vb" Link="Production/WebSearchScripts.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.xaml.vb" Link="MainWindow.xaml.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.Search.vb" Link="MainWindow.Search.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.Evtx.vb" Link="MainWindow.Evtx.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.Har.vb" Link="MainWindow.Har.vb" />
+    <Compile Include="../../Beacon_FindInFiles/EvtxFilter.vb" Link="Production/EvtxFilter.vb" />
+    <Compile Include="../../Beacon_FindInFiles/HarInvestigation.vb" Link="Production/HarInvestigation.vb" />
+    <Compile Include="../../Beacon_FindInFiles/HarRedaction.vb" Link="Production/HarRedaction.vb" />
+    <Compile Include="../../Beacon_FindInFiles/HarFilterEditor.xaml.vb" Link="HarFilterEditor.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/HarFilterEditor.xaml" Link="HarFilterEditor.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.SearchUI.vb" Link="MainWindow.SearchUI.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.Reporting.vb" Link="MainWindow.Reporting.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.Updates.vb" Link="MainWindow.Updates.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ReleaseUpdateChecker.vb" Link="Production/ReleaseUpdateChecker.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanDiagnostics.vb" Link="Production/ScanDiagnostics.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanReport.vb" Link="Production/ScanReport.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanReportWriter.vb" Link="Production/ScanReportWriter.vb" />
+    <Compile Include="../../Beacon_FindInFiles/ScanReportWindow.xaml.vb" Link="ScanReportWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/ScanReportWindow.xaml" Link="ScanReportWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/SevenZipHelper.vb" Link="Production/SevenZipHelper.vb" />
+    <Page Include="../../Beacon_FindInFiles/MainWindow.xaml" Link="MainWindow.xaml" />
+    <Compile Include="../../Beacon_FindInFiles/SplashWindow.xaml.vb" Link="SplashWindow.xaml.vb" />
+    <Page Include="../../Beacon_FindInFiles/SplashWindow.xaml" Link="SplashWindow.xaml" />
+    <EmbeddedResource Include="../../Beacon_FindInFiles/7za.exe" Link="7za.exe" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2792.45" />
+    <PackageReference Include="SharpCompress" Version="0.50.4" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,141 @@
+<Window x:Class="Beacon.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Beacon Settings" Height="760" Width="900" MinHeight="600" MinWidth="720"
+        FontFamily="Segoe UI" FontSize="13" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+        WindowStartupLocation="CenterOwner" Icon="/beacon_no_bg.png">
+    <Window.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="SettingsStyles.xaml"/>
+        </ResourceDictionary.MergedDictionaries>
+        <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#F3F3F3"/>
+        <SolidColorBrush x:Key="CardBackgroundBrush" Color="White"/>
+        <SolidColorBrush x:Key="CardBorderBrush" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#202020"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#666666"/>
+        <SolidColorBrush x:Key="InputBackgroundBrush" Color="White"/>
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#CCCCCC"/>
+        <SolidColorBrush x:Key="AccentBrush" Color="#0066CC"/>
+        <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#F0F0F0"/>
+        <SolidColorBrush x:Key="ButtonHoverBrush" Color="#E0E0E0"/>
+        <SolidColorBrush x:Key="ButtonPressedBrush" Color="#D0D0D0"/>
+        <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="#E5F1FF"/>
+        <SolidColorBrush x:Key="CheckmarkBrush" Color="White"/>
+        <SolidColorBrush x:Key="PrimaryButtonBrush" Color="#0066CC"/>
+        <SolidColorBrush x:Key="PrimaryButtonHoverBrush" Color="#005CB8"/>
+        <SolidColorBrush x:Key="PrimaryButtonPressedBrush" Color="#004A99"/>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,18">
+            <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock Text="Configure search, file handling, and previews." Margin="0,4,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+        </StackPanel>
+        <TabControl x:Name="SettingsTabs" Grid.Row="1">
+            <TabItem Header="Search">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+                    <TextBlock Text="Results and matching" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Maximum total results"/><TextBox x:Name="MaximumTotalResults_txt"/>
+                    <TextBlock Text="Maximum detailed records per file"/><TextBox x:Name="MaximumStructuredMatches_txt"/>
+                    <TextBlock Text="Default search mode"/><ComboBox x:Name="SearchMode_cmb"/>
+                    <CheckBox x:Name="SearchContents_chk" Content="Search file contents"/>
+                    <CheckBox x:Name="SearchFileNames_chk" Content="Search file names"/>
+                    <CheckBox x:Name="SearchFullPaths_chk" Content="Search full paths"/>
+                    <CheckBox x:Name="StopAfterFirstMatch_chk" Content="Stop after the first matching line, event, or request per file"/>
+                    <TextBlock Text="Scan workers (0 = automatic)"/><TextBox x:Name="ScanWorkerCount_txt"/>
+                </StackPanel></ScrollViewer>
+            </TabItem>
+            <TabItem Header="Files and access">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+                    <TextBlock Text="Files and folders" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Included extensions (semicolon-separated)"/><TextBox x:Name="IncludedExtensions_txt"/>
+                    <TextBlock Text="Excluded directory names (semicolon-separated)"/><TextBox x:Name="ExcludedDirectories_txt"/>
+                    <TextBlock Text="Maximum file size (MB)"/><TextBox x:Name="MaximumFileSize_txt"/>
+                    <CheckBox x:Name="IncludeHidden_chk" Content="Include hidden files"/>
+                    <CheckBox x:Name="IncludeSystem_chk" Content="Include system files"/>
+                    <CheckBox x:Name="FollowReparsePoints_chk" Content="Follow symbolic links and junctions (advanced)"/>
+                    <TextBlock Text="Access denied action"/><ComboBox x:Name="AccessDenied_cmb"/>
+                    <TextBlock Text="Ownership recovery always displays the exact path and requires Windows administrator approval. It is never recursive." TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8"/>
+                </StackPanel></ScrollViewer>
+            </TabItem>
+            <TabItem Header="Archives">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+                    <TextBlock Text="Archive safeguards" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Maximum nesting depth (0-5)"/><TextBox x:Name="ArchiveDepth_txt"/>
+                    <TextBlock Text="Maximum entries per archive"/><TextBox x:Name="ArchiveEntries_txt"/>
+                    <TextBlock Text="Maximum individual entry size (MB)"/><TextBox x:Name="ArchiveEntrySize_txt"/>
+                    <TextBlock Text="Maximum total expanded size (MB)"/><TextBox x:Name="ArchiveExpandedSize_txt"/>
+                    <TextBlock Text="Maximum compression ratio"/><TextBox x:Name="CompressionRatio_txt"/>
+                    <TextBlock Text="External archive process timeout (seconds)"/><TextBox x:Name="ArchiveTimeout_txt"/>
+                </StackPanel></ScrollViewer>
+            </TabItem>
+            <TabItem Header="EVTX and HAR">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+                    <TextBlock Text="Windows Event Logs" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Maximum matching events per file"/><TextBox x:Name="EvtxMatches_txt"/>
+                    <TextBlock Text="Pre-scan event filters (blank = any)" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Event IDs (comma-separated, e.g. 1000,1001)"/><TextBox x:Name="EvtxIds_txt"/>
+                    <TextBlock Text="Provider (choose or type; blank = any)"/><ComboBox x:Name="EvtxProvider_cmb" IsEditable="True" IsTextSearchEnabled="False"
+                        ToolTip="Providers from captured events, where available. You can type an exact provider name before scanning."/>
+                    <TextBlock Text="Severity levels"/>
+                    <ContentControl x:Name="EvtxLevels_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
+                    <TextBlock Text="From UTC (inclusive)"/><ContentControl x:Name="EvtxFrom_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
+                    <TextBlock Text="To UTC (inclusive)"/><ContentControl x:Name="EvtxTo_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
+                    <CheckBox x:Name="RawXmlFallback_chk" Content="Show raw XML when a message cannot be rendered"/>
+                    <TextBlock Text="Missing message-resource behavior"/><ComboBox x:Name="EvtxResourcePolicy_cmb"/>
+                    <TextBlock x:Name="EvtxResourceHelp_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,12"/>
+                    <TextBlock Text="HTTP Archive files" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Pre-scan HAR filters (blank = any)" TextWrapping="Wrap"/>
+                    <ContentControl x:Name="HarFilters_host" HorizontalContentAlignment="Stretch" Margin="0,8,0,8"/>
+                    <TextBlock Text="Maximum matching requests per file"/><TextBox x:Name="HarMatches_txt"/>
+                    <TextBlock Text="Maximum request/response body size (MB)"/><TextBox x:Name="HarBodySize_txt"/>
+                    <CheckBox x:Name="DecodeBase64_chk" Content="Decode Base64 HAR bodies"/>
+                    <CheckBox x:Name="RedactHar_chk" Content="Redact captured HAR preview and export data"/>
+                    <TextBlock x:Name="HarPrivacyHelp_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,8"/>
+                </StackPanel></ScrollViewer>
+            </TabItem>
+            <TabItem Header="Preview and diagnostics">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
+                    <TextBlock Text="Appearance" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Theme"/>
+                    <ComboBox x:Name="Theme_cmb" SelectedValuePath="Tag" IsEditable="False" ToolTip="System theme and Beacon Theme follow Windows app colors. Beacon Theme adds muted-crimson buttons, off-white text and red focus/selection accents. Changes apply when saved.">
+                        <ComboBoxItem Content="Light" Tag="Light"/>
+                        <ComboBoxItem Content="Dark" Tag="Dark"/>
+                        <ComboBoxItem Content="System theme" Tag="System"/>
+                        <ComboBoxItem Content="Beacon Theme" Tag="Beacon"/>
+                    </ComboBox>
+                    <TextBlock Text="Preview" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Font family"/>
+                    <ComboBox x:Name="PreviewFont_cmb" IsEditable="False" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False"
+                              ToolTip="Choose an installed font. Type a font name to jump to it."/>
+                    <TextBlock Text="Font size (8-48)"/><TextBox x:Name="PreviewFontSize_txt"/>
+                    <TextBlock Text="Maximum preview size (MB)"/><TextBox x:Name="PreviewSize_txt"/>
+                    <CheckBox x:Name="WordWrap_chk" Content="Wrap long preview lines"/>
+                    <CheckBox x:Name="PrettyPrint_chk" Content="Pretty-print JSON and XML"/>
+                    <CheckBox x:Name="SelectFirstResult_chk" Content="Select the first result automatically"/>
+                    <CheckBox x:Name="AbsolutePaths_chk" Content="Display absolute result paths"/>
+                    <TextBlock Text="Diagnostics" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Detail level"/><ComboBox x:Name="Diagnostics_cmb"/>
+                    <TextBlock Text="Updates" Style="{StaticResource SectionHeader}"/>
+                    <Button x:Name="CheckUpdates_btn" Content="Check for updates" HorizontalAlignment="Left"
+                            ToolTip="Check GitHub for a newer stable version. No automatic download."/>
+                    <TextBlock x:Name="UpdateCheckStatus_txt" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Foreground="{DynamicResource TextPrimaryBrush}" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel></ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <Button x:Name="RestoreDefaults_btn" Grid.Column="0" HorizontalAlignment="Left" Content="Restore defaults"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="Cancel_btn" Content="Cancel" IsCancel="True"/>
+                <Button x:Name="Save_btn" Content="Save" IsDefault="True" Style="{StaticResource PrimaryButton}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

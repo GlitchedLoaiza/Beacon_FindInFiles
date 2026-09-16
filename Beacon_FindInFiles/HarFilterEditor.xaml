@@ -1,0 +1,14 @@
+<UserControl x:Class="Beacon.HarFilterEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="SettingsStyles.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary></UserControl.Resources>
+    <StackPanel>
+        <TextBlock Text="HTTP method (blank = any)" Foreground="{DynamicResource TextPrimaryBrush}"/>
+        <ComboBox x:Name="Method_cmb" IsEditable="True" IsTextSearchEnabled="False"/>
+        <TextBlock Text="Host (exact; blank = any)" Foreground="{DynamicResource TextPrimaryBrush}"/><TextBox x:Name="Host_txt"/>
+        <TextBlock Text="Status codes (e.g. 200,404,503)" Foreground="{DynamicResource TextPrimaryBrush}"/><TextBox x:Name="Status_txt"/>
+        <TextBlock Text="Response MIME contains" Foreground="{DynamicResource TextPrimaryBrush}"/><TextBox x:Name="Mime_txt"/>
+        <TextBlock Text="Minimum duration (ms)" Foreground="{DynamicResource TextPrimaryBrush}"/><TextBox x:Name="Duration_txt"/>
+        <TextBlock Text="From UTC (inclusive)" Foreground="{DynamicResource TextPrimaryBrush}"/><ContentControl x:Name="From_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
+        <TextBlock Text="To UTC (inclusive)" Foreground="{DynamicResource TextPrimaryBrush}"/><ContentControl x:Name="To_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
+    </StackPanel>
+</UserControl>

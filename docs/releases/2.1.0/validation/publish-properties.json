@@ -1,0 +1,9 @@
+{
+  "Properties": {
+    "TargetDir": "C:\\Users\\luislo\\source\\repos\\Beacon_FindInFiles\\Beacon_FindInFiles\\bin\\Release\\net10.0-windows\\win-x64\\",
+    "IntermediateOutputPath": "obj\\Release\\net10.0-windows\\win-x64\\",
+    "MSBuildProjectDirectory": "C:\\Users\\luislo\\source\\repos\\Beacon_FindInFiles\\Beacon_FindInFiles",
+    "PublishReadyToRun": "false",
+    "Version": "2.1.0"
+  }
+}

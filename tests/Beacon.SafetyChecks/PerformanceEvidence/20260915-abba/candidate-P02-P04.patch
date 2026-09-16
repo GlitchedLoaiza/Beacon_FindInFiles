@@ -1,0 +1,80 @@
+diff --git a/Beacon_FindInFiles/SearchResults.vb b/Beacon_FindInFiles/SearchResults.vb
+index 0c4583c..0b25f8a 100644
+--- a/Beacon_FindInFiles/SearchResults.vb
++++ b/Beacon_FindInFiles/SearchResults.vb
+@@ -77,24 +77,37 @@ Namespace Beacon
+                         Dim line = Await reader.ReadLineAsync(token)
+                         If line Is Nothing Then
+                             For Each item In pending
+-                                item.Context = MatchContext.WithFocus(history, item.LineNumber)
++                                item.Context = CopyHistory(history, item.LineNumber, MatchContext.LineLimit)
+                             Next
+                             Exit While
+                         End If
+                         lineNumber += 1
+-                        Dim detail = If(stoppedMatching, Nothing, SearchDetail.FromRecord(query, line, $"Line {lineNumber:N0}", lineNumber, token:=token))
+-                        Dim captured = If(detail IsNot Nothing AndAlso detail.Context.Count > 0,
+-                                          detail.Context(0).Copy(), MatchContext.CaptureLine(line, lineNumber))
++                        Dim detail As SearchDetail = Nothing
++                        Dim captured As ContextLine
++                        If Not stoppedMatching AndAlso query.IsMatch(line, token) Then
++                            Dim spans = query.FindHighlights(line, token:=token)
++                            Dim offset = If(spans.Count > 0, spans(0).Start, 0)
++                            Dim start = Math.Max(0, offset - 70)
++                            Dim excerpt = line.Substring(start, Math.Min(240, line.Length - start)).Replace(vbTab, " ")
++                            detail = New SearchDetail With {
++                                .Location = $"Line {lineNumber:N0}", .LineNumber = lineNumber,
++                                .Excerpt = If(start > 0, "…", "") & excerpt & If(start + 240 < line.Length, "…", ""),
++                                .VisibleMatches = spans.Count, .MatchOffset = offset, .ContextKind = "Source lines"}
++                            ' ReadLine has removed line endings; capture once, then build independent file-context windows below.
++                            captured = MatchContext.CaptureLine(line, lineNumber, spans)
++                        Else
++                            captured = MatchContext.CaptureLine(line, lineNumber)
++                        End If
+                         history.Enqueue(captured)
+                         If history.Count > MatchContext.LineLimit Then history.Dequeue()
+-                        For Each item In pending.ToArray()
+-                            Dim following = captured.Copy()
+-                            following.IsMatchLine = False
++                        For index = pending.Count - 1 To 0 Step -1
++                            Dim item = pending(index)
++                            Dim following = CopyContextLine(captured, False)
+                             item.Context.Add(following)
+-                            If item.Context.Count >= MatchContext.LineLimit Then pending.Remove(item)
++                            If item.Context.Count >= MatchContext.LineLimit Then pending.RemoveAt(index)
+                         Next
+                         If detail IsNot Nothing Then
+-                            detail.Context = MatchContext.WithFocus(history.TakeLast(3), lineNumber)
++                            detail.Context = CopyHistory(history, lineNumber, 3)
+                             result.Details.Add(detail)
+                             pending.Add(detail)
+                             If firstOnly OrElse result.Details.Count >= limit Then
+@@ -111,6 +124,28 @@ Namespace Beacon
+             Return result
+         End Function
+ 
++        Private Shared Function CopyHistory(history As Queue(Of ContextLine), focus As Integer, maximumLines As Integer) As List(Of ContextLine)
++            Dim result As New List(Of ContextLine)(MatchContext.LineLimit)
++            Dim skip = Math.Max(0, history.Count - maximumLines)
++            For Each line In history
++                If skip > 0 Then
++                    skip -= 1
++                Else
++                    result.Add(CopyContextLine(line, line.LineNumber = focus))
++                End If
++            Next
++            Return result
++        End Function
++
++        Private Shared Function CopyContextLine(line As ContextLine, isMatch As Boolean) As ContextLine
++            Dim result As New ContextLine With {.LineNumber = line.LineNumber, .Text = line.Text,
++                .Shortened = line.Shortened, .IsMatchLine = isMatch}
++            For Each span In line.Highlights
++                result.Highlights.Add(New SearchSpan With {.Start = span.Start, .Length = span.Length})
++            Next
++            Return result
++        End Function
++
+         Public Shared Function ExtractDocumentText(content As String, Optional normalizeWhitespace As Boolean = True) As String
+             Dim timeout = TimeSpan.FromMilliseconds(100)
+             Dim options = RegexOptions.Singleline Or RegexOptions.IgnoreCase Or RegexOptions.CultureInvariant

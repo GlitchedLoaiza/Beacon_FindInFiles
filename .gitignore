@@ -361,4 +361,16 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/ersluislosourcereposBeacon_FindInFiles; git checkout master
+
+# Versioned release records are documentation, not build output.
+!docs/releases/
+docs/releases/*
+!docs/releases/2.1.0/
+docs/releases/2.1.0/*
+!docs/releases/2.1.0/SHA256SUMS.txt
+!docs/releases/2.1.0/release-manifest.json
+!docs/releases/2.1.0/PREPARATION.md
+!docs/releases/2.1.0/validation/
+docs/releases/2.1.0/validation/*
+!docs/releases/2.1.0/validation/*.txt
+!docs/releases/2.1.0/validation/*.json

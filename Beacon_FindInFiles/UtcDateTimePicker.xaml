@@ -1,0 +1,43 @@
+<UserControl x:Class="BeaconFilterControls.UtcDateTimePicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Picker" Focusable="False">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="SettingsStyles.xaml"/></ResourceDictionary.MergedDictionaries>
+            <Style x:Key="ArrowButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="MinWidth" Value="0"/><Setter Property="Height" Value="24"/>
+                <Setter Property="Padding" Value="2"/><Setter Property="Margin" Value="2,0"/>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBox x:Name="DateText" Margin="0" MinWidth="0" FontSize="12" Padding="6,5"
+                 Text="{Binding Text, ElementName=Picker, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 AutomationProperties.Name="UTC date and time" ToolTip="Type yyyy-MM-dd HH:mm:ss (UTC), or leave empty for Any time."/>
+        <TextBlock Text="Any time" Margin="8,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False" Foreground="{DynamicResource TextSecondaryBrush}">
+            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>
+                <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=DateText}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+            </Style></TextBlock.Style>
+        </TextBlock>
+        <Button x:Name="OpenPicker" Grid.Column="1" Content="▾" Width="30" MinWidth="0" Height="34" Padding="2" Margin="4,0,0,0"
+                AutomationProperties.Name="Choose UTC date and time" Click="OpenPicker_Click"/>
+        <Popup x:Name="PickerPopup" PlacementTarget="{Binding ElementName=Picker}" Placement="Bottom" AllowsTransparency="True"
+               StaysOpen="False" PopupAnimation="None">
+            <Border Width="278" Padding="10" Margin="0,4,0,0" CornerRadius="6" BorderThickness="1"
+                    Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource InputBorderBrush}"
+                    TextElement.Foreground="{DynamicResource TextPrimaryBrush}">
+                <StackPanel KeyboardNavigation.TabNavigation="Cycle" PreviewKeyDown="Popup_KeyDown">
+                    <TextBlock Text="Date and time (UTC)" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <UniformGrid x:Name="Components" Columns="3" Rows="2"/>
+                    <TextBlock x:Name="PickerError" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,6,0,6"/>
+                    <WrapPanel HorizontalAlignment="Right">
+                        <Button Content="Any time" MinWidth="0" Height="30" Padding="6,3" Margin="0,0,4,0" Click="Clear_Click"/>
+                        <Button Content="Cancel" MinWidth="0" Height="30" Padding="6,3" Margin="0,0,4,0" Click="Cancel_Click"/>
+                        <Button Content="Apply" MinWidth="0" Height="30" Padding="6,3" Margin="0" Click="Apply_Click"/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

@@ -2,103 +2,183 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Beacon Splash"
-        Width="500" Height="264"
+        Width="900" Height="600"
         WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent"
+        AllowsTransparency="False"
+        Background="#030813"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
         Topmost="True"
         WindowStartupLocation="CenterScreen"
         Loaded="Window_Loaded">
-
     <Window.Resources>
-        <Storyboard x:Key="FadeOutStoryboard">
-            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                             To="0" Duration="0:0:0.35" />
+        <SineEase x:Key="SoftEase" EasingMode="EaseInOut"/>
+        <Style x:Key="LogText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="LineHeight" Value="25"/>
+            <Setter Property="Foreground" Value="#4984C8"/>
+        </Style>
+        <Style x:Key="FileTypeBadge" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#405397DF"/>
+            <Setter Property="Background" Value="#160C448B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="7,3"/>
+        </Style>
+        <Storyboard x:Key="FadeOutStoryboard" Timeline.DesiredFrameRate="60">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.35"
+                             EasingFunction="{StaticResource SoftEase}"/>
         </Storyboard>
-
-        <!-- FIX: Use proper easing function -->
-        <QuadraticEase x:Key="EaseInOut" EasingMode="EaseInOut"/>
-
-        <Storyboard x:Key="LupeSweep" RepeatBehavior="Forever" AutoReverse="True">
-            <DoubleAnimation Storyboard.TargetName="LupeTranslate"
-                             Storyboard.TargetProperty="X"
-                             From="-40" To="420" Duration="0:0:2.6"
-                             EasingFunction="{StaticResource EaseInOut}" />
+        <Storyboard x:Key="AmbientMotion" Timeline.DesiredFrameRate="60">
+            <DoubleAnimation Storyboard.TargetName="LogoMotion" Storyboard.TargetProperty="Y"
+                             From="0" To="-3" Duration="0:0:2.25" AutoReverse="True" RepeatBehavior="Forever" EasingFunction="{StaticResource SoftEase}"/>
+            <DoubleAnimation Storyboard.TargetName="LogoGlow" Storyboard.TargetProperty="Opacity"
+                             From="0.40" To="0.72" Duration="0:0:2" AutoReverse="True" RepeatBehavior="Forever" EasingFunction="{StaticResource SoftEase}"/>
+            <DoubleAnimation Storyboard.TargetName="FarDrift" Storyboard.TargetProperty="X"
+                             From="0" To="-16" Duration="0:0:24" AutoReverse="True" RepeatBehavior="Forever" EasingFunction="{StaticResource SoftEase}"/>
+            <DoubleAnimation Storyboard.TargetName="MiddleDrift" Storyboard.TargetProperty="X"
+                             From="0" To="24" Duration="0:0:16" AutoReverse="True" RepeatBehavior="Forever" EasingFunction="{StaticResource SoftEase}"/>
+            <DoubleAnimation Storyboard.TargetName="NearDrift" Storyboard.TargetProperty="X"
+                             From="0" To="-36" Duration="0:0:10" AutoReverse="True" RepeatBehavior="Forever" EasingFunction="{StaticResource SoftEase}"/>
+            <DoubleAnimation Storyboard.TargetName="BeamMotion" Storyboard.TargetProperty="X"
+                             From="-240" To="920" Duration="0:0:3" RepeatBehavior="Forever" EasingFunction="{StaticResource SoftEase}"/>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="ScanBeam" Storyboard.TargetProperty="Opacity" Duration="0:0:3" RepeatBehavior="Forever">
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:0.3" Value="0.85" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:2.65" Value="0.85" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:3" Value="0" KeySpline="0.42,0,0.58,1"/>
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LeftMatch" Storyboard.TargetProperty="Opacity" Duration="0:0:3" RepeatBehavior="Forever">
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0.42"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:0.9" Value="1" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:1.5" Value="0.42" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:3" Value="0.42" KeySpline="0.42,0,0.58,1"/>
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="RightMatch" Storyboard.TargetProperty="Opacity" Duration="0:0:3" RepeatBehavior="Forever">
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0.42"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:1.6" Value="0.42" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:2.15" Value="1" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:3" Value="0.42" KeySpline="0.42,0,0.58,1"/>
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="LogoOutline" Storyboard.TargetProperty="Opacity" Duration="0:0:3" RepeatBehavior="Forever">
+                <DiscreteDoubleKeyFrame KeyTime="0:0:0" Value="0.35"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:1.2" Value="0.35" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:1.5" Value="0.85" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:1.85" Value="0.35" KeySpline="0.42,0,0.58,1"/>
+                <SplineDoubleKeyFrame KeyTime="0:0:3" Value="0.35" KeySpline="0.42,0,0.58,1"/>
+            </DoubleAnimationUsingKeyFrames>
+            <DoubleAnimation Storyboard.TargetName="LoadingRotation" Storyboard.TargetProperty="Angle"
+                             From="0" To="360" Duration="0:0:1.4" RepeatBehavior="Forever"/>
         </Storyboard>
     </Window.Resources>
-
-    <Border CornerRadius="16" SnapsToDevicePixels="True">
-        <Grid>
-            <!-- Semi-transparent themed background -->
-            <Rectangle>
-                <Rectangle.Fill>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#00131E2E" Offset="0"/>
-                        <GradientStop Color="#7A0A2244" Offset="1"/>
+    <Border BorderBrush="#173151" BorderThickness="1" ClipToBounds="True">
+        <Viewbox Stretch="Uniform">
+            <Grid x:Name="SceneRoot" Width="900" Height="600" ClipToBounds="True">
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#02050C" Offset="0"/>
+                        <GradientStop Color="#071A36" Offset="0.52"/>
+                        <GradientStop Color="#030710" Offset="1"/>
                     </LinearGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
+                </Grid.Background>
 
-            <!-- Subtle "data plane" overlay -->
-            <Rectangle Opacity="0.20">
-                <Rectangle.Fill>
-                    <RadialGradientBrush Center="0.35,0.25" RadiusX="0.9" RadiusY="0.9">
-                        <GradientStop Color="#AA2A74D6" Offset="0"/>
-                        <GradientStop Color="#001B2A3A" Offset="1"/>
-                    </RadialGradientBrush>
-                </Rectangle.Fill>
-            </Rectangle>
+                <!-- Static decorative text is cached; only its layer transforms move. -->
+                <Canvas x:Name="FarLogLayer" Opacity="0.22" IsHitTestVisible="False">
+                    <Canvas.CacheMode><BitmapCache/></Canvas.CacheMode>
+                    <Canvas.Effect><BlurEffect Radius="4" RenderingBias="Performance"/></Canvas.Effect>
+                    <Canvas.RenderTransform><TranslateTransform x:Name="FarDrift"/></Canvas.RenderTransform>
+                    <TextBlock Canvas.Left="-40" Canvas.Top="30" Style="{StaticResource LogText}" Text="15:14:50.203  [INFO] Opening system.evtx&#10;15:14:50.214  [INFO] Reading event records&#10;15:14:50.238  [INFO] Inspecting archive.zip&#10;15:14:50.250  [INFO] Enumerating file entries"/>
+                    <TextBlock Canvas.Left="585" Canvas.Top="12" Style="{StaticResource LogText}" Text="eventId: 4625&#10;provider: Application&#10;status: correlation pending&#10;source: diagnostics.json&#10;record: 0x00007A21"/>
+                    <TextBlock Canvas.Left="-12" Canvas.Top="408" Style="{StaticResource LogText}" Text="&lt;Event&gt;&#10;  &lt;System&gt;Diagnostics&lt;/System&gt;&#10;  &lt;EventData&gt;Request completed&lt;/EventData&gt;&#10;&lt;/Event&gt;"/>
+                    <TextBlock Canvas.Left="650" Canvas.Top="450" Style="{StaticResource LogText}" Text="Time,EventId,Result,Source&#10;15:14:51,4625,Warning,system.evtx&#10;15:14:52,5016,Info,application.log"/>
+                </Canvas>
 
-            <!-- LOG LAYER -->
-            <Canvas x:Name="LogCanvas" ClipToBounds="True" Margin="18,18,18,62" />
+                <Canvas x:Name="MiddleLogLayer" Opacity="0.42" IsHitTestVisible="False">
+                    <Canvas.CacheMode><BitmapCache/></Canvas.CacheMode>
+                    <Canvas.Effect><BlurEffect Radius="1" RenderingBias="Performance"/></Canvas.Effect>
+                    <Canvas.RenderTransform><TranslateTransform x:Name="MiddleDrift"/></Canvas.RenderTransform>
+                    <TextBlock Canvas.Left="25" Canvas.Top="75" Style="{StaticResource LogText}" Text="15:14:50.225  [INFO] Reading application.log&#10;15:14:50.238  [INFO] Opening evidence.zip&#10;15:14:50.250  [INFO] Resolving timestamps"/>
+                    <TextBlock Canvas.Left="550" Canvas.Top="110" Style="{StaticResource LogText}" Text="15:14:51.102  [INFO] Reading application.evtx&#10;15:14:51.128  [INFO] Inspecting event data"/>
+                    <TextBlock Canvas.Left="610" Canvas.Top="328" Style="{StaticResource LogText}" FontSize="11" Text="&lt;EventData&gt;&#10;  &lt;Data Name=&quot;Operation&quot;&gt;Read&lt;/Data&gt;&#10;  &lt;Data Name=&quot;Result&quot;&gt;Success&lt;/Data&gt;&#10;&lt;/EventData&gt;"/>
+                    <TextBlock Canvas.Left="20" Canvas.Top="476" Style="{StaticResource LogText}" FontSize="11" Text="Reading network_config.txt&#10;Access check completed.&#10;Collecting surrounding context…"/>
+                    <Border Style="{StaticResource FileTypeBadge}" Canvas.Left="44" Canvas.Top="188"><TextBlock Style="{StaticResource LogText}" Text="ZIP"/></Border>
+                    <Border Style="{StaticResource FileTypeBadge}" Canvas.Left="738" Canvas.Top="54"><TextBlock Style="{StaticResource LogText}" Text="EVTX"/></Border>
+                    <Border Style="{StaticResource FileTypeBadge}" Canvas.Left="110" Canvas.Top="38"><TextBlock Style="{StaticResource LogText}" Text="TXT"/></Border>
+                    <Border Style="{StaticResource FileTypeBadge}" Canvas.Left="36" Canvas.Top="405"><TextBlock Style="{StaticResource LogText}" Text="LOG"/></Border>
+                    <Border Style="{StaticResource FileTypeBadge}" Canvas.Left="742" Canvas.Top="290"><TextBlock Style="{StaticResource LogText}" Text="XML"/></Border>
+                    <Border Style="{StaticResource FileTypeBadge}" Canvas.Left="748" Canvas.Top="506"><TextBlock Style="{StaticResource LogText}" Text="JSON"/></Border>
+                </Canvas>
 
-            <!-- PARTICLE LAYER -->
-            <Canvas x:Name="ParticleCanvas" ClipToBounds="True" Margin="18,18,18,62" />
+                <Canvas x:Name="NearLogLayer" Opacity="0.78" IsHitTestVisible="False">
+                    <Canvas.RenderTransform><TranslateTransform x:Name="NearDrift"/></Canvas.RenderTransform>
+                    <TextBlock Canvas.Left="30" Canvas.Top="209" Style="{StaticResource LogText}" Text="15:14:52.872  [INFO] Reading network.log"/>
+                    <TextBlock x:Name="LeftMatch" Canvas.Left="30" Canvas.Top="245" Style="{StaticResource LogText}" Foreground="#51C9FF" Opacity="0.55"
+                               Text="15:14:52.887  [MATCH] Correlation found"><TextBlock.CacheMode><BitmapCache/></TextBlock.CacheMode></TextBlock>
+                    <TextBlock Canvas.Left="30" Canvas.Top="279" Style="{StaticResource LogText}" Text="15:14:52.900  [INFO] Capturing context"/>
+                    <TextBlock Canvas.Left="592" Canvas.Top="223" Style="{StaticResource LogText}" Text="15:14:53.987  [INFO] Inspecting events"/>
+                    <TextBlock x:Name="RightMatch" Canvas.Left="592" Canvas.Top="258" Style="{StaticResource LogText}" Foreground="#51C9FF" Opacity="0.55"
+                               Text="15:14:54.001  [MATCH] Pattern detected"><TextBlock.CacheMode><BitmapCache/></TextBlock.CacheMode></TextBlock>
+                    <TextBlock Canvas.Left="620" Canvas.Top="442" Style="{StaticResource LogText}" FontSize="11" Text="{}{&#10;  &quot;eventId&quot;: 4625,&#10;  &quot;source&quot;: &quot;system.evtx&quot;&#10;}"/>
+                    <TextBlock Canvas.Left="35" Canvas.Top="355" Style="{StaticResource LogText}" Text="15:14:53.215  [INFO] Reading notes.txt&#10;15:14:53.240  [INFO] Context captured"/>
+                </Canvas>
 
-            <!-- LUPE LAYER -->
-            <Canvas x:Name="LupeCanvas" ClipToBounds="True" Margin="18,18,18,62">
-                <Canvas.RenderTransform>
-                    <TranslateTransform x:Name="LupeTranslate" X="0" Y="0"/>
-                </Canvas.RenderTransform>
+                <Rectangle IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <RadialGradientBrush Center="0.5,0.42" GradientOrigin="0.5,0.42" RadiusX="0.7" RadiusY="0.9">
+                            <GradientStop Color="#0001050C" Offset="0.3"/>
+                            <GradientStop Color="#CF01030A" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Ellipse Width="420" Height="410" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,44,0,0" IsHitTestVisible="False">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush><GradientStop Color="#ED040B19" Offset="0.2"/><GradientStop Color="#00040B19" Offset="1"/></RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+                <Ellipse x:Name="LogoGlow" Width="440" Height="410" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,25,0,0" Opacity="0.55">
+                    <Ellipse.CacheMode><BitmapCache/></Ellipse.CacheMode>
+                    <Ellipse.Fill>
+                        <RadialGradientBrush><GradientStop Color="#C00065E8" Offset="0"/><GradientStop Color="#480043A4" Offset="0.5"/><GradientStop Color="#00003388" Offset="1"/></RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+                <Ellipse Width="266" Height="266" Stroke="#15417A" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,98,0,0"/>
+                <Ellipse x:Name="LogoOutline" Width="250" Height="250" Stroke="#247FEC" StrokeThickness="1.5" Opacity="0.35"
+                         HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,106,0,0"/>
+                <Image x:Name="BeaconLogo" Source="beacon_no_bg.png" Width="180" Height="180" Stretch="Uniform"
+                       HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,139,0,0"
+                       RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="Beacon logo">
+                    <Image.RenderTransform><TranslateTransform x:Name="LogoMotion"/></Image.RenderTransform>
+                </Image>
 
-                <Ellipse Width="36" Height="36"
-                         Stroke="#CCFFFFFF" StrokeThickness="2"
-                         Fill="#22000000"
-                         Canvas.Left="0" Canvas.Top="108"/>
+                <Canvas x:Name="ScanBeam" Width="240" Height="40" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,231,0,0" Opacity="0" IsHitTestVisible="False">
+                    <Canvas.RenderTransform><TranslateTransform x:Name="BeamMotion" X="-240"/></Canvas.RenderTransform>
+                    <Rectangle Width="240" Height="38" Opacity="0.36">
+                        <Rectangle.Fill><RadialGradientBrush RadiusY="0.5"><GradientStop Color="#AF238EFF"/><GradientStop Color="#001672F0" Offset="1"/></RadialGradientBrush></Rectangle.Fill>
+                    </Rectangle>
+                    <Rectangle Width="240" Height="2" Canvas.Top="18">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#001172FF"/><GradientStop Color="#4863BBFF" Offset="0.3"/><GradientStop Color="#E6D4F3FF" Offset="0.65"/><GradientStop Color="#001172FF" Offset="1"/></LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                </Canvas>
 
-                <Line X1="28" Y1="138" X2="46" Y2="156"
-                      Stroke="#CCFFFFFF" StrokeThickness="3"
-                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                
-                <Line X1="8" Y1="126" X2="28" Y2="126"
-                      Stroke="#66A7D9FF" StrokeThickness="2"
-                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-            </Canvas>
-
-            <!-- TOP LOGO -->
-            <Image Source="beacon_no_bg.png"
-                   Width="120"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Top"
-                   Margin="0,18,0,0"
-                   RenderOptions.BitmapScalingMode="HighQuality" />
-
-            <!-- TITLE / SUBTITLE -->
-            <StackPanel VerticalAlignment="Bottom" Margin="0,0,0,14">
-                <TextBlock Text="Beacon"
-                           FontFamily="Segoe UI"
-                           FontSize="36"
-                           FontWeight="Bold"
-                           Foreground="#F2FFFFFF"
-                           HorizontalAlignment="Center" />
-                <TextBlock Text="Find in files..."
-                           FontFamily="Segoe UI"
-                           FontSize="16"
-                           Foreground="#C8D6ECFF"
-                           HorizontalAlignment="Center" />
-            </StackPanel>
-        </Grid>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,353,0,0">
+                    <TextBlock Text="Beacon" FontFamily="Segoe UI" FontSize="60" FontWeight="SemiBold" Foreground="#F5F9FF" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Find in files" FontFamily="Segoe UI" FontSize="23" Foreground="#73ACF2" HorizontalAlignment="Center" Margin="0,1,0,0"/>
+                </StackPanel>
+                <Grid x:Name="LoadingRing" Width="44" Height="44" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,490,0,0" IsHitTestVisible="False">
+                    <Ellipse Margin="2" Stroke="#133568" StrokeThickness="3"/>
+                    <Path Data="M 22,4 A 18,18 0 1 1 4,22" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+                        <Path.Stroke><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#1763CD"/><GradientStop Color="#50CDFF" Offset="1"/></LinearGradientBrush></Path.Stroke>
+                        <Path.RenderTransform><RotateTransform x:Name="LoadingRotation" CenterX="22" CenterY="22"/></Path.RenderTransform>
+                    </Path>
+                </Grid>
+                <TextBlock x:Name="LoadingStatus_txt" Text="Preparing your workspace…" FontFamily="Segoe UI" FontSize="15" Foreground="#9EBBE0"
+                           HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,548,0,0" AutomationProperties.LiveSetting="Polite"/>
+                <TextBlock x:Name="SplashVersion_txt" FontFamily="Segoe UI" FontSize="13" Foreground="#9EBBE0"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,22,16"/>
+            </Grid>
+        </Viewbox>
     </Border>
 </Window>
