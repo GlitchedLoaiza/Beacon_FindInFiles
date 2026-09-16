@@ -9,7 +9,7 @@
 
 Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-> **Beacon 2.1 source:** This README describes the current 2.1.0 source, including Beacon Theme. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for published downloads and their release notes; promoting source to `master` does not publish a binary. Validation and packaging details live [here](docs/releases/2.1.0/PREPARATION.md); v2.0.1 is preserved on [`Beacon2.0.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.0.1).
+> **Beacon 2.1:** This README describes 2.1.0, including Beacon Theme. The package and hashes below are prepared for release; check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for published downloads and their release notes. Validation and packaging details live [here](docs/releases/2.1.0/PREPARATION.md); v2.0.1 is preserved on [`Beacon2.0.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.0.1).
 
 ## 🎯 Features at a glance
 
@@ -42,24 +42,24 @@ Keep the included `LICENSE`, `THIRD-PARTY-NOTICES.md`, and `licenses` folder wit
 
 ### 🔐 Verify your download
 
-Use the checksum for the **same file and version** you downloaded, from that release's notes or `SHA256SUMS.txt`. The [archived 2.1.0 checksum list](docs/releases/2.1.0/SHA256SUMS.txt) identifies only the local pre-theme package below—not v2.0.1 or a new theme-enabled build.
+Use the checksum for the **same file and version** you downloaded, from that release's notes, `SHA256SUMS.txt`, or the matching table below. The [2.1.0 checksum list](docs/releases/2.1.0/packages/7dbb342/SHA256SUMS.txt) covers this prepared theme-enabled package—not earlier v2.0.1 or pre-theme downloads.
 
 <details>
-<summary>Show the archived 2.1.0 hashes and PowerShell verification steps</summary>
+<summary>Show the prepared 2.1.0 hashes and PowerShell verification steps</summary>
 
-These values identify one historical local package. The [archived artifact manifest](docs/releases/2.1.0/release-manifest.json) contains its full build details.
+These values identify the exact theme-enabled 2.1.0 release package. The [artifact manifest](docs/releases/2.1.0/packages/7dbb342/release-manifest.json) records its build configuration, source commit, runtime packs, and included files.
 
-**Not a current-release checksum:** the package recorded below predates Beacon Theme and was not uploaded as a GitHub release during its preparation. A theme-enabled release needs fresh packaging, validation, and checksums.
+**ZIP-only upload:** the ZIP includes `Beacon.exe` and its required legal notices. `SHA256SUMS.txt` and the manifest are verification records, not required application files or mandatory release attachments. This preparation has not uploaded a GitHub release.
 
-<!-- RELEASE-HASHES: historical pre-theme 2.1.0 package; replace only with verified shipping-artifact data. -->
-Prepared locally on **2026-09-16 UTC** from `experiments-latest` at `90f960dd` (Release, win-x64, self-contained single-file, ReadyToRun off):
+<!-- RELEASE-HASHES: verified theme-enabled 2.1.0 package; regenerate after rebuilding, repackaging, or signing. -->
+Prepared locally on **2026-09-16 UTC** from clean `master` at `7dbb342` (Release, win-x64, self-contained single-file, ReadyToRun off):
 
 | File | Size (bytes) | SHA-256 |
 | --- | ---: | --- |
-| `Beacon.exe` | 77,624,725 | `C35F908A02A52E361B58E82E31E00B531864C31CD7F8CA420D5A3CE68E97A686` |
-| `Beacon-2.1.0-win-x64.zip` | 72,071,577 | `EDDF545A27265041DAD7862DFDF2C3A0F069324C424AB417DBE5CC8F0E786BAB` |
+| `Beacon.exe` | 77,626,479 | `457700B3F089E485BFC1EC97D6A260D59719C06E6AF02DBA67B71DCDDD594044` |
+| `Beacon-2.1.0-win-x64.zip` | 72,073,590 | `C2D0B43CBC9E3C18722F1925A6364A044B0A0D1D7D85E8FCA7EB56702584ACBA` |
 
-These hashes superseded an earlier local EXE-only package, not the published v2.0.1 download. Do not reuse them for another build, even if its version number is also 2.1.0.
+These hashes identify the new package, not the earlier local pre-theme build. That older package's records remain in the preparation history. Upload this exact ZIP; do not reuse these values after changing its bytes.
 <!-- /RELEASE-HASHES -->
 
 In PowerShell, run this in the download folder, replacing the example ZIP name with the exact downloaded filename:
@@ -70,7 +70,7 @@ Get-FileHash -LiteralPath '.\Beacon-2.1.0-win-x64.zip' -Algorithm SHA256
 Get-FileHash -LiteralPath '.\Beacon.exe' -Algorithm SHA256
 ```
 
-Compare the full `Hash` value with that file's checksum in the same release's notes or `SHA256SUMS.txt`. ZIP and EXE hashes are different. If no checksum is published for that file, this comparison is unavailable—do not substitute one from another artifact. If the values differ, don't run the file: confirm the version and download it again from the official release.
+Compare the full `Hash` value with that file's checksum in the same release's notes, `SHA256SUMS.txt`, or the matching table above. ZIP and EXE hashes are different. If no checksum is published for that file, this comparison is unavailable—do not substitute one from another artifact. If the values differ, don't run the file: confirm the version and download it again from the official release.
 
 Rebuilding, repackaging, or signing changes the checksum. A self-built copy may differ from a published one. Hashes verify matching bytes—not publisher identity or whether an application is harmless.
 
