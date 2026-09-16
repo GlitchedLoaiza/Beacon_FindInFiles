@@ -102,10 +102,11 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
                     <TextBlock Text="Appearance" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Theme"/>
-                    <ComboBox x:Name="Theme_cmb" SelectedValuePath="Tag" IsEditable="False" ToolTip="System theme follows the Windows app color setting. Changes apply when saved.">
+                    <ComboBox x:Name="Theme_cmb" SelectedValuePath="Tag" IsEditable="False" ToolTip="System theme and Beacon Theme follow Windows app colors. Beacon Theme adds muted-crimson buttons, off-white text and red focus/selection accents. Changes apply when saved.">
                         <ComboBoxItem Content="Light" Tag="Light"/>
                         <ComboBoxItem Content="Dark" Tag="Dark"/>
                         <ComboBoxItem Content="System theme" Tag="System"/>
+                        <ComboBoxItem Content="Beacon Theme" Tag="Beacon"/>
                     </ComboBox>
                     <TextBlock Text="Preview" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Font family"/>

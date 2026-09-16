@@ -407,21 +407,29 @@ Namespace Beacon
         ''' </summary>
         Private Sub InitializeTheme()
             Try
-                Dim isDarkModeEnabled = _settings.Theme = AppTheme.Dark OrElse
-                    (_settings.Theme = AppTheme.System AndAlso IsWindowsDarkModeEnabled())
-
-                ' Apply the detected theme
-                If isDarkModeEnabled Then
-                    ApplyDarkTheme()
-                Else
-                    ApplyLightTheme()
-                End If
+                ApplyThemeSelection(IsWindowsDarkModeEnabled())
 
                 Debug.WriteLine($"Theme initialized: {If(_isDarkMode, "Dark", "Light")} mode")
             Catch ex As Exception
                 Debug.WriteLine($"Error initializing theme, using Light mode: {ex.Message}")
                 ApplyLightTheme()
             End Try
+        End Sub
+
+        Private Sub ApplyThemeSelection(systemDark As Boolean)
+            If BeaconThemePalette.UsesDarkBackground(_settings.Theme, systemDark) Then
+                ApplyDarkTheme()
+            Else
+                ApplyLightTheme()
+            End If
+        End Sub
+
+        Private Sub ApplyPreviewTheme()
+            If BeaconThemePalette.IsEnabled(Resources) Then
+                TextPreview_rtb.SetResourceReference(FrameworkElement.StyleProperty, "BeaconTextPreviewStyle")
+            Else
+                TextPreview_rtb.ClearValue(FrameworkElement.StyleProperty)
+            End If
         End Sub
 
         ''' <summary>
@@ -448,7 +456,7 @@ Namespace Beacon
         Private Sub SystemThemeChanged(sender As Object, e As Microsoft.Win32.UserPreferenceChangedEventArgs)
             If Dispatcher.HasShutdownStarted OrElse Dispatcher.HasShutdownFinished Then Return
             Dispatcher.BeginInvoke(Sub()
-                                       If Not _isClosing AndAlso _settings.Theme = AppTheme.System Then InitializeTheme()
+                                       If Not _isClosing AndAlso BeaconThemePalette.FollowsSystem(_settings.Theme) Then InitializeTheme()
                                    End Sub)
         End Sub
 
@@ -482,6 +490,8 @@ Namespace Beacon
             EventProvider_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0)) ' Light gray
             EventTime_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0))  ' Medium gray
             EventMessage_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0)) ' Light gray
+            BeaconThemePalette.ApplyButtons(Resources, _settings IsNot Nothing AndAlso _settings.Theme = AppTheme.Beacon, True)
+            ApplyPreviewTheme()
         End Sub
 
         ''' <summary>
@@ -514,6 +524,8 @@ Namespace Beacon
             EventProvider_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20)) ' Dark gray
             EventTime_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H66, &H66, &H66)) ' Medium gray
             EventMessage_txt.Foreground = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20)) ' Dark gray
+            BeaconThemePalette.ApplyButtons(Resources, _settings IsNot Nothing AndAlso _settings.Theme = AppTheme.Beacon, False)
+            ApplyPreviewTheme()
         End Sub
 
         ''' <summary>

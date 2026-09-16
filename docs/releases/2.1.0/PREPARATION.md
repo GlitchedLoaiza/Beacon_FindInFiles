@@ -2,6 +2,8 @@
 
 ## Current status
 
+**Later source change:** Beacon Theme has been added after the package documented here. The EXE/ZIP hashes and 71-group validation below remain historical evidence for that exact pre-theme artifact, not verification of a new build. Rebuild, rerun release checks and regenerate the checksum/manifest/README table before distributing the theme-enabled application. No replacement artifacts are published as part of the theme change.
+
 **Prepared for review; no merge, checkout of master, commit, push, tag, or GitHub release upload was performed.** Application code and dependency versions were not changed during this preparation. The new README/changelog, packaging script, license notices, and verification records are intentionally left uncommitted on `experiments-latest`.
 
 This record supersedes the old README download hash and the previous local EXE-only 2.1.0 ZIP. Historical performance/Step 12 records are preserved and still describe their own artifacts, not this package. A valid hash and passing tests are not release approval or a verified publisher identity.

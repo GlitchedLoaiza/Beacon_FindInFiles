@@ -2,6 +2,8 @@
 
 ## Status
 
+**Beacon Theme follow-up:** the current source includes a fourth, system-aware theme with muted-crimson/off-white buttons and coordinated red focus/selection accents. It is not in the previously published artifacts recorded here. Their checksums are preserved as historical evidence only. A theme-enabled release requires a fresh publish, hashes and release smoke checks; this change does not upload or replace an existing release.
+
 **Current release preparation:** see [Beacon 2.1.0 preparation](../../docs/releases/2.1.0/PREPARATION.md) for the refreshed local artifacts, exact EXE/ZIP hashes, included notices, 71 passing Release regression groups, and later-promotion checklist. That package uses the existing Folder profile with ReadyToRun disabled and remains unsigned. No master promotion or GitHub release upload was performed; the historical candidate hashes and smoke results below must not be reused as verification for it.
 
 **Superseded candidate:** the source now targets **2.1.0** and includes first-launch onboarding plus a splash version label. The 2.0.1 binary, checksum and published smoke results below are historical evidence only and do not validate the new 2.1 build. Rebuild/publish 2.1, regenerate its hash, repeat startup checks (first launch, skipped/exited tour and second launch), and complete the manual gates before shipping. Do not distribute the old candidate as 2.1.

@@ -19,7 +19,7 @@ Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and a
 - **Look inside nested archives:** configurable depth and limits, with matching files shown under their original archive paths.
 - **Investigate events and requests:** collapsible EVTX/HAR tools, editable date pickers, and filters that help narrow the view.
 - **Share a readable report:** export matching files and nearby context to a self-contained HTML file.
-- **Make it comfortable:** Light, Dark, and System themes, adjustable previews, and native Windows window controls.
+- **Make it comfortable:** Light, Dark, System, and Beacon Theme, adjustable previews, and native Windows window controls.
 - **Get help as you go:** an optional welcome tour and searchable offline Help, including a beginner regex guide.
 
 Whether you're tracking an error across diagnostic bundles, finding a configuration value, or reviewing a saved web request, Beacon helps you get to the relevant text.
@@ -48,6 +48,8 @@ Use the checksum for the **same file and version** you downloaded. The [2.1.0 ch
 <summary>Show the prepared 2.1.0 hashes and PowerShell verification steps</summary>
 
 These values identify the exact prepared package. The [artifact manifest](docs/releases/2.1.0/release-manifest.json) contains the full build details.
+
+**Source update:** the package recorded below predates Beacon Theme. Its hashes still identify that earlier download; a rebuilt theme-enabled release needs fresh packaging and checksums.
 
 <!-- RELEASE-HASHES: copied from the verified 2.1.0 package; regenerate after rebuilding or repackaging. -->
 Prepared locally on **2026-09-16 UTC** from `experiments-latest` at `90f960dd` (Release, win-x64, self-contained single-file, ReadyToRun off):
@@ -180,7 +182,8 @@ Set nesting depth in **Settings → Archives**: the default is 1, with values fr
 
 ## 🎨 Make Beacon yours
 
-- Choose **Light**, **Dark**, or **System theme** under **Settings → Preview and diagnostics → Appearance**.
+- Choose **Light**, **Dark**, **System theme**, or **Beacon Theme** under **Settings → Preview and diagnostics → Appearance**, then click **Save**.
+- **Beacon Theme** uses a softer, logo-inspired crimson with off-white button text. Input/preview outlines and selection highlights use coordinated red tones while backgrounds follow Windows' light/dark app preference. Disabled buttons stay neutral. Switch back to another theme whenever you like.
 - Adjust fonts, wrapping, formatting, and preview size to suit your reading style.
 - Expand the side panes when you need extra tools and collapse them when you want more room.
 - Keep familiar Windows title-bar buttons, dragging, and snapping. Supported title-bar colors follow the app's theme.
@@ -266,6 +269,7 @@ Share bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Find
 #### ✨ Added
 
 - Dedicated Settings window with validated file/archive/record limits, Light/Dark/System themes, and installed-font selection.
+- **Beacon Theme:** system-dependent light/dark backgrounds with muted-crimson action buttons, off-white text, coordinated red focus/selection accents, and themed hover/pressed/disabled states. Existing themes remain available.
 - Five search modes: Literal text, Whole word, Regular expression, Any term, and All terms, plus file-name/full-path targets.
 - Detailed result locations and navigation, compact file counts, a collapsible Match details pane, and event/HAR tools panes.
 - EVTX pre-scan and collected-event filters, explicit raw XML inspection/copying, missing-provider diagnostics, and offline export guidance.

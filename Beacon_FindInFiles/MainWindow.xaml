@@ -58,9 +58,9 @@
             <Setter Property="MinWidth" Value="90"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Padding" Value="14,6"/>
-            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ActionButtonBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ActionButtonForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ActionButtonBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -73,17 +73,22 @@
                                 CornerRadius="4"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center"
-                                            VerticalAlignment="Center"/>
+                                            VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonHoverBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ActionButtonHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ButtonPressedBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ActionButtonPressedBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource ActionButtonFocusBrush}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.5"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource ActionButtonDisabledBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource ActionButtonDisabledForegroundBrush}"/>
+                                <Setter Property="Opacity" Value="{DynamicResource ActionButtonDisabledOpacity}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -98,7 +103,9 @@
             <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}"/>
+            <Setter Property="SelectionTextBrush" Value="{DynamicResource TextSelectionForegroundBrush}"/>
+            <Setter Property="SelectionOpacity" Value="{DynamicResource TextSelectionOpacity}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="8,4"/>
@@ -154,6 +161,32 @@
             <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+        </Style>
+
+        <Style x:Key="BeaconTextPreviewStyle" TargetType="RichTextBox" BasedOn="{StaticResource {x:Type RichTextBox}}">
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}"/>
+            <Setter Property="SelectionTextBrush" Value="{DynamicResource TextSelectionForegroundBrush}"/>
+            <Setter Property="SelectionOpacity" Value="{DynamicResource TextSelectionOpacity}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RichTextBox">
+                        <Border x:Name="PreviewBorder" CornerRadius="4" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="False"
+                                          HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                          VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="PreviewBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="PreviewBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
     </Window.Resources>

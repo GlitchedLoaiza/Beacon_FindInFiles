@@ -96,20 +96,22 @@ Namespace Beacon
 
         Private Sub ApplyTheme(isDarkMode As Boolean)
             NativeCaptionTheme.Apply(Me, isDarkMode)
-            If Not isDarkMode Then Return
-            Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
-            Resources("CardBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))
-            Resources("CardBorderBrush") = New SolidColorBrush(Color.FromRgb(&H3F, &H3F, &H3F))
-            Resources("TextPrimaryBrush") = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0))
-            Resources("TextSecondaryBrush") = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0))
-            Resources("InputBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))
-            Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))
-            Resources("AccentBrush") = New SolidColorBrush(Color.FromRgb(&H60, &HCF, &HFF))
-            Resources("ButtonBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H3A, &H3A, &H3A))
-            Resources("ButtonHoverBrush") = New SolidColorBrush(Color.FromRgb(&H45, &H45, &H45))
-            Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))
-            Resources("SelectionBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H23, &H48, &H5B))
-            Resources("CheckmarkBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
+            If isDarkMode Then
+                Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
+                Resources("CardBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))
+                Resources("CardBorderBrush") = New SolidColorBrush(Color.FromRgb(&H3F, &H3F, &H3F))
+                Resources("TextPrimaryBrush") = New SolidColorBrush(Color.FromRgb(&HE0, &HE0, &HE0))
+                Resources("TextSecondaryBrush") = New SolidColorBrush(Color.FromRgb(&HB0, &HB0, &HB0))
+                Resources("InputBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H2B, &H2B, &H2B))
+                Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))
+                Resources("AccentBrush") = New SolidColorBrush(Color.FromRgb(&H60, &HCF, &HFF))
+                Resources("ButtonBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H3A, &H3A, &H3A))
+                Resources("ButtonHoverBrush") = New SolidColorBrush(Color.FromRgb(&H45, &H45, &H45))
+                Resources("ButtonPressedBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))
+                Resources("SelectionBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H23, &H48, &H5B))
+                Resources("CheckmarkBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
+            End If
+            BeaconThemePalette.ApplyButtons(Resources, _workingSettings.Theme = AppTheme.Beacon, isDarkMode)
         End Sub
 
         Private Sub LoadControls()

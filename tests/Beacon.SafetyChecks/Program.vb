@@ -167,6 +167,7 @@ Module Program
         Check("Headless source traversal, snapshots and lifetime", AddressOf SourceSearchChecks.Run)
         Check("Once-only optional welcome tour and splash version", AddressOf TourChecks.Run)
         Check("Optimized line-context order and isolation", AddressOf OptimizationChecks.TextContextParity)
+        Check("Beacon Theme system backgrounds and logo-red buttons", AddressOf BeaconThemeChecks.Run)
         Console.WriteLine($"{_passed} passed; {_failed} failed.")
         Return If(_failed = 0, 0, 1)
     End Function

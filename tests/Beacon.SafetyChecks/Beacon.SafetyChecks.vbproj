@@ -13,6 +13,7 @@
     <Compile Include="../../Beacon_FindInFiles/ArchiveSafety.vb" Link="Production/ArchiveSafety.vb" />
     <Compile Include="../../Beacon_FindInFiles/ArchiveCompatibility.vb" Link="Production/ArchiveCompatibility.vb" />
     <Compile Include="../../Beacon_FindInFiles/BeaconSettings.vb" Link="Production/BeaconSettings.vb" />
+    <Compile Include="../../Beacon_FindInFiles/BeaconThemePalette.vb" Link="Production/BeaconThemePalette.vb" />
     <Compile Include="../../Beacon_FindInFiles/NativeCaptionTheme.vb" Link="Production/NativeCaptionTheme.vb" />
     <Compile Include="../../Beacon_FindInFiles/SingleInstanceCoordinator.vb" Link="Production/SingleInstanceCoordinator.vb" />
     <Compile Include="../../Beacon_FindInFiles/InstanceWindowActivation.vb" Link="Production/InstanceWindowActivation.vb" />

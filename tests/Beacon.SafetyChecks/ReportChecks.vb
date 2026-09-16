@@ -166,10 +166,10 @@ Module ReportChecks
         Try
             type.GetMethod("AddHit", flags).Invoke(window, {hit})
             Dim preferences = DirectCast(type.GetField("_settings", flags).GetValue(window), BeaconSettings)
-            For Each theme In {AppTheme.Light, AppTheme.Dark, AppTheme.System}
+            For Each theme In {AppTheme.Light, AppTheme.Dark, AppTheme.System, AppTheme.Beacon}
                 preferences.Theme = theme
                 type.GetMethod("ApplySettings", flags).Invoke(window, Nothing)
-                Dim expectedDark = theme = AppTheme.Dark OrElse (theme = AppTheme.System AndAlso CBool(type.GetMethod("IsWindowsDarkModeEnabled", flags).Invoke(window, Nothing)))
+                Dim expectedDark = theme = AppTheme.Dark OrElse ((theme = AppTheme.System OrElse theme = AppTheme.Beacon) AndAlso CBool(type.GetMethod("IsWindowsDarkModeEnabled", flags).Invoke(window, Nothing)))
                 Ensure(CBool(type.GetField("_isDarkMode", flags).GetValue(window)) = expectedDark, "Main window did not apply the saved theme.")
                 type.GetMethod("SystemThemeChanged", flags).Invoke(window, {Nothing, New Microsoft.Win32.UserPreferenceChangedEventArgs(Microsoft.Win32.UserPreferenceCategory.General)})
                 window.Dispatcher.Invoke(Sub()

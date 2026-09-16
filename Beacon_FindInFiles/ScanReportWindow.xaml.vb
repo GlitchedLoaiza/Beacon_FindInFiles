@@ -18,14 +18,15 @@ Namespace Beacon
             Tag = detailed
             If owner IsNot Nothing Then
                 If owner.IsVisible Then Me.Owner = owner
-                For Each key In owner.Resources.Keys
-                    Dim brush = TryCast(owner.Resources(key), SolidColorBrush)
-                    If brush IsNot Nothing Then Resources(key) = brush.CloneCurrentValue()
-                Next
+                BeaconThemePalette.CopyOwnerColors(owner, Me, dark)
+            Else
+                BeaconThemePalette.ApplyButtons(Resources, False)
             End If
             Resources("CheckmarkBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H20, &H20, &H20), Colors.White))
             NativeCaptionTheme.Apply(Me, dark)
-            Resources("SelectionBackgroundBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H18, &H3C, &H50), Color.FromRgb(&HE5, &HF1, &HFF)))
+            If Not BeaconThemePalette.IsEnabled(Resources) Then
+                Resources("SelectionBackgroundBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H18, &H3C, &H50), Color.FromRgb(&HE5, &HF1, &HFF)))
+            End If
             Severity_cmb.ItemsSource = {"All", "Warning", "Error", "Information"}
             Severity_cmb.SelectedIndex = 0
             AddHandler Filter_txt.TextChanged, Sub() ApplyFilter()

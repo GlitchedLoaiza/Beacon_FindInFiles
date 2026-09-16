@@ -16,10 +16,7 @@ Namespace Beacon
             InitializeComponent()
             _openDocumentation = openDocumentation
             Me.Owner = owner
-            For Each key In owner.Resources.Keys
-                Dim brush = TryCast(owner.Resources(key), SolidColorBrush)
-                If brush IsNot Nothing Then Resources(key) = brush.CloneCurrentValue()
-            Next
+            BeaconThemePalette.CopyOwnerColors(owner, Me, dark)
             NativeCaptionTheme.Apply(Me, dark)
             AddHandler HelpSearch_txt.TextChanged, Sub() FilterTopics()
             AddHandler HelpTopics_lst.SelectionChanged, AddressOf TopicSelected

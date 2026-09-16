@@ -83,7 +83,7 @@ Module SettingsThemeChecks
             CheckFontSelector(window, dark)
             NativeCaptionChecks.Verify(window, dark)
             Dim theme = DirectCast(window.FindName("Theme_cmb"), ComboBox)
-            Require(theme.Items.Cast(Of ComboBoxItem)().Select(Function(item) CStr(item.Content)).SequenceEqual({"Light", "Dark", "System theme"}), "Theme choices are incorrect.")
+            Require(theme.Items.Cast(Of ComboBoxItem)().Select(Function(item) CStr(item.Content)).SequenceEqual({"Light", "Dark", "System theme", "Beacon Theme"}), "Theme choices are incorrect.")
             Require(CStr(theme.SelectedValue) = "System", "Theme should default to Windows preferences.")
             For Each choice In [Enum].GetValues(Of AppTheme)()
                 Dim saved = BeaconSettingsService.Clone(New BeaconSettings With {.Theme = choice})

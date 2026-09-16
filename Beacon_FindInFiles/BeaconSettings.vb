@@ -32,6 +32,7 @@ Namespace Beacon
         System
         Light
         Dark
+        Beacon
     End Enum
 
     Public Class BeaconSettings

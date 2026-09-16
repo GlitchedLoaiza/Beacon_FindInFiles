@@ -13,10 +13,7 @@ Namespace Beacon
             InitializeComponent()
             _main = owner
             Me.Owner = owner
-            For Each key In owner.Resources.Keys
-                Dim brush = TryCast(owner.Resources(key), SolidColorBrush)
-                If brush IsNot Nothing Then Resources(key) = brush.CloneCurrentValue()
-            Next
+            BeaconThemePalette.CopyOwnerColors(owner, Me, dark)
             AddHandler owner.LocationChanged, AddressOf OwnerChanged
             AddHandler owner.SizeChanged, AddressOf OwnerChanged
             AddHandler owner.StateChanged, AddressOf OwnerChanged
