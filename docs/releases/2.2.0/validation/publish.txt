@@ -1,0 +1,5 @@
+  Determining projects to restore...
+  Restored C:\Users\luislo\source\repos\Beacon_FindInFiles\Beacon_FindInFiles\Beacon_FindInFiles.vbproj (in 285 ms).
+  Copied 7za.exe to project directory for embedding
+  Beacon_FindInFiles -> C:\Users\luislo\source\repos\Beacon_FindInFiles\Beacon_FindInFiles\bin\Release\net10.0-windows\win-x64\Beacon.dll
+  Beacon_FindInFiles -> C:\Users\luislo\source\repos\Beacon_FindInFiles\Beacon_FindInFiles\bin\Release\package-20260923-111916-877303e5\publish\

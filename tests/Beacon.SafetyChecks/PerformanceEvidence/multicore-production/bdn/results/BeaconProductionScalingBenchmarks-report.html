@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>BeaconProductionScalingBenchmarks-20260922-165650</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.2, Windows 11 (10.0.26200.9448)
+Unknown processor
+.NET SDK 10.0.401
+  [Host]     : .NET 10.0.12 (10.0.1226.42308), X64 RyuJIT AVX2
+  Job-VCYZKC : .NET 10.0.12 (10.0.1226.42308), X64 RyuJIT AVX2
+</code></pre>
+<pre><code>InvocationCount=1  IterationCount=5  LaunchCount=1  
+RunStrategy=Monitoring  UnrollFactor=1  WarmupCount=1  
+</code></pre>
+
+<table>
+<thead><tr><th>Method</th><th>Workload</th><th>Workers</th><th>Mean  </th><th>Error </th><th>StdDev</th><th>Median</th><th>Gen0  </th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>SearchCorpus</td><td>PlainFiles</td><td>-1</td><td>14,838.74 ms</td><td>643.998 ms</td><td>167.244 ms</td><td>14,787.11 ms</td><td>1613000.0000</td><td>19000.0000</td><td>-</td><td>19297.1 MB</td>
+</tr><tr><td>SearchCorpus</td><td>PlainFiles</td><td>0</td><td>3,018.61 ms</td><td>2,645.454 ms</td><td>687.016 ms</td><td>2,726.17 ms</td><td>1628000.0000</td><td>1000.0000</td><td>-</td><td>19296.51 MB</td>
+</tr><tr><td>SearchCorpus</td><td>PlainFiles</td><td>1</td><td>15,335.65 ms</td><td>4,765.814 ms</td><td>1,237.667 ms</td><td>14,822.90 ms</td><td>1613000.0000</td><td>19000.0000</td><td>-</td><td>19297.26 MB</td>
+</tr><tr><td>SearchCorpus</td><td>PlainFiles</td><td>2</td><td>7,207.11 ms</td><td>956.640 ms</td><td>248.436 ms</td><td>7,134.84 ms</td><td>1626000.0000</td><td>34000.0000</td><td>-</td><td>19296.57 MB</td>
+</tr><tr><td>SearchCorpus</td><td>PlainFiles</td><td>4</td><td>4,371.30 ms</td><td>1,210.426 ms</td><td>314.344 ms</td><td>4,299.40 ms</td><td>1627000.0000</td><td>50000.0000</td><td>-</td><td>19296.28 MB</td>
+</tr><tr><td>SearchCorpus</td><td>PlainFiles</td><td>8</td><td>3,535.97 ms</td><td>819.689 ms</td><td>212.871 ms</td><td>3,533.63 ms</td><td>1628000.0000</td><td>1000.0000</td><td>-</td><td>19296.35 MB</td>
+</tr><tr><td>SearchCorpus</td><td>PlainFiles</td><td>14</td><td>3,202.18 ms</td><td>419.247 ms</td><td>108.877 ms</td><td>3,247.81 ms</td><td>1630000.0000</td><td>1000.0000</td><td>-</td><td>19296.32 MB</td>
+</tr><tr><td>SearchCorpus</td><td>PlainFiles</td><td>20</td><td>2,977.91 ms</td><td>1,291.465 ms</td><td>335.389 ms</td><td>3,070.13 ms</td><td>1629000.0000</td><td>1000.0000</td><td>-</td><td>19296.42 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>-1</td><td>42,404.12 ms</td><td>1,246.463 ms</td><td>323.702 ms</td><td>42,422.75 ms</td><td>1617000.0000</td><td>23000.0000</td><td>-</td><td>19342.7 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>0</td><td>5,647.94 ms</td><td>947.690 ms</td><td>246.112 ms</td><td>5,720.69 ms</td><td>1633000.0000</td><td>1000.0000</td><td>-</td><td>19339.74 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>1</td><td>42,440.17 ms</td><td>981.837 ms</td><td>254.980 ms</td><td>42,392.06 ms</td><td>1617000.0000</td><td>15000.0000</td><td>-</td><td>19343.29 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>2</td><td>22,357.01 ms</td><td>572.554 ms</td><td>148.690 ms</td><td>22,344.82 ms</td><td>1627000.0000</td><td>33000.0000</td><td>-</td><td>19341.13 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>4</td><td>12,929.03 ms</td><td>630.700 ms</td><td>163.791 ms</td><td>12,864.56 ms</td><td>1628000.0000</td><td>1000.0000</td><td>-</td><td>19340.29 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>8</td><td>9,526.71 ms</td><td>323.610 ms</td><td>84.041 ms</td><td>9,517.53 ms</td><td>1630000.0000</td><td>1000.0000</td><td>-</td><td>19340.17 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>14</td><td>7,805.87 ms</td><td>805.794 ms</td><td>209.262 ms</td><td>7,743.76 ms</td><td>1631000.0000</td><td>1000.0000</td><td>-</td><td>19339.97 MB</td>
+</tr><tr><td>SearchCorpus</td><td>CompressedZips</td><td>20</td><td>5,665.97 ms</td><td>638.347 ms</td><td>165.777 ms</td><td>5,722.67 ms</td><td>1632000.0000</td><td>1000.0000</td><td>-</td><td>19339.77 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>-1</td><td>357.63 ms</td><td>147.285 ms</td><td>38.250 ms</td><td>355.15 ms</td><td>5000.0000</td><td>1000.0000</td><td>-</td><td>69.04 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>0</td><td>104.44 ms</td><td>24.486 ms</td><td>6.359 ms</td><td>104.68 ms</td><td>6000.0000</td><td>1000.0000</td><td>-</td><td>78.96 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>1</td><td>540.21 ms</td><td>268.193 ms</td><td>69.649 ms</td><td>523.38 ms</td><td>6000.0000</td><td>1000.0000</td><td>-</td><td>78.03 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>2</td><td>307.42 ms</td><td>173.119 ms</td><td>44.958 ms</td><td>291.43 ms</td><td>6000.0000</td><td>1000.0000</td><td>-</td><td>77.94 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>4</td><td>212.35 ms</td><td>64.574 ms</td><td>16.770 ms</td><td>216.61 ms</td><td>6000.0000</td><td>1000.0000</td><td>-</td><td>77.91 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>8</td><td>127.12 ms</td><td>54.502 ms</td><td>14.154 ms</td><td>124.88 ms</td><td>6000.0000</td><td>1000.0000</td><td>-</td><td>77.87 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>14</td><td>103.38 ms</td><td>15.052 ms</td><td>3.909 ms</td><td>104.89 ms</td><td>6000.0000</td><td>1000.0000</td><td>-</td><td>78.16 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SmallFiles</td><td>20</td><td>104.66 ms</td><td>21.786 ms</td><td>5.658 ms</td><td>103.08 ms</td><td>6000.0000</td><td>1000.0000</td><td>-</td><td>78.76 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>-1</td><td>81.28 ms</td><td>97.020 ms</td><td>25.196 ms</td><td>76.97 ms</td><td>-</td><td>-</td><td>-</td><td>55.85 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>0</td><td>17.53 ms</td><td>21.850 ms</td><td>5.674 ms</td><td>14.04 ms</td><td>-</td><td>-</td><td>-</td><td>56.18 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>1</td><td>106.20 ms</td><td>82.435 ms</td><td>21.408 ms</td><td>106.75 ms</td><td>-</td><td>-</td><td>-</td><td>56.05 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>2</td><td>64.36 ms</td><td>51.403 ms</td><td>13.349 ms</td><td>67.31 ms</td><td>-</td><td>-</td><td>-</td><td>56.05 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>4</td><td>29.03 ms</td><td>44.524 ms</td><td>11.563 ms</td><td>29.35 ms</td><td>-</td><td>-</td><td>-</td><td>56.05 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>8</td><td>33.70 ms</td><td>66.934 ms</td><td>17.383 ms</td><td>29.06 ms</td><td>-</td><td>-</td><td>-</td><td>56.08 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>14</td><td>24.57 ms</td><td>52.283 ms</td><td>13.578 ms</td><td>18.44 ms</td><td>-</td><td>-</td><td>-</td><td>56.13 MB</td>
+</tr><tr><td>SearchCorpus</td><td>DenseResults</td><td>20</td><td>17.03 ms</td><td>16.742 ms</td><td>4.348 ms</td><td>15.67 ms</td><td>-</td><td>-</td><td>-</td><td>56.18 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>-1</td><td>119.49 ms</td><td>20.339 ms</td><td>5.282 ms</td><td>119.76 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>77.94 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>0</td><td>92.98 ms</td><td>27.876 ms</td><td>7.239 ms</td><td>96.23 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>78.31 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>1</td><td>133.18 ms</td><td>32.820 ms</td><td>8.523 ms</td><td>133.09 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>78.13 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>2</td><td>70.62 ms</td><td>8.144 ms</td><td>2.115 ms</td><td>71.79 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>78.15 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>4</td><td>88.43 ms</td><td>46.591 ms</td><td>12.100 ms</td><td>86.63 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>78.18 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>8</td><td>92.73 ms</td><td>36.814 ms</td><td>9.560 ms</td><td>98.53 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>78.22 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>14</td><td>90.02 ms</td><td>17.320 ms</td><td>4.498 ms</td><td>88.71 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>78.27 MB</td>
+</tr><tr><td>SearchCorpus</td><td>WholeDocuments</td><td>20</td><td>85.43 ms</td><td>13.933 ms</td><td>3.618 ms</td><td>84.24 ms</td><td>9000.0000</td><td>9000.0000</td><td>9000.0000</td><td>78.31 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>-1</td><td>2,288.22 ms</td><td>91.653 ms</td><td>23.802 ms</td><td>2,277.86 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.16 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>0</td><td>2,243.49 ms</td><td>175.543 ms</td><td>45.588 ms</td><td>2,243.40 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.26 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>1</td><td>2,235.76 ms</td><td>179.285 ms</td><td>46.560 ms</td><td>2,217.78 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.32 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>2</td><td>2,240.24 ms</td><td>232.427 ms</td><td>60.361 ms</td><td>2,223.55 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.32 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>4</td><td>2,209.57 ms</td><td>190.524 ms</td><td>49.478 ms</td><td>2,204.43 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.31 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>8</td><td>2,215.58 ms</td><td>141.672 ms</td><td>36.792 ms</td><td>2,213.17 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.31 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>14</td><td>2,214.89 ms</td><td>250.641 ms</td><td>65.091 ms</td><td>2,191.83 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.18 MB</td>
+</tr><tr><td>SearchCorpus</td><td>SingleArchive</td><td>20</td><td>2,197.44 ms</td><td>128.891 ms</td><td>33.473 ms</td><td>2,211.24 ms</td><td>80000.0000</td><td>1000.0000</td><td>-</td><td>967.31 MB</td>
+</tr></tbody></table>
+</body>
+</html>

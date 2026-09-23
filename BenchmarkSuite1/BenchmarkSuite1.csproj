@@ -5,6 +5,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <OutputType>Exe</OutputType>
+    <PlatformTarget>x64</PlatformTarget>
     <!-- This measurement host calls Beacon APIs; it does not launch the referenced self-contained executable. -->
     <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
   </PropertyGroup>

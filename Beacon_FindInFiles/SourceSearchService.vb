@@ -14,6 +14,7 @@ Namespace Beacon
         Private ReadOnly _archives As HashSet(Of String)
         Private ReadOnly _text As HashSet(Of String)
         Private ReadOnly _temporary As New SearchTemporarySources()
+        Private ReadOnly _execution As SourceSearchExecution
         Private ReadOnly _publish As Action(Of SourceSearchResult)
         Private ReadOnly _progress As Action(Of String, Boolean)
         Private ReadOnly _report As Action(Of String, Exception, String, String)
@@ -42,6 +43,14 @@ Namespace Beacon
             _report = report
             _access = accessDenied
             _remember = rememberSource
+        End Sub
+
+        Friend Sub New(query As SearchQuery, options As BeaconSettings, archiveExtensions As IEnumerable(Of String), execution As SourceSearchExecution)
+            Me.New(query, options, archiveExtensions, progress:=AddressOf execution.Progress,
+                   report:=AddressOf execution.Report, rememberSource:=AddressOf execution.Remember)
+            _temporary.Dispose()
+            _temporary = execution.Temporary
+            _execution = execution
         End Sub
 
         Public Async Function RunAsync(root As String, countingOnly As Boolean, token As CancellationToken) As Task
@@ -83,12 +92,16 @@ Namespace Beacon
             End If
             Return result
         End Function
-        Private Sub Publish(result As SourceSearchResult)
+        Private Async Function PublishAsync(result As SourceSearchResult, token As CancellationToken) As Task
             If _counting OrElse result.Details.Count = 0 OrElse ResultLimitReached Then Return
             _MatchingFiles += 1
-            _publish?.Invoke(result)
+            If _execution IsNot Nothing Then
+                Await _execution.PublishAsync(result, token).ConfigureAwait(False)
+            Else
+                _publish?.Invoke(result)
+            End If
             _ResultLimitReached = MatchingFiles >= _options.MaximumTotalResults
-        End Sub
+        End Function
         Private Sub Processed(logical As String)
             _FilesProcessed += 1
             _progress?.Invoke(logical, True)
@@ -98,9 +111,10 @@ Namespace Beacon
             token.ThrowIfCancellationRequested()
             Dim extension = Path.GetExtension(physical).ToLowerInvariant()
             Dim result = NewResult(physical, logical, SourceResultKind.DiskText)
+            If _execution IsNot Nothing Then Await _execution.FlushAsync(token).ConfigureAwait(False)
             Try
                 If _archives.Contains(extension) Then
-                    Publish(result)
+                    Await PublishAsync(result, token).ConfigureAwait(False)
                     If Not ResultLimitReached Then Await SearchArchiveAsync(physical, logical, depth, token).ConfigureAwait(False)
                     Return
                 End If
@@ -115,7 +129,8 @@ Namespace Beacon
                         Using stream As New BoundedReadStream(New FileStream(physical, FileMode.Open, FileAccess.Read, FileShare.ReadWrite),
                                                               CLng(_options.MaximumFileSizeMb) * 1024 * 1024, token,
                                                               onError:=Sub(ex) Issue(logical, ex))
-                            Await CollectStreamAsync(stream, extension, result, token).ConfigureAwait(False)
+                            Await CollectStreamAsync(stream, extension, result, token,
+                                If(IsMaterialized(extension), New FileInfo(physical).Length, 0L)).ConfigureAwait(False)
                         End Using
                     End If
                 End If
@@ -124,10 +139,22 @@ Namespace Beacon
                 Issue(logical, ex)
                 result.PartialReason = "content unavailable"
             End Try
-            Publish(result)
+            If _execution IsNot Nothing Then Await _execution.CompletedAsync(logical, token).ConfigureAwait(False)
+            Await PublishAsync(result, token).ConfigureAwait(False)
         End Function
 
         Private Async Function SearchArchiveAsync(physical As String, logical As String, depth As Integer, token As CancellationToken) As Task
+            Dim lease As IDisposable = Nothing
+            Dim extension = Path.GetExtension(physical).ToLowerInvariant()
+            If _execution IsNot Nothing AndAlso extension <> ".zip" AndAlso extension <> ".tar" Then
+                lease = Await _execution.EnterHeavyAsync(CLng(_options.MaximumArchiveEntrySizeMb) * SearchConcurrencyPolicy.MiB * 8, token).ConfigureAwait(False)
+            End If
+            Using lease
+                Await SearchArchiveCoreAsync(physical, logical, depth, token).ConfigureAwait(False)
+            End Using
+        End Function
+
+        Private Async Function SearchArchiveCoreAsync(physical As String, logical As String, depth As Integer, token As CancellationToken) As Task
             _remember?.Invoke(physical, logical)
             If depth > _options.ArchiveNestingDepth Then
                 Issue(logical, New InvalidDataException("Archive nesting limit reached."))
@@ -159,8 +186,9 @@ Namespace Beacon
                         Dim logicalEntry = logical & " | " & entry.Key
                         Dim extension = Path.GetExtension(entry.Key).ToLowerInvariant()
                         Dim result = NewResult(Nothing, logicalEntry, SourceResultKind.ArchiveText, physical, entry.Key)
+                        If _execution IsNot Nothing Then Await _execution.FlushAsync(token).ConfigureAwait(False)
                         If _archives.Contains(extension) Then
-                            Publish(result)
+                            Await PublishAsync(result, token).ConfigureAwait(False)
                             If depth < _options.ArchiveNestingDepth AndAlso Not ResultLimitReached Then
                                 Dim nested = Extract(entry, logicalEntry, budget, token)
                                 Await SearchArchiveAsync(nested, logicalEntry, depth + 1, token).ConfigureAwait(False)
@@ -179,11 +207,12 @@ Namespace Beacon
                             ElseIf extension = ".har" OrElse _text.Contains(extension) Then
                                 If extension = ".har" Then result.Kind = SourceResultKind.ArchiveHar
                                 Using stream = OpenEntry(entry, logicalEntry, budget, token)
-                                    Await CollectStreamAsync(stream, extension, result, token).ConfigureAwait(False)
+                                    Await CollectStreamAsync(stream, extension, result, token, entry.Size).ConfigureAwait(False)
                                 End Using
                             End If
                         End If
-                        Publish(result)
+                        If _execution IsNot Nothing Then Await _execution.CompletedAsync(logicalEntry, token).ConfigureAwait(False)
+                        Await PublishAsync(result, token).ConfigureAwait(False)
                     Next
                 End Using
             Catch ex As OperationCanceledException
@@ -224,7 +253,24 @@ Namespace Beacon
                 result.PartialReason = collected.PartialReason
             End Try
         End Sub
-        Private Async Function CollectStreamAsync(stream As Stream, extension As String, result As SourceSearchResult, token As CancellationToken) As Task
+        Private Shared Function IsMaterialized(extension As String) As Boolean
+            Return extension = ".har" OrElse extension = ".html" OrElse extension = ".xml" OrElse extension = ".json"
+        End Function
+
+        Private Async Function CollectStreamAsync(stream As Stream, extension As String, result As SourceSearchResult,
+                                                 token As CancellationToken, estimatedLength As Long) As Task
+            Dim lease As IDisposable = Nothing
+            If _execution IsNot Nothing AndAlso IsMaterialized(extension) Then
+                Dim length = If(estimatedLength > 0, estimatedLength,
+                    CLng(Math.Max(_options.MaximumFileSizeMb, _options.MaximumArchiveEntrySizeMb)) * SearchConcurrencyPolicy.MiB)
+                lease = Await _execution.EnterHeavyAsync(SearchConcurrencyPolicy.WorkerBytes + length * 8, token).ConfigureAwait(False)
+            End If
+            Using lease
+                Await CollectStreamCoreAsync(stream, extension, result, token).ConfigureAwait(False)
+            End Using
+        End Function
+
+        Private Async Function CollectStreamCoreAsync(stream As Stream, extension As String, result As SourceSearchResult, token As CancellationToken) As Task
             If extension = ".har" Then
                 Dim collected As New StructuredSearchResult(Of HarRecord)()
                 Try
@@ -246,7 +292,7 @@ Namespace Beacon
         Public Sub Dispose() Implements IDisposable.Dispose
             If _disposed Then Return
             _disposed = True
-            _temporary.Dispose()
+            If _execution Is Nothing Then _temporary.Dispose()
         End Sub
     End Class
 End Namespace

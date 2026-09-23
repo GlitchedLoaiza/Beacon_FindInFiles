@@ -34,7 +34,7 @@ Namespace Beacon
                 TourProgress_txt.Text = "An optional introduction"
                 TourTitle_txt.Text = "Welcome to Beacon"
                 TourBody_txt.Text = "Find information in files without opening them one by one. Would you like a short tour of a simple search and exporting its results?" & vbCrLf & vbCrLf &
-                    "Choose Start tour to follow the steps, or Not now to use the app immediately. You can exit at any time. This welcome offer will not appear automatically on later launches; the Help guide is always available."
+                    "Choose Start tour to follow the steps, or Not now to use the app immediately. You can exit at any time. This welcome offer will not appear automatically on later launches. You can replay the tour from Help at any time."
             Else
                 TourProgress_txt.Text = $"Step {_index + 1} of {_steps.Length}"
                 TourTitle_txt.Text = _steps(_index).Title

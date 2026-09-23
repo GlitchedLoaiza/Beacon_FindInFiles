@@ -5,7 +5,7 @@ Imports System.Threading.Tasks
 Namespace Beacon
     Partial Public Class MainWindow
         Private _isCountingFiles As Boolean
-        Private ReadOnly _sourceSearches As New List(Of SourceSearchService)()
+        Private ReadOnly _sourceSearches As New List(Of IDisposable)()
 
         Private Async Function CountSourceFilesAsync(root As String, ct As CancellationToken) As Task
             _isCountingFiles = True
@@ -22,9 +22,9 @@ Namespace Beacon
 
         Private Sub CountSourceFile()
             If _isCountingFiles Then
-                _totalFilesToScan += 1
+                Interlocked.Increment(_totalFilesToScan)
             Else
-                _filesScanned += 1
+                Interlocked.Increment(_filesScanned)
             End If
             UpdateScanProgress()
         End Sub
@@ -49,13 +49,7 @@ Namespace Beacon
         End Sub
 
         Private Async Function SearchSourceAsync(root As String, ct As CancellationToken) As Task
-            Dim service = CreateSourceService()
-            _sourceSearches.Add(service)
-            Try
-                Await service.RunAsync(root, False, ct)
-            Finally
-                If service.ResultLimitReached Then Volatile.Write(_resultLimitReached, True)
-            End Try
+            Await RunSourceWithPublicationAsync(root, ct).ConfigureAwait(False)
         End Function
 
         Private Function CreateSourceService() As SourceSearchService

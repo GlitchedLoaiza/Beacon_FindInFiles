@@ -32,6 +32,7 @@ Namespace Beacon
 
         Private Sub ShowMetadataPreview(hit As SearchHit)
             ShowTextPreviewMode()
+            _showingTextMetadata = True
             FindNextEvent_btn.Visibility = Visibility.Collapsed
             FindPreviousEvent_btn.Visibility = Visibility.Collapsed
             FindNextHarRequest_btn.Visibility = Visibility.Collapsed
@@ -40,9 +41,12 @@ Namespace Beacon
             SetTextPreview("Name/path match" & vbCrLf & hit.LogicalPath & vbCrLf & vbCrLf &
                            String.Join(vbCrLf & vbCrLf, hit.Details.Where(Function(detail) detail.IsMetadata).
                                        Select(Function(detail) detail.Location & ": " & detail.Excerpt)))
+            UpdateTextNavigationState()
+            UpdateTextPreviewModeState()
         End Sub
 
         Private Sub SearchDetailSelected(sender As Object, e As SelectionChangedEventArgs)
+            If _syncingTextDetails Then Return
             Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
             Dim detail = TryCast(Details_lst.SelectedItem, SearchDetail)
             If hit Is Nothing OrElse detail Is Nothing Then Return
@@ -67,25 +71,10 @@ Namespace Beacon
                 FindNextHarRequest_btn.Visibility = Visibility.Visible
                 FindPreviousHarRequest_btn.Visibility = Visibility.Visible
             Else
-                Results_lst_SelectionChanged(Results_lst, Nothing)
                 If detail.LineNumber > 0 Then
-                    Dispatcher.BeginInvoke(Sub()
-                                               If Results_lst.SelectedItem IsNot hit OrElse TextPreview_grp.Visibility <> Visibility.Visible Then Return
-                                               Dim text = New Documents.TextRange(TextPreview_rtb.Document.ContentStart, TextPreview_rtb.Document.ContentEnd).Text
-                                               Dim start As Integer = 0
-                                               For line = 1 To detail.LineNumber - 1
-                                                   Dim nextLine = text.IndexOf(vbLf, start, StringComparison.Ordinal)
-                                                   If nextLine < 0 Then Return
-                                                   start = nextLine + 1
-                                               Next
-                                               Dim finish = text.IndexOf(vbLf, start, StringComparison.Ordinal)
-                                               If finish < 0 Then finish = text.Length
-                                               Dim spans = PreviewSpans(text.Substring(start, finish - start))
-                                               If spans.Count > 0 Then
-                                                   SelectInRichTextBox(start + spans(0).Start, spans(0).Length)
-                                                   _currentTextFindStart = start + spans(0).Start + spans(0).Length
-                                               End If
-                                           End Sub, DispatcherPriority.ContextIdle)
+                    RequestTextDetail(hit, detail)
+                Else
+                    Results_lst_SelectionChanged(Results_lst, Nothing)
                 End If
             End If
         End Sub

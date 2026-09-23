@@ -1,0 +1,10 @@
+Version: 2.2.0
+AssemblyVersion: 2.2.0.0
+FileVersion: 2.2.0.0
+ProductVersion: 2.2.0+20edcaa4ee10ca0997023744d712aa73564624a6
+Signing status: NotSigned
+Raw publish: Beacon.exe only
+ZIP entries verified against staging: 12
+EXE and ZIP SHA-256: match manifest and checksum file
+Bundled CAB helper: validated by Publish-Beacon.ps1 against pinned NuGet x64 helper
+Interactive published-binary smoke: not performed; owner gate remains

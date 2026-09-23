@@ -10,13 +10,21 @@ dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- "$P
 
 A nonzero exit code indicates a failure. This is an executable regression runner, not a Test Explorer/MSTest project. Solution builds compile it; run the command above to execute the checks.
 
+## Current 2.2.0 release preparation
+
+The [2.2.0 preparation record](../../docs/releases/2.2.0/PREPARATION.md) tracks fresh builds, Debug/Release checks, package verification, exact candidate hashes, and the **Beta → Release** handoff. It does not authorize or perform a commit, merge, push, tag, or release upload. Review the documented Release-side history before promotion.
+
+The latest implementation and feedback work covers automatic multicore searching, ordered result limits, completed progress, Previous/Next text navigation, session-only Summary, readable Beacon highlights, the text match counter, marker-free Help tour replay, and clearing every preview's navigation on Reset. The pre-version-bump follow-up passed **93 checks in both Debug and Release**; the versioned preparation record contains the fresh 2.2.0 run evidence. Earlier counts and artifact hashes below remain historical.
+
+Production scaling measurements and their limitations are recorded in [the multicore report](PerformanceEvidence/multicore-production/REPORT.md). They do not replace validation or manual smoke checks of the exact shipping package.
+
 ## Measured optimization and rollback
 
 See [PERFORMANCE-AUDIT.md](PERFORMANCE-AUDIT.md) for the original source baseline, repaired benchmark host, retained line/context optimization, rejected experiments and exact rollback commands. The 2026-09-15 A–B–B–A validation retained the same frozen benchmarks and source hashes across four runs; machine-generated reports and full logs are preserved in [PerformanceEvidence/20260915-abba](PerformanceEvidence/20260915-abba). Mean times improved in the tested text/stored-ZIP scenarios and allocations decreased, but some higher-generation GC counts increased. This is not an application-wide speed guarantee or release approval. Final Debug and Release regression runs each passed 71 groups; historical counts below apply to earlier snapshots.
 
 ## Step 12 release validation
 
-The [2.1.0 promotion preparation record](../../docs/releases/2.1.0/PREPARATION.md) contains the refreshed local EXE/ZIP checksums, package manifest, legal-notice inventory, latest 71-group Release run, and the review-only checklist for a later move to master. It does not perform or authorize a merge, push, or release upload. Its artifacts supersede earlier local downloads, not the historical evidence below.
+The historical [2.1.0 promotion preparation record](../../docs/releases/2.1.0/PREPARATION.md) contains that preparation's EXE/ZIP checksums, package manifest, legal-notice inventory, 71-group Release run, and review-only checklist. Keep all later Release-side 2.1.0 package-history records when reconciling branches. None of those hashes or runs validate a 2.2.0 candidate.
 
 See [RELEASE-VALIDATION.md](RELEASE-VALIDATION.md) for the validated source commit, Release test/build/audit evidence, candidate checksum, published-executable smoke results and outstanding manual release gates. The 2026-09-15 pass completed 69 Release regression groups and a local published startup/duplicate-launch/normal-exit check. It does not authorize distribution: representative-file/target-machine testing, release version, signing and redistribution notices still require sign-off. Historical validation counts below describe earlier snapshots, not the current release candidate.
 
@@ -24,7 +32,7 @@ See [RELEASE-VALIDATION.md](RELEASE-VALIDATION.md) for the validated source comm
 
 Beacon 2.1 adds a once-only optional welcome tour after the main window opens. Start tour follows eight coaching steps beside source/search/mode/scan/results/details/export/diagnostics controls; Not now or Exit tour dismisses it at any stage. Back and Next/Finish are always user-driven. The tour never selects sources, changes search input, starts scans or saves exports automatically. It can explain disabled controls before results exist. The owned coaching window follows owner movement/resize and closes with the owner.
 
-The offer is remembered per user in `%LOCALAPPDATA%/Beacon/welcome-tour.offered`, separately from Settings. Existing users also receive one offer when first running this implementation. Skipping or closing counts as offered, so the second and later launches do not show it again. Restore defaults does not reset onboarding. An unwritable marker location skips the offer safely. Tests use temporary marker paths, not the user's real state. The splash displays the running assembly's version at the lower-right; release metadata is 2.1.0 / 2.1.0.0, displayed as 2.1.
+The offer is remembered per user in `%LOCALAPPDATA%/Beacon/welcome-tour.offered`, separately from Settings. Existing users also receive one offer when first running this implementation. Skipping or closing counts as offered, so the second and later launches do not show it again. Restore defaults does not reset onboarding. An unwritable marker location skips the offer safely. Manual replay from Help bypasses marker eligibility without creating, deleting, or rewriting the marker. Tests use temporary marker paths, not the user's real state. The splash displays the running assembly's version at the lower-right; application release metadata is now 2.2.0 / 2.2.0.0, displayed as 2.2. The linked test host retains its own assembly identity.
 
 The accessible ? Help button immediately left of Settings opens one owned, nonmodal Help window. Its offline guide includes quick-start instructions, all search modes/targets, counts and partial results, navigation, EVTX/HAR tools, date/provider/severity selectors, archive safeguards, redaction, exports, Settings, updates, shortcuts and troubleshooting. Search filters titles and descriptions; text can be selected/copied. Help follows the theme at opening and keeps native window controls.
 

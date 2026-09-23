@@ -1,0 +1,28 @@
+{
+  "RecordedUtc": "2026-09-22T16:35:38.0578544-06:00",
+  "Commit": "20edcaa4ee10ca0997023744d712aa73564624a6",
+  "Branch": "Beta",
+  "LogicalProcessors": 20,
+  "Processor": {
+    "Name": "12th Gen Intel(R) Core(TM) i7-12800H",
+    "NumberOfCores": 14,
+    "NumberOfLogicalProcessors": 20
+  },
+  "Computer": {
+    "TotalPhysicalMemory": 68369113088
+  },
+  "OS": {
+    "Caption": "Microsoft Windows 11 Enterprise",
+    "Version": "10.0.26200",
+    "FreePhysicalMemory": 35737940
+  },
+  "Storage": {
+    "FriendlyName": "KINGSTON SNV2S1000G",
+    "MediaType": "SSD",
+    "BusType": "NVMe"
+  },
+  "Sdk": "10.0.401",
+  "CorpusPath": "C:\\Users\\luislo\\AppData\\Local\\Temp\\BeaconProductionScaling-7011aa8a1e9546228022388bbc76f6dd-optimal",
+  "EvidencePath": "C:\\Users\\luislo\\source\\repos\\Beacon_FindInFiles\\tests\\Beacon.SafetyChecks\\PerformanceEvidence\\multicore-production",
+  "Cache": "Repeated reads; baseline validation warms each workload. Not cold-cache."
+}

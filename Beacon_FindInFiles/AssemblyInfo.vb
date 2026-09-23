@@ -12,3 +12,4 @@ Imports System.Windows
 <Assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)>
 
 <Assembly: AssemblyDescription("Search and analyze text and EVTX files in folders and ZIP archives")>
+<Assembly: System.Runtime.CompilerServices.InternalsVisibleTo("BenchmarkSuite1")>

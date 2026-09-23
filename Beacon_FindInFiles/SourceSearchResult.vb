@@ -29,6 +29,12 @@ Namespace Beacon
         Private ReadOnly _directories As New List(Of String)()
         Private _disposed As Boolean
 
+        Public ReadOnly Property HasSources As Boolean
+            Get
+                Return _directories.Count > 0
+            End Get
+        End Property
+
         Public Function CreateDirectory() As String
             ObjectDisposedException.ThrowIf(_disposed, Me)
             Dim path = IO.Path.Combine(IO.Path.GetTempPath(), "BeaconSearch_" & Guid.NewGuid().ToString("N"))

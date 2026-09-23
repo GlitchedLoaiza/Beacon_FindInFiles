@@ -1,0 +1,15 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Copied 7za.exe to project directory for embedding
+  Beacon_FindInFiles -> C:\Users\luislo\source\repos\Beacon_FindInFiles\Beacon_FindInFiles\bin\Debug\net10.0-windows\win-x64\Beacon.dll
+  Beacon.SafetyChecks -> C:\Users\luislo\source\repos\Beacon_FindInFiles\tests\Beacon.SafetyChecks\bin\Debug\net10.0-windows\Beacon.SafetyChecks.dll
+C:\Program Files\dotnet\sdk\10.0.401\Microsoft.Common.CurrentVersion.targets(2453,5): warning MSB3270: There was a mismatch between the processor architecture of the project being built "MSIL" and the processor architecture of the reference "C:\Users\luislo\source\repos\Beacon_FindInFiles\Beacon_FindInFiles\bin\Debug\net10.0-windows\win-x64\Beacon.dll", "AMD64". This mismatch may cause runtime failures. Please consider changing the targeted processor architecture of your project through the Configuration Manager so as to align the processor architectures between your project and references, or take a dependency on references with a processor architecture that matches the targeted processor architecture of your project. [C:\Users\luislo\source\repos\Beacon_FindInFiles\BenchmarkSuite1\BenchmarkSuite1.csproj::TargetFramework=net10.0-windows]
+  BenchmarkSuite1 -> C:\Users\luislo\source\repos\Beacon_FindInFiles\BenchmarkSuite1\bin\Debug\net10.0-windows\BenchmarkSuite1.dll
+
+Build succeeded.
+
+C:\Program Files\dotnet\sdk\10.0.401\Microsoft.Common.CurrentVersion.targets(2453,5): warning MSB3270: There was a mismatch between the processor architecture of the project being built "MSIL" and the processor architecture of the reference "C:\Users\luislo\source\repos\Beacon_FindInFiles\Beacon_FindInFiles\bin\Debug\net10.0-windows\win-x64\Beacon.dll", "AMD64". This mismatch may cause runtime failures. Please consider changing the targeted processor architecture of your project through the Configuration Manager so as to align the processor architectures between your project and references, or take a dependency on references with a processor architecture that matches the targeted processor architecture of your project. [C:\Users\luislo\source\repos\Beacon_FindInFiles\BenchmarkSuite1\BenchmarkSuite1.csproj::TargetFramework=net10.0-windows]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:01.91

@@ -244,6 +244,7 @@ Module SearchChecks
     End Sub
 
     Private Sub Pump(window As System.Windows.Window)
+        If TypeOf window Is MainWindow Then PreviewTestHelpers.WaitForPreview(DirectCast(window, MainWindow))
         window.UpdateLayout()
         window.Dispatcher.Invoke(Sub()
                                  End Sub, DispatcherPriority.ContextIdle)

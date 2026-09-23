@@ -123,6 +123,7 @@ Module ArchiveChecks
             SearchChecks.CheckPipeline(large, "large.log", SearchMode.PlainText, options, Sub(hits) Ensure(hits.Count = 1, "Preview limit fixture missing."),
                 Sub(window, hits)
                     GetType(MainWindow).GetMethod("LoadTextFromArchive", BindingFlags.Instance Or BindingFlags.NonPublic).Invoke(window, {large, "large.log"})
+                    PreviewTestHelpers.WaitForPreview(window)
                     Dim preview = DirectCast(window.FindName("TextPreview_rtb"), System.Windows.Controls.RichTextBox)
                     Dim text = New System.Windows.Documents.TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text
                     Ensure(text.StartsWith(New String("x"c, 1000), StringComparison.Ordinal) AndAlso
@@ -133,11 +134,13 @@ Module ArchiveChecks
                     Dim disk = IO.Path.Combine(root, "large.log")
                     File.WriteAllText(disk, New String("x"c, 2 * 1024 * 1024))
                     GetType(MainWindow).GetMethod("LoadTextFromDisk", BindingFlags.Instance Or BindingFlags.NonPublic).Invoke(window, {disk})
+                    PreviewTestHelpers.WaitForPreview(window)
                     text = New System.Windows.Documents.TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text
                     Ensure(text.StartsWith(New String("x"c, 1000), StringComparison.Ordinal) AndAlso text.Contains("Preview truncated"), "Disk preview did not retain bounded content.")
                     Dim truncatedPreview As New PreviewText("<html><script>not executed</script><p>readable prefix", True, 100)
                     Dim work = DirectCast(GetType(MainWindow).GetMethod("ShowWebPreviewAsync", BindingFlags.Instance Or BindingFlags.NonPublic).Invoke(window, {truncatedPreview, ".html"}), System.Threading.Tasks.Task)
                     work.GetAwaiter().GetResult()
+                    PreviewTestHelpers.WaitForPreview(window)
                     text = New System.Windows.Documents.TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text
                     Ensure(text.Contains(truncatedPreview.Text) AndAlso text.Contains("Preview truncated") AndAlso preview.IsVisible,
                            "Truncated HTML was not shown as readable, labeled plain text.")
@@ -156,6 +159,7 @@ Module ArchiveChecks
                             Sub(window, hits)
                                 Dim flags = BindingFlags.Instance Or BindingFlags.NonPublic
                                 GetType(MainWindow).GetMethod("LoadTextFromArchive", flags).Invoke(window, {compressed, "sample.log"})
+                                PreviewTestHelpers.WaitForPreview(window)
                                 Dim preview = DirectCast(window.FindName("TextPreview_rtb"), System.Windows.Controls.RichTextBox)
                                 Dim text = New System.Windows.Documents.TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text
                                 Ensure(text.Contains("archive upgrade marker café 日本語"), "Compressed TAR preview could not reopen the entry.")

@@ -278,8 +278,14 @@ Module BeaconThemeChecks
             Sub() Require(BrushColor(previewBorder.BorderBrush) = accent, "Focused preview retained a blue outline."))
         WithState(preview, GetType(UIElement), "IsMouseOverPropertyKey", True,
             Sub() Require(BrushColor(previewBorder.BorderBrush) = accent, "Preview hover outline does not follow the accent."))
-        Require(BrushColor(preview.SelectionBrush) = selection AndAlso BrushColor(preview.SelectionTextBrush) = BrushColor(window.Resources("TextPrimaryBrush")) AndAlso
-                preview.SelectionOpacity = 1 AndAlso BrushColor(search.SelectionBrush) = selection, "Text selection retained an incompatible accent/foreground.")
+        Require(BrushColor(preview.SelectionBrush) = accent AndAlso BrushColor(preview.SelectionTextBrush) = BrushColor(window.Resources("TextPrimaryBrush")) AndAlso
+                preview.SelectionOpacity > 0 AndAlso preview.SelectionOpacity < 1 AndAlso
+                BrushColor(search.SelectionBrush) = selection AndAlso search.SelectionOpacity = 1,
+                "The preview must use a translucent accent without changing editable-text selection.")
+        Dim overlay = BrushColor(preview.SelectionBrush)
+        CheckContrast(New SolidColorBrush(BlendSelection(BrushColor(preview.Foreground), overlay, preview.SelectionOpacity)),
+                      New SolidColorBrush(BlendSelection(BrushColor(preview.Background), overlay, preview.SelectionOpacity)),
+                      "Selected preview glyphs through the overlay")
         preview.Document = New FlowDocument(New Paragraph(New Run(String.Join(vbLf, Enumerable.Repeat("Readable sample text", 150)))))
         Pump(window)
         preview.SelectAll()
@@ -291,6 +297,12 @@ Module BeaconThemeChecks
         preview.ScrollToHome()
         preview.Selection.Select(preview.Document.ContentStart, preview.Document.ContentStart)
     End Sub
+
+    Private Function BlendSelection(underlying As Color, overlay As Color, opacity As Double) As Color
+        Return Color.FromRgb(CByte(Math.Round(underlying.R * (1 - opacity) + overlay.R * opacity)),
+                             CByte(Math.Round(underlying.G * (1 - opacity) + overlay.G * opacity)),
+                             CByte(Math.Round(underlying.B * (1 - opacity) + overlay.B * opacity)))
+    End Function
 
     Private Sub CheckSelectionContrast(resources As ResourceDictionary)
         CheckContrast(DirectCast(resources("TextPrimaryBrush"), Brush), DirectCast(resources("SelectionBackgroundBrush"), Brush), "Selected primary text")

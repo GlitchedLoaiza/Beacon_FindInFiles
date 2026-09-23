@@ -7,6 +7,7 @@ Namespace Beacon
     Partial Public Class HelpWindow
         Private ReadOnly _topics As List(Of HelpTopic) = HelpContent.Topics()
         Private ReadOnly _openDocumentation As Action(Of String)
+        Public Event ReplayTourRequested As EventHandler
 
         Public Sub New(owner As Window, dark As Boolean)
             Me.New(owner, dark, Sub(url) Process.Start(New ProcessStartInfo(url) With {.UseShellExecute = True}))
@@ -25,6 +26,7 @@ Namespace Beacon
                                                       HelpSearch_txt.Focus()
                                                   End Sub
             AddHandler CloseHelp_btn.Click, Sub() Close()
+            AddHandler ReplayTour_btn.Click, Sub() RaiseEvent ReplayTourRequested(Me, EventArgs.Empty)
             FilterTopics()
         End Sub
 

@@ -75,7 +75,8 @@ Module HelpChecks
                 list.SelectedItem = regexTopic
                 Pump(window)
                 Dim linkRow = DirectCast(window.FindName("DocumentationLinkRow"), TextBlock)
-                Require(linkRow.IsVisible AndAlso body.ActualHeight > 100, "Regex documentation link hides the reading area.")
+                Require(linkRow.IsVisible AndAlso body.ActualHeight > 100,
+                        $"Regex documentation link hides the reading area: dark={dark}, link={linkRow.Visibility}/{linkRow.IsVisible}, body={body.ActualWidth:F1}x{body.ActualHeight:F1}, window={window.ActualWidth:F1}x{window.ActualHeight:F1}, topic={regexTopic.Title}.")
                 Dim link = DirectCast(window.FindName("RegexDocumentation_lnk"), System.Windows.Documents.Hyperlink)
                 Require(opened.Count = 0, "Help opened an external page without a click.")
                 link.RaiseEvent(New RoutedEventArgs(System.Windows.Documents.Hyperlink.ClickEvent))

@@ -1,0 +1,37 @@
+{
+  "RecordedUtc": "2026-09-23T17:25:56.8413719+00:00",
+  "Method": "git merge-file --stdout --diff3 on normalized temporary copies; no worktree/index/ref changes",
+  "Base": "20edcaa4ee10ca0997023744d712aa73564624a6",
+  "Release": "9b3932298096d74a1a530833b9a94bca9fa476d8",
+  "Beta": "20edcaa4ee10ca0997023744d712aa73564624a6",
+  "PreviewDirectory": "C:\\Users\\luislo\\source\\repos\\Beacon_FindInFiles\\Beacon_FindInFiles\\bin\\Release\\package-20260923-111916-877303e5\\promotion-preview",
+  "Files": [
+    {
+      "Path": ".gitignore",
+      "Result": "Manual content reconciliation required",
+      "ConflictRegions": 1,
+      "WorkingFileSHA256": "7B236A65AD816DCB381019F5D4481529A8FA7C71E5AC1A65A7E4BF57EFA4AF82"
+    },
+    {
+      "Path": "README.md",
+      "Result": "Manual content reconciliation required",
+      "ConflictRegions": 4,
+      "WorkingFileSHA256": "2F600986CEFB71777DEC78EC643797AF1EC54D714E52A6C285558A0A93878727"
+    },
+    {
+      "Path": "tests/Beacon.SafetyChecks/README.md",
+      "Result": "Manual content reconciliation required",
+      "ConflictRegions": 2,
+      "WorkingFileSHA256": "FC1895D718FAB23A2A1E6CE44BAD7C6F74F0DFD9395BCA3627D9DC3A874C35DB"
+    },
+    {
+      "Path": "tests/Beacon.SafetyChecks/RELEASE-VALIDATION.md",
+      "Result": "Manual content reconciliation required",
+      "ConflictRegions": 2,
+      "WorkingFileSHA256": "187E73F9C0D1F80AEBFF6CAF4499668D11A40AD97BE948E65D0F3C4E07F1A854"
+    }
+  ],
+  "RefsUnchanged": true,
+  "IndexUnchanged": true,
+  "Scope": "Documentation overlap only; repeat a full reviewed merge after committing/reconciling the final source."
+}

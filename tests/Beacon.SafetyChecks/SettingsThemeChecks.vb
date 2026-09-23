@@ -367,7 +367,7 @@ Module SettingsThemeChecks
         }
         Dim panel As New StackPanel With {.Margin = New Thickness(16)}
         window.Content = panel
-        For Each name In {"EventCounterBar", "HarCounterBar"}
+        For Each name In {"TextCounterBar", "EventCounterBar", "HarCounterBar"}
             Dim element = New System.Xml.Linq.XElement(document.Descendants(presentation + "Border").Single(Function(item) CStr(item.Attribute(xaml + "Name")) = name))
             element.SetAttributeValue("xmlns", presentation.NamespaceName)
             element.SetAttributeValue(System.Xml.Linq.XNamespace.Xmlns + "x", xaml.NamespaceName)

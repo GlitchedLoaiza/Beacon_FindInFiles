@@ -268,6 +268,7 @@ Namespace Beacon
             Debug.WriteLine("========================================")
 
             InitializeComponent()
+            InitializeTextPreviewUi()
             InitializeEvtxControls()
             HarPreviewFilters_host.Content = _harPreviewEditor
             _settings = BeaconSettingsService.Load()
@@ -297,6 +298,7 @@ Namespace Beacon
             AddHandler Results_lst.SelectionChanged, AddressOf Results_lst_SelectionChanged
             AddHandler NextFile_btn.Click, AddressOf NextFile_btn_Click
             AddHandler FindNext_btn.Click, AddressOf FindNext_btn_Click
+            AddHandler FindPrevious_btn.Click, AddressOf FindPrevious_btn_Click
             AddHandler FindNextEvent_btn.Click, AddressOf FindNextEvent_btn_Click
             AddHandler FindPreviousEvent_btn.Click, AddressOf FindPreviousEvent_btn_Click
             AddHandler FindNextHarRequest_btn.Click, AddressOf FindNextHarRequest_btn_Click
@@ -335,10 +337,7 @@ Namespace Beacon
 
             ' Hide navigation buttons until results are available
             NextFile_btn.Visibility = Visibility.Collapsed
-            FindNext_btn.Visibility = Visibility.Collapsed
-            FindNextEvent_btn.Visibility = Visibility.Collapsed
-            FindNextHarRequest_btn.Visibility = Visibility.Collapsed
-            FindPreviousHarRequest_btn.Visibility = Visibility.Collapsed
+            HidePreviewNavigation()
 
             ShowTextPreviewMode()
             ClearTextPreview()
@@ -360,8 +359,17 @@ Namespace Beacon
                 Return
             End If
             _helpWindow = New HelpWindow(Me, _isDarkMode)
+            AddHandler _helpWindow.ReplayTourRequested, AddressOf ReplayWelcomeTour
             AddHandler _helpWindow.Closed, Sub() _helpWindow = Nothing
             _helpWindow.Show()
+        End Sub
+
+        Private Sub ReplayWelcomeTour(sender As Object, e As EventArgs)
+            If _isClosing OrElse _isResetting Then Return
+            TryCast(sender, HelpWindow)?.Close()
+            If WindowState = WindowState.Minimized Then SystemCommands.RestoreWindow(Me)
+            Activate()
+            ShowWelcomeTour()
         End Sub
 
         Private Sub Settings_btn_Click(sender As Object, e As RoutedEventArgs)
@@ -396,7 +404,14 @@ Namespace Beacon
             Next
 
             TextPreview_rtb.FontFamily = New FontFamily(_settings.PreviewFontFamily)
+            _fullPreviewSnapshot = Nothing
+            _fullPreviewHit = Nothing
+            _fullPreviewQuery = Nothing
             TextPreview_rtb.FontSize = _settings.PreviewFontSize
+            SummaryPreview_lst.FontFamily = TextPreview_rtb.FontFamily
+            SummaryPreview_lst.FontSize = TextPreview_rtb.FontSize
+            SummaryPreview_lst.Tag = _settings.PreviewWordWrap
+            ScrollViewer.SetHorizontalScrollBarVisibility(SummaryPreview_lst, If(_settings.PreviewWordWrap, ScrollBarVisibility.Disabled, ScrollBarVisibility.Auto))
             TextPreview_rtb.HorizontalScrollBarVisibility = If(_settings.PreviewWordWrap,
                                                                 ScrollBarVisibility.Disabled,
                                                                 ScrollBarVisibility.Auto)
@@ -559,14 +574,28 @@ Namespace Beacon
 
         Private _tourOfferChecked As Boolean
         Private _tourWindow As TourWindow
+        Private _claimWelcomeOffer As Func(Of Boolean) = Function() WelcomeTourState.TryClaimOffer()
 
         Private Sub OfferWelcomeTour()
             If _tourOfferChecked OrElse _isClosing OrElse Not IsVisible Then Return
             _tourOfferChecked = True
-            If Not WelcomeTourState.TryClaimOffer() Then Return
-            _tourWindow = New TourWindow(Me, _isDarkMode)
-            AddHandler _tourWindow.Closed, Sub() _tourWindow = Nothing
-            _tourWindow.Show()
+            If Not _claimWelcomeOffer() Then Return
+            ShowWelcomeTour()
+        End Sub
+
+        Private Sub ShowWelcomeTour()
+            If _isClosing OrElse _isResetting OrElse Not IsVisible Then Return
+            If _tourWindow IsNot Nothing Then
+                If _tourWindow.WindowState = WindowState.Minimized Then SystemCommands.RestoreWindow(_tourWindow)
+                _tourWindow.Activate()
+                Return
+            End If
+            Dim tour As New TourWindow(Me, _isDarkMode)
+            _tourWindow = tour
+            AddHandler tour.Closed, Sub()
+                                        If _tourWindow Is tour Then _tourWindow = Nothing
+                                    End Sub
+            tour.Show()
         End Sub
 
         ''' <summary>Starts WebView2 initialization without blocking window startup.</summary>
@@ -641,6 +670,7 @@ Namespace Beacon
         ''' </summary>
         Private _isClosing As Boolean = False
         Private _shutdownReady As Boolean
+        Friend Property ApplicationExitForChecks As Action
 
         ''' <summary>
         ''' Handles window closing event - cleanup temp files and attempt quick WebView2 folder cleanup
@@ -662,7 +692,9 @@ Namespace Beacon
                 UpdateButtonsState()
                 _scanCts?.Cancel()
                 _htmlExportCancellation?.Cancel()
+                Dim previews = DrainPreviewOperationsAsync()
                 If _scanTask IsNot Nothing Then Await _scanTask
+                Await previews
                 If _htmlExportTask IsNot Nothing Then
                     Try
                         Await _htmlExportTask
@@ -718,7 +750,11 @@ Namespace Beacon
                 ' Shut down quickly - don't keep user waiting
                 Debug.WriteLine("Shutting down application...")
                 _shutdownReady = True
-                Application.Current.Shutdown()
+                If ApplicationExitForChecks IsNot Nothing Then
+                    ApplicationExitForChecks.Invoke()
+                Else
+                    Application.Current.Shutdown()
+                End If
             End Try
         End Sub
 
@@ -810,6 +846,7 @@ Namespace Beacon
             End If
 
             ' Enter starts scan when ready (not already scanning)
+            If e.Key = Key.Enter AndAlso (TextPreviewMode_cmb.IsKeyboardFocusWithin OrElse TextPreviewMode_cmb.IsDropDownOpen) Then Return
             If e.Key = Key.Enter AndAlso (Not _isScanning) AndAlso Scan_btn.IsEnabled Then
                 StartScan()
                 e.Handled = True
@@ -852,7 +889,11 @@ Namespace Beacon
                 If TextPreview_grp.Visibility = Visibility.Visible AndAlso
        FindNext_btn.Visibility = Visibility.Visible Then
 
-                    FindNextInText()
+                    If Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) Then
+                        FindPreviousInText()
+                    Else
+                        FindNextInText()
+                    End If
                     e.Handled = True
                     Return
                 End If
@@ -1103,7 +1144,9 @@ Namespace Beacon
                 Return
             End Try
 
-            CleanupTemp()
+            Interlocked.Increment(_scanGeneration)
+            Volatile.Write(_scanPublicationComplete, False)
+            Dim previews = DrainPreviewOperationsAsync()
 
             ' Detect if user is re-running same search (for status message)
             Dim isRerun As Boolean = (_lastScanPath = Path_txt.Text)
@@ -1135,10 +1178,7 @@ Namespace Beacon
             _currentTextFindStart = 0
 
             NextFile_btn.Visibility = Visibility.Collapsed
-            FindNext_btn.Visibility = Visibility.Collapsed
-            FindNextEvent_btn.Visibility = Visibility.Collapsed
-            FindNextHarRequest_btn.Visibility = Visibility.Collapsed
-            FindPreviousHarRequest_btn.Visibility = Visibility.Collapsed
+            HidePreviewNavigation()
 
             ShowTextPreviewMode()
             ClearTextPreview()
@@ -1183,6 +1223,8 @@ Namespace Beacon
                          Dim failure As String = Nothing
 
                          Try
+                             Await previews.ConfigureAwait(False)
+                             CleanupTemp()
                              Await CountSourceFilesAsync(p, ct)
                              ct.ThrowIfCancellationRequested()
                              Dispatcher.Invoke(Sub()
@@ -1200,9 +1242,6 @@ Namespace Beacon
                              RecordDiagnostic(p, ex, "Search", "Error")
                              Dispatcher.Invoke(Sub() Status("Error: " & ex.Message))
                          Finally
-                             ' Allow pending UI updates to complete before showing final status
-                             Task.Delay(50).Wait()
-
                              Dispatcher.Invoke(Sub()
                                                    _isScanning = False
                                                    ShowProgress(False)
@@ -1259,13 +1298,18 @@ Namespace Beacon
         Private Async Sub Reset_btn_Click(sender As Object, e As RoutedEventArgs)
             If _isResetting OrElse _isClosing Then Return
             _isResetting = True
+            NextFile_btn.Visibility = Visibility.Collapsed
+            HidePreviewNavigation()
             UpdateButtonsState()
             Try
             ' Stop any active scan first
             If _isScanning Then
                 CancelScan()
             End If
+            Dim previews = DrainPreviewOperationsAsync()
             If _scanTask IsNot Nothing Then Await _scanTask
+            Await previews
+            Interlocked.Increment(_scanGeneration)
             If _isClosing Then Return
 
             ' Clear all input fields
@@ -1290,10 +1334,6 @@ Namespace Beacon
             ClearWebPreview()
             _currentWebMatchIndex = 0
             _totalWebMatches = 0
-
-            NextFile_btn.Visibility = Visibility.Collapsed
-            FindNext_btn.Visibility = Visibility.Collapsed
-            FindNextEvent_btn.Visibility = Visibility.Collapsed
 
             ShowProgress(False)
             If _fileLabelTimer.IsEnabled Then _fileLabelTimer.Stop()
@@ -1778,12 +1818,18 @@ Namespace Beacon
         ''' Marshals to UI thread asynchronously via Dispatcher (non-blocking)
         ''' </summary>
         Private Sub AddHit(hit As SearchHit)
-            Dispatcher.Invoke(Sub()
-                                  If _hits.Count >= _settings.MaximumTotalResults Then Return
-                                  _hits.Add(hit)
-                                  If _hits.Count >= _settings.MaximumTotalResults Then Volatile.Write(_resultLimitReached, True)
-                                  UpdateReportingButtons()
-                              End Sub)
+            Dim add As Action = Sub()
+                                    Dim limit = If(_searchOptions, _settings).MaximumTotalResults
+                                    If _hits.Count >= limit Then Return
+                                    _hits.Add(hit)
+                                    If _hits.Count >= limit Then Volatile.Write(_resultLimitReached, True)
+                                    If Not _publishingSearchBatch Then UpdateReportingButtons()
+                                End Sub
+            If Dispatcher.CheckAccess() Then
+                add()
+            Else
+                Dispatcher.Invoke(add)
+            End If
         End Sub
 
 #End Region
@@ -2467,20 +2513,33 @@ Namespace Beacon
 
 #Region "Preview Selection"
 
+        Private Sub HidePreviewNavigation()
+            For Each navigationButton In {FindPrevious_btn, FindNext_btn, FindPreviousEvent_btn, FindNextEvent_btn,
+                                          FindPreviousHarRequest_btn, FindNextHarRequest_btn}
+                navigationButton.Visibility = Visibility.Collapsed
+            Next
+        End Sub
+
         ''' <summary>
         ''' Handles result selection changes - loads appropriate preview (text or EVTX) and sets up navigation
         ''' </summary>
         Private Sub Results_lst_SelectionChanged(sender As Object, e As SelectionChangedEventArgs)
+            InvalidatePreviewRequests()
+            HidePreviewNavigation()
             UpdateReportingButtons()
             Dim hit = TryCast(Results_lst.SelectedItem, SearchHit)
             Details_lst.ItemsSource = If(hit Is Nothing, Nothing, hit.Details)
-            If hit Is Nothing Then Return
+            ClearSummaryForSelection(hit)
+            If hit IsNot _fullPreviewHit OrElse _activeQuery IsNot _fullPreviewQuery Then
+                _fullPreviewSnapshot = Nothing
+                _fullPreviewHit = Nothing
+                _fullPreviewQuery = Nothing
+            End If
+            If hit Is Nothing Then
+                ClearTextPreview()
+                Return
+            End If
 
-            FindNext_btn.Visibility = Visibility.Collapsed
-            FindNextEvent_btn.Visibility = Visibility.Collapsed
-            FindPreviousEvent_btn.Visibility = Visibility.Collapsed
-            FindNextHarRequest_btn.Visibility = Visibility.Collapsed
-            FindPreviousHarRequest_btn.Visibility = Visibility.Collapsed
             _currentTextFindStart = 0
             _currentEventMessageMatchIndex = 0
             _currentHarMatchIndex = 0
@@ -2489,6 +2548,11 @@ Namespace Beacon
 
             If hit.MetadataOnly Then
                 ShowMetadataPreview(hit)
+                Return
+            End If
+
+            If _summaryPreferred AndAlso CanSummarize(hit) Then
+                ShowSummaryPreview(hit)
                 Return
             End If
 
@@ -2555,6 +2619,8 @@ Namespace Beacon
                     FindPreviousHarRequest_btn.Visibility = Visibility.Visible
             End Select
 
+            UpdateTextNavigationState()
+            UpdateTextPreviewModeState()
             ' IMPORTANT: If scanning, do NOT change status to Ready when user clicks results
             If Not _isScanning Then
                 Status("Ready")
@@ -2563,11 +2629,7 @@ Namespace Beacon
 
         ''' <summary>Loads text file from disk into preview pane</summary>
         Private Sub LoadTextFromDisk(path As String)
-            Try
-                SetTextPreview(ReadPreviewFile(path).DisplayText)
-            Catch ex As Exception
-                SetTextPreview($"[Preview unavailable: {ex.Message}]")
-            End Try
+            StartPlainTextPreview(Function(service, token) service.ReadFile(path, token))
         End Sub
 
         ''' <summary>
@@ -2575,12 +2637,11 @@ Namespace Beacon
         ''' Supports ZIP, 7Z, RAR, TAR, and other formats via SharpCompress
         ''' </summary>
         Private Sub LoadTextFromArchive(archivePath As String, entryName As String)
-            Try
-                Dim preview = New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadArchive(archivePath, entryName)
-                SetTextPreview(If(preview Is Nothing, "[Entry not found]", preview.DisplayText))
-            Catch ex As Exception
-                SetTextPreview($"[Error loading from archive: {ex.Message}]")
-            End Try
+            StartPlainTextPreview(Function(service, token)
+                                      Dim preview = service.ReadArchive(archivePath, entryName, token)
+                                      If preview Is Nothing Then Throw New FileNotFoundException("Archive entry not found.", entryName)
+                                      Return preview
+                                  End Function)
         End Sub
 
         ''' <summary>
@@ -2588,12 +2649,7 @@ Namespace Beacon
         ''' Uses 7-Zip command line for extraction
         ''' </summary>
         Private Sub LoadTextFromCab(cabPath As String, entryName As String)
-            Try
-                Dim preview = New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadCab(cabPath, entryName)
-                SetTextPreview(If(preview Is Nothing, $"[Error: File '{entryName}' not found in extracted CAB contents]", preview.DisplayText))
-            Catch ex As Exception
-                SetTextPreview($"[Error loading CAB preview: {ex.Message}]")
-            End Try
+            StartPlainTextPreview(Function(service, token) service.ReadCab(cabPath, entryName, token))
         End Sub
 
         ''' <summary>
@@ -2601,23 +2657,17 @@ Namespace Beacon
         ''' Uses Dispatcher.BeginInvoke to ensure document is fully rendered before highlighting
         ''' </summary>
         Private Sub SetTextPreview(text As String)
-
-            TextPreview_rtb.Document = New FlowDocument(
-        New Paragraph(New Run(text))
-    )
-
-            _currentTextFindStart = 0
-
-            Dispatcher.BeginInvoke(
-        Sub()
-            FindNextInText()
-        End Sub,
-        System.Windows.Threading.DispatcherPriority.Loaded)
-
+            StartInlineTextPreview(New PreviewText(text, False, 0))
         End Sub
 
 
         Private Sub ClearTextPreview()
+            InvalidatePreviewRequests()
+            ClearSummaryForSelection(Nothing)
+            ResetTextNavigation(Nothing)
+            _fullPreviewSnapshot = Nothing
+            _fullPreviewHit = Nothing
+            _fullPreviewQuery = Nothing
             TextPreview_rtb.Document.Blocks.Clear()
         End Sub
 
@@ -2638,8 +2688,11 @@ Namespace Beacon
         ''' Loads HTML or XML file from disk into WebView2 with search highlighting
         ''' </summary>
         Private Async Sub LoadWebContentFromDisk(filePath As String, extension As String)
+            Dim generation = Volatile.Read(_previewGeneration)
+            Dim selected = Results_lst.SelectedItem
             ' Ensure WebView2 is initialized (will wait if needed)
             Dim isReady = Await EnsureWebView2InitializedAsync()
+            If Not IsPreviewSelectionCurrent(generation, selected) Then Return
 
             If Not isReady Then
                 ' Fallback to text preview if WebView2 not available
@@ -2654,6 +2707,7 @@ Namespace Beacon
                 Dim content = ReadPreviewFile(filePath)
                 Await ShowWebPreviewAsync(content, extension)
             Catch ex As Exception
+                If Not IsPreviewSelectionCurrent(generation, selected) Then Return
                 Debug.WriteLine($"Error loading content: {ex.Message}")
                 ' On error, show error message in WebView
                 WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading file:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
@@ -2665,8 +2719,11 @@ Namespace Beacon
         ''' Supports ZIP, 7Z, RAR, TAR, and other formats via SharpCompress
         ''' </summary>
         Private Async Sub LoadWebContentFromArchive(archivePath As String, entryName As String, extension As String)
+            Dim generation = Volatile.Read(_previewGeneration)
+            Dim selected = Results_lst.SelectedItem
             ' Ensure WebView2 is initialized (will wait if needed)
             Dim isReady = Await EnsureWebView2InitializedAsync()
+            If Not IsPreviewSelectionCurrent(generation, selected) Then Return
 
             If Not isReady Then
                 ' Fallback to text preview if WebView2 not available
@@ -2684,6 +2741,7 @@ Namespace Beacon
                     Await ShowWebPreviewAsync(preview, extension)
                 End If
             Catch ex As Exception
+                If Not IsPreviewSelectionCurrent(generation, selected) Then Return
                 WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading from archive:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
             End Try
         End Sub
@@ -2693,8 +2751,11 @@ Namespace Beacon
         ''' Uses 7-Zip command line for extraction
         ''' </summary>
         Private Async Sub LoadWebContentFromCab(cabPath As String, entryName As String, extension As String)
+            Dim generation = Volatile.Read(_previewGeneration)
+            Dim selected = Results_lst.SelectedItem
             ' Ensure WebView2 is initialized (will wait if needed)
             Dim isReady = Await EnsureWebView2InitializedAsync()
+            If Not IsPreviewSelectionCurrent(generation, selected) Then Return
 
             If Not isReady Then
                 ' Fallback to text preview if WebView2 not available
@@ -2712,6 +2773,7 @@ Namespace Beacon
                     WebPreview_wv2.NavigateToString($"<html><body><h3>Error: File '{System.Security.SecurityElement.Escape(entryName)}' not found in extracted CAB contents</h3></body></html>")
                 End If
             Catch ex As Exception
+                If Not IsPreviewSelectionCurrent(generation, selected) Then Return
                 WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading CAB preview:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
             End Try
         End Sub
@@ -2723,6 +2785,8 @@ Namespace Beacon
         ''' when the rendered HTML string exceeds it (common with large XML files).
         ''' </summary>
         Private Async Function LoadWebContentAsync(content As String, extension As String) As Task
+            Dim generation = Volatile.Read(_previewGeneration)
+            Dim selected = Results_lst.SelectedItem
             Dim htmlToRender As String
 
             WebPreview_wv2.DefaultBackgroundColor = System.Drawing.Color.White
@@ -2760,6 +2824,7 @@ Namespace Beacon
 
             ' Wait for navigation to complete before highlighting
             Await Task.Delay(300)
+            If Not IsPreviewSelectionCurrent(generation, selected) Then Return
 
             ' Apply search highlighting
             Await HighlightSearchInWebViewAsync()
@@ -2958,6 +3023,7 @@ Namespace Beacon
         Private _webHighlightVersion As Integer
 
         Private Async Function HighlightSearchInWebViewAsync() As Task
+            If WebPreview_grp.Visibility <> Visibility.Visible OrElse _isClosing OrElse _isResetting Then Return
             Dim version = Interlocked.Increment(_webHighlightVersion)
             Dim query = _activeQuery
             Dim selected = Results_lst.SelectedItem
@@ -3053,16 +3119,7 @@ Namespace Beacon
                 Return
             End If
 
-            Dim full = New TextRange(TextPreview_rtb.Document.ContentStart, TextPreview_rtb.Document.ContentEnd).Text
-            If String.IsNullOrEmpty(full) Then Return
-            Dim spans = PreviewSpans(full)
-            If spans.Count = 0 Then Return
-            Dim span = spans.FirstOrDefault(Function(item) item.Start >= _currentTextFindStart)
-            Dim wrapped = span Is Nothing
-            If wrapped Then span = spans(0)
-            SelectInRichTextBox(span.Start, span.Length)
-            _currentTextFindStart = span.Start + span.Length
-            If Not _isScanning Then Status(If(wrapped, "Wrapped to top", "Ready"))
+            NavigateTextMatch(True)
         End Sub
 
         ''' <summary>
@@ -3094,40 +3151,29 @@ Namespace Beacon
         ''' Uses TextPointer navigation for character-based positioning
         ''' </summary>
         Private Sub SelectInRichTextBox(startIndex As Integer, length As Integer)
-
-            Dim startPtr = GetTextPointerAt(TextPreview_rtb.Document.ContentStart, startIndex)
-            Dim endPtr = GetTextPointerAt(startPtr, length)
-
+            If _textSourceRun Is Nothing OrElse startIndex < 0 OrElse length < 0 OrElse
+               startIndex > _textContent.Length OrElse length > _textContent.Length - startIndex Then Return
+            Dim document = TextPreview_rtb.Document
+            Dim generation = Volatile.Read(_previewGeneration)
+            Dim request = Interlocked.Increment(_textNavigationGeneration)
+            Dim startPtr = _textSourceRun.ContentStart.GetPositionAtOffset(startIndex, LogicalDirection.Forward)
+            Dim endPtr = _textSourceRun.ContentStart.GetPositionAtOffset(startIndex + length, LogicalDirection.Backward)
             If startPtr Is Nothing OrElse endPtr Is Nothing Then Return
-
-            ' Normalize pointers to valid insertion positions (avoids selection errors)
-            startPtr = startPtr.GetInsertionPosition(LogicalDirection.Forward)
-            endPtr = endPtr.GetInsertionPosition(LogicalDirection.Backward)
-
-            TextPreview_rtb.BeginChange()
-
-            ' Collapse selection first (workaround for RichTextBox quirks)
-            TextPreview_rtb.Selection.Select(startPtr, startPtr)
-            TextPreview_rtb.CaretPosition = startPtr
-
-            ' Apply actual selection
-            TextPreview_rtb.Selection.Select(startPtr, endPtr)
+            _currentTextFindStart = startIndex + length
+            If length > 0 Then _textNavigation.SelectAtOrAfter(startIndex)
             TextPreview_rtb.CaretPosition = endPtr
-
-            TextPreview_rtb.EndChange()
-
-            TextPreview_rtb.Focus()
-
-            ' Re-apply selection at Render priority to ensure visibility
-            Dispatcher.BeginInvoke(
-        Sub()
             TextPreview_rtb.Selection.Select(startPtr, endPtr)
-        End Sub,
-        System.Windows.Threading.DispatcherPriority.Render)
-
-            Dim p = startPtr.Paragraph
-            If p IsNot Nothing Then p.BringIntoView()
-
+            TextPreview_rtb.Focus()
+            UpdateTextMatchCounter()
+            Dispatcher.BeginInvoke(Sub()
+                                       If generation <> Volatile.Read(_previewGeneration) OrElse request <> Volatile.Read(_textNavigationGeneration) OrElse
+                                          TextPreview_rtb.Document IsNot document OrElse _isClosing OrElse _isResetting Then Return
+                                       TextPreview_rtb.Selection.Select(startPtr, endPtr)
+                                       Dim rectangle = startPtr.GetCharacterRect(LogicalDirection.Forward)
+                                       If Not rectangle.IsEmpty Then
+                                           TextPreview_rtb.ScrollToVerticalOffset(Math.Max(0, TextPreview_rtb.VerticalOffset + rectangle.Top - TextPreview_rtb.ViewportHeight / 2))
+                                       End If
+                                   End Sub, System.Windows.Threading.DispatcherPriority.Render)
         End Sub
 
         ''' <summary>
@@ -3386,6 +3432,7 @@ Namespace Beacon
 
         ''' <summary>Shows text preview pane, hides EVTX and Web previews</summary>
         Private Sub ShowTextPreviewMode()
+            HideTextSummary()
             TextPreview_grp.Visibility = Visibility.Visible
             EventPreview_grp.Visibility = Visibility.Collapsed
             HarPreview_grp.Visibility = Visibility.Collapsed
@@ -3394,10 +3441,13 @@ Namespace Beacon
 
             ' Clear WebView2 to prevent black screen
             ClearWebPreview()
+            UpdateTextNavigationState()
         End Sub
 
         ''' <summary>Shows EVTX preview pane, hides text and Web previews</summary>
         Private Sub ShowEventPreviewMode()
+            HideTextSummary()
+            FindPrevious_btn.Visibility = Visibility.Collapsed
             TextPreview_grp.Visibility = Visibility.Collapsed
             EventPreview_grp.Visibility = Visibility.Visible
             HarPreview_grp.Visibility = Visibility.Collapsed
@@ -3410,6 +3460,8 @@ Namespace Beacon
 
         ''' <summary>Shows web preview pane (HTML/XML), hides text and EVTX previews</summary>
         Private Sub ShowWebPreviewMode()
+            HideTextSummary()
+            FindPrevious_btn.Visibility = Visibility.Collapsed
             TextPreview_grp.Visibility = Visibility.Collapsed
             EventPreview_grp.Visibility = Visibility.Collapsed
             HarPreview_grp.Visibility = Visibility.Collapsed
@@ -3418,6 +3470,8 @@ Namespace Beacon
         End Sub
 
         Private Sub ShowHarPreviewMode()
+            HideTextSummary()
+            FindPrevious_btn.Visibility = Visibility.Collapsed
             TextPreview_grp.Visibility = Visibility.Collapsed
             EventPreview_grp.Visibility = Visibility.Collapsed
             HarPreview_grp.Visibility = Visibility.Visible
@@ -3479,29 +3533,7 @@ Namespace Beacon
         ''' Updates progress bar and file counter based on files scanned
         ''' </summary>
         Private Sub UpdateScanProgress()
-            Dim counting = _isCountingFiles
-            Dim total = _totalFilesToScan
-            Dim scanned = _filesScanned
-            Dim label = _pendingFileLabel
-            Dispatcher.BeginInvoke(Sub()
-                                       If counting Then
-                                           CurrentFile_lbl.Text = $"Counting files: {total} found — {label}"
-                                           Return
-                                       End If
-                                       If total > 0 Then
-                                           Dim percentage = (scanned / total) * 100
-                                           ScanProgress_pb.Value = Math.Min(percentage, 100)
-                                       End If
-
-                                       ' Update file label with progress counter
-                                       If Not String.IsNullOrEmpty(label) Then
-                                           If total > 0 Then
-                                               CurrentFile_lbl.Text = $"Scanning {scanned} of {total} counted files: {label}"
-                                           Else
-                                               CurrentFile_lbl.Text = $"Scanning file {scanned}: {label}"
-                                           End If
-                                       End If
-                                   End Sub)
+            QueueScanProgress()
         End Sub
 
         ''' <summary>
@@ -3584,7 +3616,7 @@ Namespace Beacon
             If preview.IsTruncated Then
                 ' Incomplete HTML/XML/JSON is readable evidence, not a complete renderable document.
                 ShowTextPreviewMode()
-                SetTextPreview(preview.DisplayText)
+                StartInlineTextPreview(preview)
                 Return
             End If
             Await LoadWebContentAsync(preview.Text, extension)
@@ -3639,6 +3671,8 @@ Namespace Beacon
         ''' Cleanup on application close: delete temp files and cancel any active scans
         ''' </summary>
         Protected Overrides Sub OnClosed(e As EventArgs)
+            _isClosing = True
+            InvalidatePreviewRequests()
             _updateCheckCancellation.Cancel()
             RemoveHandler Microsoft.Win32.SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
             CleanupTemp()

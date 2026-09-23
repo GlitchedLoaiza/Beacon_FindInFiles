@@ -1,6 +1,6 @@
-# Beacon: Find in Files v2.1 — Your logs, easier to explore
+# Beacon: Find in Files v2.2 — Your logs, easier to explore
 
-![Version](https://img.shields.io/badge/version-2.1.0-blue)
+![Version](https://img.shields.io/badge/version-2.2.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)
 ![Framework](https://img.shields.io/badge/.NET-10-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -9,25 +9,27 @@
 
 Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-> **Getting ready for 2.1!** This README describes the prepared 2.1.0 build. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. Release-preparation details live [here](docs/releases/2.1.0/PREPARATION.md); the previous version is preserved on [`Beacon2.0.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.0.1).
+> **Getting ready for 2.2!** This README describes the 2.2.0 release candidate being prepared on **Beta** for promotion to **Release**. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads; preparing a candidate does not publish it. Release-preparation details live [here](docs/releases/2.2.0/PREPARATION.md), and earlier release notes remain below.
 
 ## 🎯 Features at a glance
 
 - **Search across file types:** text logs, Windows events (EVTX), saved web traffic (HAR), and supported archives.
+- **Use your processor automatically:** Beacon can search independent files and archives together, adjusting to available processor capacity and resources without requiring manual worker setup.
 - **Search your way:** literal text, whole words, regex patterns, or combinations of terms, with optional case sensitivity.
-- **Explore without losing your place:** highlighted previews, matching locations, and navigation between files, events, and requests.
+- **Explore without losing your place:** readable highlights, Previous/Next text navigation, a current-match counter, and navigation between files, events, and requests.
+- **Focus on the useful lines:** switch plain-text previews to **Summary** for captured match context instead of all the text in between.
 - **Look inside nested archives:** configurable depth and limits, with matching files shown under their original archive paths.
 - **Investigate events and requests:** collapsible EVTX/HAR tools, editable date pickers, and filters that help narrow the view.
 - **Share a readable report:** export matching files and nearby context to a self-contained HTML file.
 - **Make it comfortable:** Light, Dark, System, and Beacon Theme, adjustable previews, and native Windows window controls.
-- **Get help as you go:** an optional welcome tour and searchable offline Help, including a beginner regex guide.
+- **Get help as you go:** an optional welcome tour you can replay from Help, plus a searchable offline guide and beginner regex lessons.
 
 Whether you're tracking an error across diagnostic bundles, finding a configuration value, or reviewing a saved web request, Beacon helps you get to the relevant text.
 
 ## 📦 Download and run
 
 1. Visit the official [Releases page](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases).
-2. Download the ZIP for your chosen version and its `SHA256SUMS.txt` verification file.
+2. Download the ZIP for your chosen version and its `SHA256SUMS.txt` verification file, if provided.
 3. Verify the download using the instructions below, then extract it to a folder you can write to.
 4. Run **`Beacon.exe`**. That's it—no installer or separate .NET installation is needed.
 
@@ -42,35 +44,33 @@ Keep the included `LICENSE` and `licenses` folder with the app when sharing it. 
 
 ### 🔐 Verify your download
 
-Use the checksum for the **same file and version** you downloaded. The [2.1.0 checksum list](docs/releases/2.1.0/SHA256SUMS.txt) includes separate values for the ZIP and EXE.
+Use the checksum for the **same file and version** you downloaded. The [2.2.0 checksum list](docs/releases/2.2.0/SHA256SUMS.txt) contains separate values for the prepared ZIP and EXE.
 
 <details>
-<summary>Show the prepared 2.1.0 hashes and PowerShell verification steps</summary>
+<summary>Show the prepared 2.2.0 hashes and PowerShell verification steps</summary>
 
-These values identify the exact prepared package. The [artifact manifest](docs/releases/2.1.0/release-manifest.json) contains the full build details.
+These values identify the exact locally prepared candidate. The [artifact manifest](docs/releases/2.2.0/release-manifest.json) contains the full build details. This does not mean the candidate has been uploaded to GitHub Releases.
 
-**Source update:** the package recorded below predates Beacon Theme. Its hashes still identify that earlier download; a rebuilt theme-enabled release needs fresh packaging and checksums.
-
-<!-- RELEASE-HASHES: copied from the verified 2.1.0 package; regenerate after rebuilding or repackaging. -->
-Prepared locally on **2026-09-16 UTC** from `experiments-latest` at `90f960dd` (Release, win-x64, self-contained single-file, ReadyToRun off):
+<!-- RELEASE-HASHES: copied from the verified 2.2.0 candidate; regenerate after rebuilding, repackaging, or signing. -->
+Prepared locally on **2026-09-23 UTC** from the **Beta working tree**, based on `20edcaa4` with the 2.2 changes not yet committed (Release, win-x64, self-contained single-file, ReadyToRun off):
 
 | File | Size (bytes) | SHA-256 |
 | --- | ---: | --- |
-| `Beacon.exe` | 77,624,725 | `C35F908A02A52E361B58E82E31E00B531864C31CD7F8CA420D5A3CE68E97A686` |
-| `Beacon-2.1.0-win-x64.zip` | 72,071,577 | `EDDF545A27265041DAD7862DFDF2C3A0F069324C424AB417DBE5CC8F0E786BAB` |
+| `Beacon.exe` | 77,655,849 | `CC7BFFDFAB568F10888129740B9639626081CB6D6BF13BD82EB6CBEC3D098E60` |
+| `Beacon-2.2.0-win-x64.zip` | 72,102,795 | `D6E9E8FA02A608B8CA28DE423389F7737DB290F6E60259BDBB7C061F05AF277A` |
 
-These hashes replace the earlier local EXE-only package's hashes. Check the release notes before comparing a different 2.1.0 download; this preparation has not uploaded a new GitHub release.
+These hashes apply only to this prepared candidate. A rebuilt or signed download needs its own verification file; old 2.1.0 hashes do not identify a 2.2.0 build.
 <!-- /RELEASE-HASHES -->
 
 In PowerShell, run this in the download folder:
 
 ```powershell
-Get-FileHash -LiteralPath '.\Beacon-2.1.0-win-x64.zip' -Algorithm SHA256
+Get-FileHash -LiteralPath '.\Beacon-2.2.0-win-x64.zip' -Algorithm SHA256
 # After extraction:
 Get-FileHash -LiteralPath '.\Beacon.exe' -Algorithm SHA256
 ```
 
-Compare the full `Hash` value with that file's entry in `SHA256SUMS.txt`. If they differ, don't run the file: confirm the version and download it again from the official release.
+Compare the full `Hash` value with that file's entry in `SHA256SUMS.txt` or the table above. If they differ, don't run the file: confirm the version and download it again from the official release.
 
 Rebuilding, repackaging, or signing changes the checksum. A self-built copy may differ from a published one. Hashes verify matching bytes—not publisher identity or whether an application is harmless.
 
@@ -90,7 +90,7 @@ Download from the official release, verify its checksum, and follow your organiz
 4. Wait while Beacon counts eligible files and then searches them. Select a file in **Matched Files** to read its preview.
 5. Expand **Match details** to select a matching line, event, or request. Use the preview's navigation buttons to explore additional matches.
 
-💡 **New to Beacon?** Try the optional welcome tour, or click **? Help** beside Settings whenever you need a hand. You can skip or exit the tour at any point; it never runs a search or export for you. Help works offline and includes five beginner regex lessons.
+💡 **New to Beacon?** Try the optional welcome tour, or click **? Help** beside Settings whenever you need a hand. Choose **Replay welcome tour** in Help to revisit it at any time—no settings or marker files need to be removed. You can skip or exit the tour at any point; it never runs a search or export for you. Help works offline and includes five beginner regex lessons.
 
 ### Search modes
 
@@ -106,11 +106,23 @@ The double quotes above label examples—leave them out when typing. In **Any te
 
 Not sure about regex? Start with **Literal text**, then explore the in-app lessons or [Microsoft's .NET regex reference](https://learn.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-language-quick-reference). Regex searches have a time limit; Any/All accept up to 32 terms, with 4,096 characters allowed in the search field.
 
+### Focus on matching text
+
+- **Move in either direction:** use **Find Next (F3)** or **Find Previous (Shift+F3)** in plain-text previews. Navigation wraps within the selected file.
+- **See where you are:** the bar below the text shows **Match 1 out of 35**, for example. Its scope tells you whether the count describes the loaded Full preview or captured Summary locations.
+- **Turn on Summary:** select a plain-text result, such as a `.log`, `.txt`, or `.csv` file. At the top of **Preview (Text)**, change **View** from **Full** to **Summary**.
+- **Read less noise:** Summary shows a separate block of up to five captured source lines for each saved matching record, with original line numbers and highlights. Nearby matches may repeat overlapping context. Select a block and press **Ctrl+C** to copy it.
+- **Go back whenever needed:** choose **Full** for the regular bounded file preview. Your view choice lasts for the current session, including after Reset; every new launch starts in Full.
+
+**Don't see the View option?** Summary is available for plain-text content matches from disk or archives. It is not offered for EVTX, HAR, HTML, XML, JSON, or name/path-only results—even when a document falls back to a text preview.
+
+Summary uses context captured during the search: it does not search again, reopen the source, or change exports. Long lines can be shortened, and capture limits still apply. A match beyond Full's loaded prefix may still be readable in Summary. Records with no visible highlight are identified as record anchors rather than invented text highlights.
+
 ### Changing, cancelling, and resetting
 
 - Change the search or source, then click **Scan** again. Existing results keep their original search until you rescan.
 - Click **Cancel** or press **Esc** to stop an active scan. Some file-reading operations take a moment to finish; results collected so far may be partial.
-- **Reset** clears the current work. Export any results you need before resetting. It is different from **Restore defaults** in Settings.
+- **Reset** clears inputs, results, and preview navigation. Export any results you need before resetting. It is different from **Restore defaults** in Settings.
 
 ### Reading counts and limits
 
@@ -184,6 +196,7 @@ Set nesting depth in **Settings → Archives**: the default is 1, with values fr
 
 - Choose **Light**, **Dark**, **System theme**, or **Beacon Theme** under **Settings → Preview and diagnostics → Appearance**, then click **Save**.
 - **Beacon Theme** uses a softer, logo-inspired crimson with off-white button text. Input/preview outlines and selection highlights use coordinated red tones while backgrounds follow Windows' light/dark app preference. Disabled buttons stay neutral. Switch back to another theme whenever you like.
+- Text-preview highlights in Beacon Theme are translucent, so the selected characters stay readable.
 - Adjust fonts, wrapping, formatting, and preview size to suit your reading style.
 - Expand the side panes when you need extra tools and collapse them when you want more room.
 - Keep familiar Windows title-bar buttons, dragging, and snapping. Supported title-bar colors follow the app's theme.
@@ -202,9 +215,10 @@ Beacon checks for a newer stable release at startup. A brief notification offers
 | `Enter` | Start a scan when Scan is available. |
 | `Esc` | Cancel an active scan. |
 | `F3` | Next match/event/request for the active supported preview. |
-| `Shift+F3` | Previous event/request; plain-text preview currently still moves forward. |
+| `Shift+F3` | Previous plain-text match, event, or request in the active supported preview. |
 | `Ctrl+Down` | Next matching file. |
 | `Ctrl+R` | Reset when not scanning. |
+| `Ctrl+C` | Copy selected text; in Summary, copy the selected captured block. |
 | `Tab` / `Shift+Tab` | Move between controls. |
 
 Use the visible navigation buttons when a shortcut does not apply to the active preview. Native window buttons, system menu, dragging, and snapping are retained.
@@ -217,9 +231,10 @@ Use the visible navigation buttons when a shortcut does not apply to the active 
 - **Large or unusual files?** HAR documents can use considerable memory. Multipart/ZIP64 edge cases and large solid archives need testing with your representative files; a partial read isn't a full archive integrity check.
 - **An EVTX message is missing?** Check Raw event XML and the offline guidance in Event tools. Logs brought from another machine may need its exported locale metadata alongside the EVTX.
 - **Network or access problems?** Network latency and workplace policies can limit access. Ownership recovery is optional and asks for confirmation; don't try it casually on system or evidence files.
-- **Looking for more speed?** The scan worker count is reserved for future work. Counting can repeat archive extraction, and temporary nested files remain available for previews until Reset/close. Leave those files alone while Beacon uses them.
+- **Looking for more speed?** Beacon automatically uses available processor capacity for independent files and archives; no manual worker tuning is needed. There is no fixed eight-core limit, but memory, storage, the query, and the amount of independent work can limit the benefit. A single file or archive tree is still processed sequentially.
+- **Why does counting take time?** Beacon still counts before searching, and counting can repeat archive extraction. Temporary nested files remain available for previews until Reset/close. Leave those files alone while Beacon uses them.
 
-The in-app **Help** guide has step-by-step troubleshooting. Maintainer validation and release sign-off are tracked separately in the [release preparation checklist](docs/releases/2.1.0/PREPARATION.md).
+The in-app **Help** guide has step-by-step troubleshooting. Maintainer validation and release sign-off are tracked separately in the [release preparation checklist](docs/releases/2.2.0/PREPARATION.md).
 
 ## 🔧 For developers
 
@@ -242,14 +257,14 @@ The regression runner is a console application, not a Test Explorer assembly. It
 Create a self-contained release package and fresh checksums with PowerShell 7:
 
 ```powershell
-.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.1.0"
+.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.2.0"
 ```
 
 The script creates the EXE/ZIP, includes legal notices, verifies the contents, preserves old artifacts, and writes checksums and a manifest. It does not commit, sign, or upload anything. It defaults to ReadyToRun off; `-ReadyToRun` opts in without a profile, and `-PublishProfilePath` accepts a `.pubxml` path. Raw `dotnet publish` uses the project's ReadyToRun default (on), so its hash may differ. User-specific publish paths are not required.
 
-The development-only [`BenchmarkSuite1`](BenchmarkSuite1/BenchmarkSuite1.csproj) has [measured results and a rollback log](tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md). Its findings apply to the tested text/stored-ZIP workloads, not every scan.
+The development-only [`BenchmarkSuite1`](BenchmarkSuite1/BenchmarkSuite1.csproj) includes [production multicore benchmark instructions](BenchmarkSuite1/PRODUCTION-BENCHMARKS.md) and [measured results](tests/Beacon.SafetyChecks/PerformanceEvidence/multicore-production/REPORT.md), including approximately 200 MiB compressed ZIPs. These are workload- and machine-specific measurements, not a promise for every scan. The earlier [optimization and rollback record](tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md) remains available.
 
-For final packaging and branch-promotion checks, follow [release preparation](docs/releases/2.1.0/PREPARATION.md). Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+For final packaging and **Beta → Release** promotion checks, follow [release preparation](docs/releases/2.2.0/PREPARATION.md). Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 </details>
 
@@ -264,7 +279,31 @@ Share bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Find
 
 ## 📋 Changelog
 
-### v2.1.0 — prepared for release
+### v2.2.0 — prepared for release
+
+#### ✨ Added
+
+- Automatic multicore searching for independent files and archives, with processor-aware selection, ordered results, and resource safeguards. No manual setup or fixed eight-core ceiling.
+- **Find Previous** for plain-text previews, with Shift+F3, forward/backward wraparound, and support for all existing search modes.
+- A text-preview position bar showing the current match and total, with clear labels for limited previews, Summary, and records without visible highlights.
+- **Full / Summary** for plain-text files and archive entries. Summary reuses the captured five-line contexts from search results, keeps original line numbers, and supports large result lists without displaying every block at once.
+- **Replay welcome tour** from Help, without changing the once-only startup offer or the current search.
+
+#### 🛠️ Fixed and changed
+
+- Beacon Theme's text-preview selection is translucent so the highlight no longer covers the selected characters.
+- Reset, new scans, and cleared selections now hide all text, event, and request navigation controls, including **Previous Event**.
+- Counting and progress still precede and track scanning; completion waits for accepted results to reach the view.
+- Improved preview cancellation, source-file lifetime, detail jumps, and stale-update protection when switching files or views.
+- Each search worker reuses its own equivalent query to avoid unnecessary regex-runner allocations during parallel searches.
+
+#### 🛡️ Validation and compatibility
+
+- Expanded checks cover ordered result limits, cancellation, nested archive previews, Summary, match counters, themes, Reset, and marker-preserving tour replay.
+- Production benchmarks compare sequential, fixed-worker, and automatic searches, plus the complete counting/search/publication workflow. See the measured-results link above for gains, variance, memory tradeoffs, and limitations.
+- Existing archive safeguards, privacy options, .NET 10 target, and dependency versions remain unchanged. Summary does not change captured results or exports.
+
+### v2.1.0 — earlier release notes
 
 #### ✨ Added
 

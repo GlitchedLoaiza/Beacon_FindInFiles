@@ -36,6 +36,7 @@ Module ArchiveDisplayChecks
                         For Each hit In hits
                             GetType(MainWindow).GetMethod("LoadTextFromArchive", BindingFlags.Instance Or BindingFlags.NonPublic).
                                 Invoke(window, {Value(hit, "ZipPath"), Value(hit, "ZipEntryName")})
+                            PreviewTestHelpers.WaitForPreview(window)
                             Dim text = New System.Windows.Documents.TextRange(preview.Document.ContentStart, preview.Document.ContentEnd).Text
                             Require(text.Contains(Marker), "Shortened labels broke direct or nested preview reopening.")
                         Next

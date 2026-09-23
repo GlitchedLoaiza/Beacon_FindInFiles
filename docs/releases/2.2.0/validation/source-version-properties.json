@@ -1,0 +1,12 @@
+{
+  "Properties": {
+    "Version": "2.2.0",
+    "AssemblyVersion": "2.2.0.0",
+    "FileVersion": "2.2.0.0",
+    "TargetFramework": "net10.0-windows",
+    "RuntimeIdentifier": "win-x64",
+    "SelfContained": "true",
+    "PublishSingleFile": "true",
+    "PublishReadyToRun": "true"
+  }
+}

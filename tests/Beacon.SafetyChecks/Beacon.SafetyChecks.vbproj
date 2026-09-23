@@ -40,16 +40,29 @@
     <None Include="../../Beacon_FindInFiles/MainWindow.xaml" Link="Fixtures/MainWindow.xaml" CopyToOutputDirectory="PreserveNewest" />
     <None Update="Fixtures/Archives/*" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="../../Beacon_FindInFiles/SearchQuery.vb" Link="Production/SearchQuery.vb" />
+    <Compile Include="../../Beacon_FindInFiles/TextPreviewNavigation.vb" Link="Production/TextPreviewNavigation.vb" />
+    <Compile Include="../../Beacon_FindInFiles/TextPreviewLineMap.vb" Link="Production/TextPreviewLineMap.vb" />
+    <Compile Include="../../Beacon_FindInFiles/TextSummaryProjection.vb" Link="Production/TextSummaryProjection.vb" />
+    <Compile Include="../../Beacon_FindInFiles/TextSummaryBlockView.vb" Link="Production/TextSummaryBlockView.vb" />
     <Compile Include="../../Beacon_FindInFiles/SearchResults.vb" Link="Production/SearchResults.vb" />
     <Compile Include="../../Beacon_FindInFiles/StructuredSearchResult.vb" Link="Production/StructuredSearchResult.vb" />
     <Compile Include="../../Beacon_FindInFiles/SourceSearchResult.vb" Link="Production/SourceSearchResult.vb" />
     <Compile Include="../../Beacon_FindInFiles/SourceSearchService.vb" Link="Production/SourceSearchService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SourceSearchExecution.vb" Link="Production/SourceSearchExecution.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SearchConcurrencyPolicy.vb" Link="Production/SearchConcurrencyPolicy.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SearchRunCoordinator.vb" Link="Production/SearchRunCoordinator.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SearchResourceGate.vb" Link="Production/SearchResourceGate.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SearchOutputBudget.vb" Link="Production/SearchOutputBudget.vb" />
     <Compile Include="../../Beacon_FindInFiles/HarSearchService.vb" Link="Production/HarSearchService.vb" />
     <Compile Include="../../Beacon_FindInFiles/EvtxSearchService.vb" Link="Production/EvtxSearchService.vb" />
     <Compile Include="../../Beacon_FindInFiles/MatchContext.vb" Link="Production/MatchContext.vb" />
     <Compile Include="../../Beacon_FindInFiles/WebSearchScripts.vb" Link="Production/WebSearchScripts.vb" />
     <Compile Include="../../Beacon_FindInFiles/MainWindow.xaml.vb" Link="MainWindow.xaml.vb" />
     <Compile Include="../../Beacon_FindInFiles/MainWindow.Search.vb" Link="MainWindow.Search.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.ScanPublication.vb" Link="MainWindow.ScanPublication.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.PreviewLifetime.vb" Link="MainWindow.PreviewLifetime.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.TextPreview.vb" Link="MainWindow.TextPreview.vb" />
+    <Compile Include="../../Beacon_FindInFiles/MainWindow.SummaryPreview.vb" Link="MainWindow.SummaryPreview.vb" />
     <Compile Include="../../Beacon_FindInFiles/MainWindow.Evtx.vb" Link="MainWindow.Evtx.vb" />
     <Compile Include="../../Beacon_FindInFiles/MainWindow.Har.vb" Link="MainWindow.Har.vb" />
     <Compile Include="../../Beacon_FindInFiles/EvtxFilter.vb" Link="Production/EvtxFilter.vb" />

@@ -167,9 +167,9 @@
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
-            <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="SelectionTextBrush" Value="{DynamicResource TextSelectionForegroundBrush}"/>
-            <Setter Property="SelectionOpacity" Value="{DynamicResource TextSelectionOpacity}"/>
+            <Setter Property="SelectionOpacity" Value="0.3"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="RichTextBox">
@@ -411,14 +411,46 @@
                 <!-- TEXT PREVIEW -->
                 <GroupBox Header="Preview (Text)"
                           x:Name="TextPreview_grp">
-
-                    <RichTextBox x:Name="TextPreview_rtb"
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <StackPanel x:Name="TextPreviewModePanel" Orientation="Horizontal" Margin="0,0,0,8" Visibility="Collapsed">
+                            <TextBlock Text="View" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <ComboBox x:Name="TextPreviewMode_cmb" Width="140" Margin="0" IsEditable="False"
+                                      AutomationProperties.Name="Text preview mode"
+                                      ToolTip="Full shows the bounded file preview. Summary shows captured match context without rereading the source.">
+                                <ComboBox.Resources><ResourceDictionary Source="SettingsStyles.xaml"/></ComboBox.Resources>
+                            </ComboBox>
+                        </StackPanel>
+                        <TextBlock x:Name="TextSummaryNotice_txt" Grid.Row="1" Margin="0,0,0,8" Visibility="Collapsed"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <ListBox x:Name="SummaryPreview_lst" Grid.Row="2" Visibility="Collapsed" BorderThickness="0"
+                                 Background="{DynamicResource CardBackgroundBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                 ItemContainerStyle="{StaticResource SearchResultItem}" SelectionMode="Single"
+                                 VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.ScrollUnit="Pixel" ScrollViewer.CanContentScroll="True"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 AutomationProperties.Name="Captured text match contexts"/>
+                    <RichTextBox x:Name="TextPreview_rtb" Grid.Row="2"
                                  FontFamily="Consolas"
                                  FontSize="13"
                                  IsReadOnly="True"
                                  VerticalScrollBarVisibility="Auto"
                                  HorizontalScrollBarVisibility="Auto"/>
-
+                        <Border x:Name="TextCounterBar" Grid.Row="3" Padding="12,8" MinHeight="34" CornerRadius="0,0,4,4"
+                                Background="{DynamicResource ButtonBackgroundBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
+                                BorderThickness="0,1,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBlock x:Name="TextMatchCounter_lbl" Grid.Column="0" Text="Match 0 out of 0"
+                                           FontSize="12" FontWeight="SemiBold" Margin="0,0,12,0" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
+                                           AutomationProperties.Name="Text match position" AutomationProperties.LiveSetting="Polite"/>
+                                <TextBlock x:Name="TextMatchScope_lbl" Grid.Column="1" Text="Full · indexed matches"
+                                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"
+                                           ToolTip="Full counts indexed matches in the loaded preview. Summary counts captured focus-line occurrences or record anchors, not repeated neighboring context."/>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </GroupBox>
 
                 <!-- EVENT PREVIEW (CORRECTED) -->
@@ -819,6 +851,9 @@
                 HorizontalAlignment="Left">
 
                     <Button x:Name="NextFile_btn" Content="Next File (Ctrl+↓)" Visibility="Collapsed" Margin="0,0,8,0"/>
+
+                    <Button x:Name="FindPrevious_btn" Content="Find Previous (Shift+F3)"
+                            Visibility="Collapsed" IsEnabled="False" Margin="0,0,8,0"/>
 
                     <Button x:Name="FindPreviousEvent_btn"
                 Content="Previous Event (Shift+F3)"
