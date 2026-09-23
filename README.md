@@ -9,7 +9,7 @@
 
 Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-> **Getting ready for 2.2!** This README describes the 2.2.0 release candidate being prepared on **Beta** for promotion to **Release**. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads; preparing a candidate does not publish it. Release-preparation details live [here](docs/releases/2.2.0/PREPARATION.md), and earlier release notes remain below.
+> **Beacon 2.2** brings automatic multicore searching and clearer ways to explore matches. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads; updating the source branch does not upload release assets. Current package and promotion details live [here](docs/releases/2.2.0/PROMOTION.md). The previous Release snapshot is preserved on [`Beacon2.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.1), and earlier release notes remain below.
 
 ## 🎯 Features at a glance
 
@@ -279,7 +279,7 @@ Share bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Find
 
 ## 📋 Changelog
 
-### v2.2.0 — prepared for release
+### v2.2.0
 
 #### ✨ Added
 

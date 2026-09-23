@@ -1,5 +1,7 @@
 # Beacon 2.2.0 — Beta to Release preparation
 
+> **Historical Beta-candidate preparation.** This record and its original hashes are retained for provenance. See [PROMOTION.md](PROMOTION.md) for the later authorized Release promotion and shipping package; do not substitute these candidate bytes for the final upload.
+
 ## Current status
 
 **Locally packaged and automatically validated; ready for owner review and branch reconciliation, not yet promoted or published.** Preparation remains on Beta. No commit, merge, branch switch, push, tag, signing, or GitHub release upload was performed. Existing implementation changes and historical artifacts are preserved.

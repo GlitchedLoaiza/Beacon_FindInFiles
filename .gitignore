@@ -387,7 +387,15 @@ docs/releases/2.2.0/*
 !docs/releases/2.2.0/SHA256SUMS.txt
 !docs/releases/2.2.0/release-manifest.json
 !docs/releases/2.2.0/PREPARATION.md
+!docs/releases/2.2.0/PROMOTION.md
 !docs/releases/2.2.0/validation/
 docs/releases/2.2.0/validation/*
 !docs/releases/2.2.0/validation/*.txt
 !docs/releases/2.2.0/validation/*.json
+
+!docs/releases/2.2.0/packages/
+docs/releases/2.2.0/packages/*
+!docs/releases/2.2.0/packages/*/
+docs/releases/2.2.0/packages/*/*
+!docs/releases/2.2.0/packages/*/*.txt
+!docs/releases/2.2.0/packages/*/*.json

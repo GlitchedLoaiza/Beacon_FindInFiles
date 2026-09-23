@@ -1,0 +1,12 @@
+Validation UTC: 2026-09-16T23:23:05.5813592+00:00
+PASS source/configuration: clean master 7dbb34245cd9592862369471235e626ea7c338d2; Release, win-x64, self-contained single-file, ReadyToRun off.
+PASS artifact: Beacon.exe; bytes=77626479; SHA256=457700B3F089E485BFC1EC97D6A260D59719C06E6AF02DBA67B71DCDDD594044
+PASS artifact: Beacon-2.1.0-win-x64.zip; bytes=72073590; SHA256=C2D0B43CBC9E3C18722F1925A6364A044B0A0D1D7D85E8FCA7EB56702584ACBA
+PASS ZIP inventory: 12 verified files; application and required legal notices only; no source, tests, logs, profiles, or loose dependency documentation.
+PASS extracted executable: AMD64; file version 2.1.0.0; product version 2.1.0+7dbb34245cd9592862369471235e626ea7c338d2; signature NotSigned.
+PASS packaged startup: the exact ZIP executable displayed the Beacon main window.
+PASS packaged duplicate launch: secondary exited 0 and the original instance remained running.
+PASS packaged normal shutdown: original instance exited 0.
+PASS user-state preservation: settings and welcome-tour marker are unchanged; temporary/WebView2 and bundle extraction were scoped to the workspace.
+PASS delivered EXE/ZIP hashes remain unchanged after validation. No signing, push, tag, or GitHub upload was performed.
+Scope: automated regressions and this limited startup check do not replace representative-file, first-launch, visual, or target-machine release testing.

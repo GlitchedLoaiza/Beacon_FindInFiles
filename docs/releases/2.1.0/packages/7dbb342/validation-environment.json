@@ -1,0 +1,11 @@
+{
+  "SourceCommit": "7dbb34245cd9592862369471235e626ea7c338d2",
+  "SourceBranch": "master",
+  "SourceWasClean": true,
+  "StartedUtc": "2026-09-16T23:13:23.0473075+00:00",
+  "DotNetSdk": "10.0.401",
+  "WindowsVersion": "10.0.26200.0",
+  "OSArchitecture": "X64",
+  "ReleaseRegressionExitCode": 0,
+  "CompletedUtc": "2026-09-16T23:14:06.3581869+00:00"
+}
