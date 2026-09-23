@@ -1,0 +1,357 @@
+[
+  {
+    "Document": "README.md",
+    "Target": "docs/releases/2.2.0/PROMOTION.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "docs/releases/2.2.0/packages/06b8a89/SHA256SUMS.txt",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "docs/releases/2.2.0/packages/06b8a89/release-manifest.json",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "docs/releases/2.2.0/PROMOTION.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "tests/Beacon.SafetyChecks/README.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "BenchmarkSuite1/BenchmarkSuite1.csproj",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "BenchmarkSuite1/PRODUCTION-BENCHMARKS.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "tests/Beacon.SafetyChecks/PerformanceEvidence/multicore-production/REPORT.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "docs/releases/2.2.0/PROMOTION.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "THIRD-PARTY-NOTICES.md",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "LICENSE",
+    "Exists": true
+  },
+  {
+    "Document": "README.md",
+    "Target": "THIRD-PARTY-NOTICES.md",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "PREPARATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/release-manifest.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/SHA256SUMS.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/package-verification.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/package-contents.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/debug-build.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/release-build.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/debug-regressions.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/release-regressions.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/release-repeat-regressions.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/dependency-audit.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/published-smoke.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/published-smoke.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/published-smoke-script.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/shipping-source.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PROMOTION.md",
+    "Target": "packages/06b8a89/validated-source-files.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "PROMOTION.md",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/promotion-preflight.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "SHA256SUMS.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "release-manifest.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/package-contents.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/package-validation.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/publish-properties.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/publish.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/package-location.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/debug-build.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/release-build.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/debug-regressions.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/release-regressions.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/dependency-audit.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/source-version-properties.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/package-validation.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/package-contents.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/publish.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/documentation-links.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/source-state-after.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/promotion-preflight.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/source-state-after.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/initial-debug-regressions.txt",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/source-state-before.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/source-files.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "validation/source-state-after.json",
+    "Exists": true
+  },
+  {
+    "Document": "docs/releases/2.2.0/PREPARATION.md",
+    "Target": "../../../tests/Beacon.SafetyChecks/PerformanceEvidence/multicore-production/REPORT.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "../../docs/releases/2.2.0/PROMOTION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "../../docs/releases/2.2.0/PREPARATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "PerformanceEvidence/multicore-production/REPORT.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "PERFORMANCE-AUDIT.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "PerformanceEvidence/20260915-abba",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "../../docs/releases/2.1.0/PREPARATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "../../docs/releases/2.1.0/PREPARATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "../../docs/releases/2.1.0/packages/7dbb342/release-manifest.json",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/README.md",
+    "Target": "RELEASE-VALIDATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/RELEASE-VALIDATION.md",
+    "Target": "../../docs/releases/2.2.0/PROMOTION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/RELEASE-VALIDATION.md",
+    "Target": "../../docs/releases/2.2.0/PREPARATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/RELEASE-VALIDATION.md",
+    "Target": "../../docs/releases/2.1.0/packages/7dbb342/release-manifest.json",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/RELEASE-VALIDATION.md",
+    "Target": "../../docs/releases/2.1.0/PREPARATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/RELEASE-VALIDATION.md",
+    "Target": "../../docs/releases/2.1.0/PREPARATION.md",
+    "Exists": true
+  },
+  {
+    "Document": "tests/Beacon.SafetyChecks/RELEASE-VALIDATION.md",
+    "Target": "PERFORMANCE-AUDIT.md",
+    "Exists": true
+  }
+]

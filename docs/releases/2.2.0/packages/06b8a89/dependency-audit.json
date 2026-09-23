@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "parameters": "--vulnerable --include-transitive",
+  "sources": [
+    "https://packagefeedproxy.microsoft.io/nuget/v3/index.json",
+    "C:/Program Files (x86)/Microsoft SDKs/NuGetPackages/"
+  ],
+  "projects": [
+    {
+      "path": "C:/Users/luislo/source/repos/Beacon_FindInFiles/Beacon_FindInFiles/Beacon_FindInFiles.vbproj"
+    },
+    {
+      "path": "C:/Users/luislo/source/repos/Beacon_FindInFiles/BenchmarkSuite1/BenchmarkSuite1.csproj"
+    },
+    {
+      "path": "C:/Users/luislo/source/repos/Beacon_FindInFiles/tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj"
+    }
+  ]
+}

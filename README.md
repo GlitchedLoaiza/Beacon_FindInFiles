@@ -44,22 +44,22 @@ Keep the included `LICENSE` and `licenses` folder with the app when sharing it. 
 
 ### 🔐 Verify your download
 
-Use the checksum for the **same file and version** you downloaded. The [2.2.0 checksum list](docs/releases/2.2.0/SHA256SUMS.txt) contains separate values for the prepared ZIP and EXE.
+Use the checksum for the **same file and version** you downloaded. The [2.2.0 release checksum list](docs/releases/2.2.0/packages/06b8a89/SHA256SUMS.txt) contains separate values for the ZIP and EXE.
 
 <details>
-<summary>Show the prepared 2.2.0 hashes and PowerShell verification steps</summary>
+<summary>Show the 2.2.0 release hashes and PowerShell verification steps</summary>
 
-These values identify the exact locally prepared candidate. The [artifact manifest](docs/releases/2.2.0/release-manifest.json) contains the full build details. This does not mean the candidate has been uploaded to GitHub Releases.
+These values identify the verified package built from committed Release source. The [artifact manifest](docs/releases/2.2.0/packages/06b8a89/release-manifest.json) contains the full build details. Check GitHub Releases for asset availability; source promotion does not upload the download automatically.
 
-<!-- RELEASE-HASHES: copied from the verified 2.2.0 candidate; regenerate after rebuilding, repackaging, or signing. -->
-Prepared locally on **2026-09-23 UTC** from the **Beta working tree**, based on `20edcaa4` with the 2.2 changes not yet committed (Release, win-x64, self-contained single-file, ReadyToRun off):
+<!-- RELEASE-HASHES: copied from the verified 2.2.0 Release package; regenerate after rebuilding, repackaging, or signing. -->
+Built on **2026-09-23 UTC** from clean **Release** source at `06b8a89` (Release configuration, win-x64, self-contained single-file, ReadyToRun off). The later documentation commit records these hashes without changing the application source:
 
 | File | Size (bytes) | SHA-256 |
 | --- | ---: | --- |
-| `Beacon.exe` | 77,655,849 | `CC7BFFDFAB568F10888129740B9639626081CB6D6BF13BD82EB6CBEC3D098E60` |
-| `Beacon-2.2.0-win-x64.zip` | 72,102,795 | `D6E9E8FA02A608B8CA28DE423389F7737DB290F6E60259BDBB7C061F05AF277A` |
+| `Beacon.exe` | 77,655,857 | `376D76BD7C6B488A148728319DF450B450125A69C841A767EEC0281BACB99935` |
+| `Beacon-2.2.0-win-x64.zip` | 72,102,813 | `F909198059D60551333218E2232EF92DE485BA3A7DD813B39A374B857B7A62CD` |
 
-These hashes apply only to this prepared candidate. A rebuilt or signed download needs its own verification file; old 2.1.0 hashes do not identify a 2.2.0 build.
+These hashes apply only to this Release package, not the earlier Beta candidate. A rebuilt or signed download needs its own verification file; old 2.1.0 hashes do not identify a 2.2.0 build.
 <!-- /RELEASE-HASHES -->
 
 In PowerShell, run this in the download folder:
@@ -234,7 +234,7 @@ Use the visible navigation buttons when a shortcut does not apply to the active 
 - **Looking for more speed?** Beacon automatically uses available processor capacity for independent files and archives; no manual worker tuning is needed. There is no fixed eight-core limit, but memory, storage, the query, and the amount of independent work can limit the benefit. A single file or archive tree is still processed sequentially.
 - **Why does counting take time?** Beacon still counts before searching, and counting can repeat archive extraction. Temporary nested files remain available for previews until Reset/close. Leave those files alone while Beacon uses them.
 
-The in-app **Help** guide has step-by-step troubleshooting. Maintainer validation and release sign-off are tracked separately in the [release preparation checklist](docs/releases/2.2.0/PREPARATION.md).
+The in-app **Help** guide has step-by-step troubleshooting. Maintainer validation and release details are tracked separately in the [release record](docs/releases/2.2.0/PROMOTION.md).
 
 ## 🔧 For developers
 
@@ -257,14 +257,14 @@ The regression runner is a console application, not a Test Explorer assembly. It
 Create a self-contained release package and fresh checksums with PowerShell 7:
 
 ```powershell
-.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.2.0"
+.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.2.0-Release"
 ```
 
 The script creates the EXE/ZIP, includes legal notices, verifies the contents, preserves old artifacts, and writes checksums and a manifest. It does not commit, sign, or upload anything. It defaults to ReadyToRun off; `-ReadyToRun` opts in without a profile, and `-PublishProfilePath` accepts a `.pubxml` path. Raw `dotnet publish` uses the project's ReadyToRun default (on), so its hash may differ. User-specific publish paths are not required.
 
 The development-only [`BenchmarkSuite1`](BenchmarkSuite1/BenchmarkSuite1.csproj) includes [production multicore benchmark instructions](BenchmarkSuite1/PRODUCTION-BENCHMARKS.md) and [measured results](tests/Beacon.SafetyChecks/PerformanceEvidence/multicore-production/REPORT.md), including approximately 200 MiB compressed ZIPs. These are workload- and machine-specific measurements, not a promise for every scan. The earlier [optimization and rollback record](tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md) remains available.
 
-For final packaging and **Beta → Release** promotion checks, follow [release preparation](docs/releases/2.2.0/PREPARATION.md). Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+For final packaging and **Beta → Release** provenance, follow the [release record](docs/releases/2.2.0/PROMOTION.md). Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 </details>
 

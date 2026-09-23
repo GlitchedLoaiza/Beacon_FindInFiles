@@ -1,0 +1,8 @@
+{
+  "VerifiedUtc": "2026-09-23T22:32:10.5661101+00:00",
+  "PackageSourceCommit": "06b8a89c26a6723e2625d2e66a8bdd58e6d5920d",
+  "ApplicationInputsUnchanged": true,
+  "InputFilesVerified": 129,
+  "SubsequentCommitScope": "Documentation, checksums, and validation evidence only",
+  "PackageRebuiltAfterDocumentation": false
+}

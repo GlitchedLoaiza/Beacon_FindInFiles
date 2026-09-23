@@ -1,0 +1,97 @@
+PASS XML indentation and declaration
+PASS XML formatting can be disabled
+PASS Malformed XML remains readable
+PASS DTD and oversized XML remain unexpanded
+PASS HTML uses a low-priority light canvas
+PASS Unsafe archive paths rejected
+PASS Encrypted entries and links rejected
+PASS Entry count limit enforced
+PASS Entry size and ratio limits enforced
+PASS Aggregate actual byte budget enforced
+PASS Bounded stream allows exact limit and EOF
+PASS Bounded stream detects lying metadata
+PASS Async reads enforce byte limits
+PASS Read cancellation honored
+PASS Filesystem filters and size reporting
+PASS Followed junction cycle terminates
+PASS Traversal cancellation honored
+PASS CAB extraction with spaces in filename
+PASS Corrupt CAB fails safely
+PASS CAB output cannot exceed advertised size
+PASS CAB paths rejected before extraction
+PASS CAB timeout stops stalled reader
+PASS CAB cancellation stops active reader
+PASS Settings light theme templates and contrast
+PASS Settings dark theme templates and contrast
+PASS Main Path/Search fields in light theme
+PASS Main Path/Search fields in dark theme
+PASS Preview counters from light to dark
+PASS Preview counters from dark to light
+PASS Compact toolbar and wrench in light theme
+PASS Compact toolbar and wrench in dark theme
+PASS Compact results and optional details in light theme
+PASS Compact results and optional details in dark theme
+PASS Splash scene, motion preferences and cleanup
+PASS Splash work-area scaling
+PASS Search modes, validation and regex safety
+PASS Bidirectional text cursor, Unicode and wraparound
+PASS Captured summary parity, overlapping windows and anchors
+PASS Summary preview, reverse navigation, source independence and session mode
+PASS Text match counter navigation and theme transitions
+PASS Text match counter loading, limits, errors and clearing
+PASS Text match counter zero-width anchors and metadata
+PASS Reset and new scans clear all text, event and HAR navigation
+PASS Text preview direction, newline and Unicode selection
+PASS ZIP, nested and CAB summaries without source reads
+PASS Summary metadata, preview bounds and zero-width anchors
+PASS Obsolete preview readers cannot replace current content
+SUMMARY Light: 10,000 records; initial=47.2 ms; render/scroll=169.5 ms; allocated=11,226,264 bytes; realized=2.
+SUMMARY Dark: 10,000 records; initial=44.0 ms; render/scroll=168.0 ms; allocated=11,238,568 bytes; realized=3.
+SUMMARY Beacon: 10,000 records; initial=50.9 ms; render/scroll=182.4 ms; allocated=11,244,968 bytes; realized=2.
+PASS Summary themes, minimum layout and bounded virtualization
+PASS Bounded matching text records
+PASS Disk, HAR and archive search pipeline
+PASS SharpCompress archive formats and byte-exact rereads
+PASS Compressed TAR preview, nesting and logical paths
+PASS ZIP hidden and system attributes
+PASS Archive encryption, paths, links and checksums
+PASS Compressed TAR limits, cancellation and cleanup
+PASS RAR and RAR5 solid payload hashes
+PASS Malicious archive directories and preview limits
+PASS ZIP checksum streams and corrupt payload rejection
+PASS Readable bounded previews and Unicode boundaries
+PASS Selected archive labels, nested paths and previews
+PASS Text, event, HAR navigation and CAB search
+PASS WebView2 query ranges and stale captures
+PASS Bounded concurrent diagnostics
+PASS Report snapshots and safe copy formatting
+PASS CSV/JSON/HTML export and atomic writes
+PASS Scan report filtering and light theme
+PASS Scan report filtering and dark theme
+PASS Main-window report snapshot and action layout
+PASS Five-line context and readable HTML reports
+PASS Startup stable-release checks and silent failures
+PASS Settings inline update results and cancellation
+PASS EVTX filters, XML tools and offline guidance
+PASS Native caption themes preserve Windows frames
+PASS Single-instance ownership, activation and crash recovery
+PASS Editable UTC picker, severity and provider dropdowns
+PASS HAR filters, bounded decoding and redacted exports
+PASS Headless HAR service isolation and failure semantics
+PASS Headless EVTX service isolation and XML semantics
+PASS Beginner help and multiple-record defaults
+PASS Headless preview service limits, sources and cleanup
+PASS Headless source traversal, snapshots and lifetime
+PASS Automatic processor and memory policy
+PASS Heavy-work bounds, reserved head lane and cancellation
+PASS Ordered multicore results and completed progress
+PASS Ordered result caps, callback faults and cancellation
+PASS Parallel nested preview lifetime and cancelled-result cleanup
+PASS Ordered archive floods, capped prefixes and cancelled backpressure
+PASS Mixed-source parallel parity, redaction, solid archives and resource fallback
+PASS Once-only optional welcome tour and splash version
+PASS Help tour replay preserves existing, absent and blocked marker state
+PASS Tour replay and Summary remain independent of active multicore search
+PASS Optimized line-context order and isolation
+PASS Beacon Theme system backgrounds and logo-red buttons
+93 passed; 0 failed.

@@ -1,0 +1,51 @@
+{
+  "StartedUtc": "2026-09-23T22:26:51.4389442+00:00",
+  "SourceCommit": "06b8a89c26a6723e2625d2e66a8bdd58e6d5920d",
+  "ExeSHA256": "376D76BD7C6B488A148728319DF450B450125A69C841A767EEC0281BACB99935",
+  "ZipSHA256": "F909198059D60551333218E2232EF92DE485BA3A7DD813B39A374B857B7A62CD",
+  "ExtractedDirectory": "C:\\Users\\luislo\\source\\repos\\Beacon_FindInFiles\\artifacts\\Beacon-2.2.0-promotion\\smoke-extracted-c7915e6689bd400c8dec4c661bc75393",
+  "StartupPassed": true,
+  "DuplicateInstancePassed": true,
+  "NormalExitPassed": true,
+  "UserStateUnchanged": true,
+  "ForcedCleanup": false,
+  "Passed": true,
+  "Scope": "Exact ZIP executable: main-window startup, duplicate-instance exit, normal close. No private-file scan, settings save, ownership change, or marker reset. Startup may query public update metadata.",
+  "UserStateBefore": [
+    {
+      "Name": "settings.json",
+      "Exists": true,
+      "SHA256": "DBCEB720740091A456C7458F5EC10CC625589984533899F3E1141B1A08FBF081",
+      "Bytes": 1588,
+      "LastWriteUtc": "2026-09-23T18:11:07.5806124Z"
+    },
+    {
+      "Name": "welcome-tour.offered",
+      "Exists": true,
+      "SHA256": "A1F9805D034C0A9FF2414E9EC5497751A476ED695FCA72056E4E910FDB937D73",
+      "Bytes": 61,
+      "LastWriteUtc": "2026-09-15T17:45:01.3480606Z"
+    }
+  ],
+  "StartupMs": 5475.4,
+  "MainWindowTitle": "Beacon: Find in Files",
+  "SecondaryExitCode": 0,
+  "PrimaryExitCode": 0,
+  "UserStateAfter": [
+    {
+      "Name": "settings.json",
+      "Exists": true,
+      "SHA256": "DBCEB720740091A456C7458F5EC10CC625589984533899F3E1141B1A08FBF081",
+      "Bytes": 1588,
+      "LastWriteUtc": "2026-09-23T18:11:07.5806124Z"
+    },
+    {
+      "Name": "welcome-tour.offered",
+      "Exists": true,
+      "SHA256": "A1F9805D034C0A9FF2414E9EC5497751A476ED695FCA72056E4E910FDB937D73",
+      "Bytes": 61,
+      "LastWriteUtc": "2026-09-15T17:45:01.3480606Z"
+    }
+  ],
+  "CompletedUtc": "2026-09-23T22:26:59.7490056+00:00"
+}

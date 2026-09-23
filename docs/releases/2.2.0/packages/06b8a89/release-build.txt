@@ -1,0 +1,12 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Copied 7za.exe to project directory for embedding
+  Beacon_FindInFiles -> C:\Users\luislo\source\repos\Beacon_FindInFiles\Beacon_FindInFiles\bin\Release\net10.0-windows\win-x64\Beacon.dll
+  Beacon.SafetyChecks -> C:\Users\luislo\source\repos\Beacon_FindInFiles\tests\Beacon.SafetyChecks\bin\Release\net10.0-windows\Beacon.SafetyChecks.dll
+  BenchmarkSuite1 -> C:\Users\luislo\source\repos\Beacon_FindInFiles\BenchmarkSuite1\bin\Release\net10.0-windows\BenchmarkSuite1.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.16

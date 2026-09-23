@@ -1,0 +1,5 @@
+SMOKE: launching exact ZIP executable.
+SMOKE: main window ready in 5475.4 ms.
+SMOKE: second instance exited successfully; original remains running.
+SMOKE: normal shutdown completed.
+SMOKE PASSED: exact shipping EXE, normal lifecycle, user settings/marker unchanged.

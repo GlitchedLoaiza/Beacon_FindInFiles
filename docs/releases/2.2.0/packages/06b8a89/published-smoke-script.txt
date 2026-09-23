@@ -1,0 +1,116 @@
+#requires -Version 7.0
+param(
+	[Parameter(Mandatory)][string]$PackageDirectory,
+	[Parameter(Mandatory)][string]$EvidenceDirectory
+)
+$ErrorActionPreference = 'Stop'
+$PackageDirectory = [IO.Path]::GetFullPath($PackageDirectory)
+$EvidenceDirectory = [IO.Path]::GetFullPath($EvidenceDirectory)
+$manifest = Get-Content -Raw (Join-Path $PackageDirectory 'release-manifest.json') | ConvertFrom-Json
+$zipPath = Join-Path $PackageDirectory 'Beacon-2.2.0-win-x64.zip'
+$zipRecord = $manifest.Artifacts | Where-Object File -eq 'Beacon-2.2.0-win-x64.zip'
+$exeRecord = $manifest.Artifacts | Where-Object File -eq 'Beacon.exe'
+if ((Get-FileHash $zipPath -Algorithm SHA256).Hash -ne $zipRecord.SHA256) { throw 'Shipping ZIP hash mismatch.' }
+if (@(Get-Process -Name Beacon -ErrorAction SilentlyContinue).Count -ne 0) { throw 'An existing Beacon instance is running; it will not be disturbed.' }
+$userDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Beacon'
+if (-not (Test-Path (Join-Path $userDirectory 'welcome-tour.offered') -PathType Leaf)) {
+	throw 'The real welcome marker is absent; do not create/change onboarding state for an automatic smoke test.'
+}
+function Read-UserState {
+	foreach ($name in @('settings.json', 'welcome-tour.offered')) {
+		$path = Join-Path $userDirectory $name
+		$exists = Test-Path -LiteralPath $path -PathType Leaf
+		[pscustomobject][ordered]@{
+			Name = $name
+			Exists = $exists
+			SHA256 = if ($exists) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash } else { $null }
+			Bytes = if ($exists) { (Get-Item -LiteralPath $path).Length } else { 0 }
+			LastWriteUtc = if ($exists) { (Get-Item -LiteralPath $path).LastWriteTimeUtc.ToString('O') } else { $null }
+		}
+	}
+}
+$before = @(Read-UserState)
+$extracted = Join-Path $EvidenceDirectory ('smoke-extracted-' + [Guid]::NewGuid().ToString('N'))
+[IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extracted)
+$executable = Join-Path $extracted 'Beacon.exe'
+if ((Get-FileHash $executable -Algorithm SHA256).Hash -ne $exeRecord.SHA256) { throw 'Extracted shipping EXE hash mismatch.' }
+$record = [ordered]@{
+	StartedUtc = [DateTimeOffset]::UtcNow.ToString('O')
+	SourceCommit = $manifest.SourceCommit
+	ExeSHA256 = $exeRecord.SHA256
+	ZipSHA256 = $zipRecord.SHA256
+	ExtractedDirectory = $extracted
+	StartupPassed = $false
+	DuplicateInstancePassed = $false
+	NormalExitPassed = $false
+	UserStateUnchanged = $false
+	ForcedCleanup = $false
+	Passed = $false
+	Scope = 'Exact ZIP executable: main-window startup, duplicate-instance exit, normal close. No private-file scan, settings save, ownership change, or marker reset. Startup may query public update metadata.'
+	UserStateBefore = $before
+}
+$started = [Collections.Generic.List[Diagnostics.Process]]::new()
+$failure = $null
+try {
+	Write-Output 'SMOKE: launching exact ZIP executable.'
+	$info = [Diagnostics.ProcessStartInfo]::new($executable)
+	$info.UseShellExecute = $false
+	$info.WorkingDirectory = $extracted
+	$clock = [Diagnostics.Stopwatch]::StartNew()
+	$primary = [Diagnostics.Process]::Start($info)
+	$started.Add($primary)
+	while ($true) {
+		$primary.Refresh()
+		if ($primary.HasExited) { throw "Published executable exited before the main window: $($primary.ExitCode)." }
+		if ($primary.MainWindowHandle -ne [IntPtr]::Zero -and $primary.MainWindowTitle -eq 'Beacon: Find in Files') { break }
+		if ($clock.Elapsed.TotalSeconds -gt 45) { throw "Main-window startup timed out; observed title '$($primary.MainWindowTitle)'." }
+		Start-Sleep -Milliseconds 100
+	}
+	$record.StartupPassed = $true
+	$record.StartupMs = [Math]::Round($clock.Elapsed.TotalMilliseconds, 2)
+	$record.MainWindowTitle = $primary.MainWindowTitle
+	Write-Output "SMOKE: main window ready in $($record.StartupMs) ms."
+	$secondary = [Diagnostics.Process]::Start($info)
+	$started.Add($secondary)
+	if (-not $secondary.WaitForExit(15000)) { throw 'The second instance did not exit.' }
+	$primary.Refresh()
+	if ($secondary.ExitCode -ne 0 -or $primary.HasExited) { throw 'Second-instance handling failed.' }
+	$record.DuplicateInstancePassed = $true
+	$record.SecondaryExitCode = $secondary.ExitCode
+	Write-Output 'SMOKE: second instance exited successfully; original remains running.'
+	Start-Sleep -Seconds 2
+	if (-not $primary.CloseMainWindow()) { throw 'The primary process did not accept normal window close.' }
+	if (-not $primary.WaitForExit(30000)) { throw 'Normal application shutdown timed out.' }
+	if ($primary.ExitCode -ne 0) { throw "Published executable exited with code $($primary.ExitCode)." }
+	$record.NormalExitPassed = $true
+	$record.PrimaryExitCode = $primary.ExitCode
+	Write-Output 'SMOKE: normal shutdown completed.'
+} catch {
+	$failure = $_.Exception.Message
+	$record.Error = $failure
+} finally {
+	foreach ($process in $started) {
+		try {
+			if (-not $process.HasExited) {
+				$null = $process.CloseMainWindow()
+				if (-not $process.WaitForExit(10000)) {
+					$record.ForcedCleanup = $true
+					$process.Kill($true)
+					$process.WaitForExit()
+				}
+			}
+		} finally { $process.Dispose() }
+	}
+	$after = @(Read-UserState)
+	$record.UserStateAfter = $after
+	$record.UserStateUnchanged = (($before | ConvertTo-Json -Depth 4 -Compress) -ceq ($after | ConvertTo-Json -Depth 4 -Compress))
+	if (-not $record.UserStateUnchanged) {
+		$failure = 'User settings or marker state changed during smoke testing; no automatic restoration was attempted.'
+		$record.Error = $failure
+	}
+	$record.Passed = $null -eq $failure -and $record.StartupPassed -and $record.DuplicateInstancePassed -and $record.NormalExitPassed -and -not $record.ForcedCleanup
+	$record.CompletedUtc = [DateTimeOffset]::UtcNow.ToString('O')
+	$record | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 (Join-Path $EvidenceDirectory 'published-smoke.json')
+}
+if ($failure) { throw $failure }
+Write-Output 'SMOKE PASSED: exact shipping EXE, normal lifecycle, user settings/marker unchanged.'
