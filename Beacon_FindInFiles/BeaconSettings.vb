@@ -61,6 +61,18 @@ Namespace Beacon
         Public Property EvtxFromUtc As String = ""
         Public Property EvtxToUtc As String = ""
         Public Property ShowRawXmlWhenMessageUnavailable As Boolean = True
+        Public Property EvtxDeepSearch As Boolean = False
+        Public Property EvtxLimitDeepSearchBeforeXml As Boolean = False
+        Public Property EvtxDeepSearchTimeoutSeconds As Integer = 180
+        <JsonIgnore>
+        Public Property EvtxFastMode As Boolean
+            Get
+                Return Not EvtxDeepSearch
+            End Get
+            Set(value As Boolean)
+                EvtxDeepSearch = Not value
+            End Set
+        End Property
         Public Property EvtxMessageResourceBehavior As EvtxResourcePolicy = EvtxResourcePolicy.OfflineOnly
 
         Public Property HarMaximumMatches As Integer = 300
@@ -119,11 +131,41 @@ Namespace Beacon
         Public Shared Function Load() As BeaconSettings
             Try
                 If Not File.Exists(SettingsPath) Then Return BeaconSettings.CreateDefaults()
-                Dim settings = JsonSerializer.Deserialize(Of BeaconSettings)(File.ReadAllText(SettingsPath), SerializerOptions)
+                Dim settings = Deserialize(File.ReadAllText(SettingsPath))
                 Return Validate(If(settings, BeaconSettings.CreateDefaults()))
             Catch
                 Return BeaconSettings.CreateDefaults()
             End Try
+        End Function
+
+        Friend Shared Function Deserialize(json As String) As BeaconSettings
+            Dim settings = JsonSerializer.Deserialize(Of BeaconSettings)(json, SerializerOptions)
+            If settings Is Nothing Then Return BeaconSettings.CreateDefaults()
+
+            Using document = JsonDocument.Parse(json)
+                Dim root = document.RootElement
+                Dim deepSearchValue As Boolean
+                Dim hasDeepSearch = TryGetBooleanProperty(root, "EvtxDeepSearch", deepSearchValue)
+                Dim legacyFastMode As Boolean
+                If Not hasDeepSearch AndAlso TryGetBooleanProperty(root, "EvtxFastMode", legacyFastMode) Then
+                    settings.EvtxDeepSearch = Not legacyFastMode
+                End If
+            End Using
+
+            Return settings
+        End Function
+
+        Private Shared Function TryGetBooleanProperty(root As JsonElement, propertyName As String, ByRef value As Boolean) As Boolean
+            If root.ValueKind <> JsonValueKind.Object Then Return False
+            For Each item In root.EnumerateObject()
+                If Not String.Equals(item.Name, propertyName, StringComparison.OrdinalIgnoreCase) Then Continue For
+                If item.Value.ValueKind = JsonValueKind.True OrElse item.Value.ValueKind = JsonValueKind.False Then
+                    value = item.Value.GetBoolean()
+                    Return True
+                End If
+                Return False
+            Next
+            Return False
         End Function
 
         Public Shared Sub Save(settings As BeaconSettings)
@@ -153,6 +195,7 @@ Namespace Beacon
             settings.MaximumCompressionRatio = Math.Clamp(settings.MaximumCompressionRatio, 1, 10000)
             settings.ArchiveProcessTimeoutSeconds = Math.Clamp(settings.ArchiveProcessTimeoutSeconds, 5, 3600)
             settings.EvtxMaximumMatches = Math.Clamp(settings.EvtxMaximumMatches, 1, settings.MaximumStructuredMatches)
+            settings.EvtxDeepSearchTimeoutSeconds = Math.Clamp(settings.EvtxDeepSearchTimeoutSeconds, 1, 86400)
             settings.HarMaximumMatches = Math.Clamp(settings.HarMaximumMatches, 1, settings.MaximumStructuredMatches)
             settings.MaximumHarBodySizeMb = Math.Clamp(settings.MaximumHarBodySizeMb, 1, 10240)
             settings.PreviewFontSize = Math.Clamp(settings.PreviewFontSize, 8, 48)

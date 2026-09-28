@@ -71,6 +71,8 @@ Module SettingsThemeChecks
     Public Sub Run(dark As Boolean)
         If Application.Current Is Nothing Then
             Dim application As New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
+        Else
+            Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown
         End If
         Dim settings As New BeaconSettings()
         Dim window As New SettingsWindow(settings, dark) With {
@@ -85,6 +87,16 @@ Module SettingsThemeChecks
             Dim theme = DirectCast(window.FindName("Theme_cmb"), ComboBox)
             Require(theme.Items.Cast(Of ComboBoxItem)().Select(Function(item) CStr(item.Content)).SequenceEqual({"Light", "Dark", "System theme", "Beacon Theme"}), "Theme choices are incorrect.")
             Require(CStr(theme.SelectedValue) = "System", "Theme should default to Windows preferences.")
+            Dim limitDeep = DirectCast(window.FindName("LimitEvtxDeepSearch_chk"), CheckBox)
+            Dim deepTimeout = DirectCast(window.FindName("EvtxDeepSearchTimeout_txt"), TextBox)
+            Require(Not limitDeep.IsChecked.GetValueOrDefault() AndAlso deepTimeout.Text = "180" AndAlso Not deepTimeout.IsEnabled, "EVTX Deep Search timeout limit should default off with a retained 180-second value.")
+            limitDeep.IsChecked = True
+            Pump(window)
+            Require(deepTimeout.IsEnabled, "EVTX Deep Search timeout box should enable only when the limit checkbox is checked.")
+            deepTimeout.Text = "42"
+            limitDeep.IsChecked = False
+            Pump(window)
+            Require(Not deepTimeout.IsEnabled AndAlso deepTimeout.Text = "42", "Disabling the EVTX Deep Search timeout should retain the configured value.")
             For Each choice In [Enum].GetValues(Of AppTheme)()
                 Dim saved = BeaconSettingsService.Clone(New BeaconSettings With {.Theme = choice})
                 Require(saved.Theme = choice, "Theme did not survive settings serialization.")
@@ -230,6 +242,64 @@ Module SettingsThemeChecks
         End Try
     End Sub
 
+    Public Sub RunMainDeepSearchVisibility(dark As Boolean)
+        If Application.Current Is Nothing Then
+            Dim application As New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
+        End If
+        Dim root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "BeaconDeepSearchUi-" & Guid.NewGuid().ToString("N"))
+        Dim folder = System.IO.Path.Combine(root, "logs")
+        Dim archive = System.IO.Path.Combine(root, "logs.zip")
+        Dim evtx = System.IO.Path.Combine(root, "sample.evtx")
+        System.IO.Directory.CreateDirectory(folder)
+        System.IO.File.WriteAllText(archive, "not used by this UI test")
+        System.IO.File.WriteAllText(evtx, "not used by this UI test")
+        Dim previousMain = If(Application.Current Is Nothing, Nothing, Application.Current.MainWindow)
+        Dim window As New MainWindow() With {
+            .WindowStartupLocation = WindowStartupLocation.Manual,
+            .Left = -10000, .Top = -10000, .ShowActivated = False, .ShowInTaskbar = False
+        }
+        window.WindowState = WindowState.Normal
+        Try
+            Pump(window)
+            Dim path = DirectCast(window.FindName("Path_txt"), TextBox)
+            Dim search = DirectCast(window.FindName("Search_txt"), TextBox)
+            Dim deepSearch = DirectCast(window.FindName("EvtxDeepSearch_chk"), CheckBox)
+            Require(deepSearch.Visibility = Visibility.Collapsed, "EVTX Deep Search should be hidden before a source is selected.")
+            search.Text = "error"
+            path.Text = folder
+            Pump(window)
+            Require(deepSearch.Visibility = Visibility.Visible AndAlso deepSearch.IsEnabled, "EVTX Deep Search should be visible for folders.")
+            Dim applying = GetType(MainWindow).GetField("_applyingSettings", System.Reflection.BindingFlags.Instance Or System.Reflection.BindingFlags.NonPublic)
+            applying.SetValue(window, True)
+            deepSearch.IsChecked = True
+            applying.SetValue(window, False)
+            path.Text = archive
+            Pump(window)
+            Require(deepSearch.Visibility = Visibility.Collapsed AndAlso deepSearch.IsChecked.GetValueOrDefault(), "Archive selection should hide EVTX Deep Search without losing the saved check state.")
+            path.Text = evtx
+            Pump(window)
+            Require(deepSearch.Visibility = Visibility.Collapsed, "Direct EVTX file selection should not show folder-only Deep Search.")
+            path.Text = System.IO.Path.Combine(root, "missing")
+            Pump(window)
+            Require(deepSearch.Visibility = Visibility.Collapsed, "Invalid paths should hide EVTX Deep Search.")
+            path.Text = folder
+            Pump(window)
+            Require(deepSearch.Visibility = Visibility.Visible AndAlso deepSearch.IsChecked.GetValueOrDefault(), "Folder selection should restore the preserved Deep Search check state.")
+            DirectCast(window.FindName("Reset_btn"), Button).RaiseEvent(New RoutedEventArgs(Button.ClickEvent))
+            PumpUntil(window, Function() path.Text.Length = 0, TimeSpan.FromSeconds(2))
+            Require(deepSearch.Visibility = Visibility.Collapsed, "Reset should hide EVTX Deep Search after clearing the source.")
+        Finally
+            If Application.Current IsNot Nothing Then
+                If Application.Current.MainWindow Is window Then Application.Current.MainWindow = previousMain
+            End If
+            window.Hide()
+            Try
+                System.IO.Directory.Delete(root, True)
+            Catch
+            End Try
+        End Try
+    End Sub
+
     Public Sub RunToolbar(dark As Boolean)
         Dim document = System.Xml.Linq.XDocument.Load(System.IO.Path.Combine(AppContext.BaseDirectory, "Fixtures", "MainWindow.xaml"))
         Dim presentation = System.Xml.Linq.XNamespace.Get("http://schemas.microsoft.com/winfx/2006/xaml/presentation")
@@ -257,6 +327,8 @@ Module SettingsThemeChecks
             Require(toolbar.FindName("SearchModeHelp_txt") Is Nothing, "Passive search summary is still displayed.")
             Require(toolbar.FindName("ExactMatch_chk") Is Nothing, "Duplicate whole-word checkbox is still displayed.")
             Require(toolbar.FindName("ThemeToggle_btn") Is Nothing, "Theme toggle is still on the toolbar.")
+            Dim oldFastMode = document.Descendants(presentation + "CheckBox").FirstOrDefault(Function(item) CStr(item.Attribute(xaml + "Name")) = "EvtxFastMode_chk")
+            Require(oldFastMode Is Nothing, "Old Settings EVTX fast-mode checkbox should not be duplicated in MainWindow.")
             Dim settingsButton = DirectCast(toolbar.FindName("Settings_btn"), Button)
             Dim helpButton = DirectCast(toolbar.FindName("Help_btn"), Button)
             Require(helpButton IsNot Nothing AndAlso System.Windows.Automation.AutomationProperties.GetName(helpButton) = "Help", "Accessible Help action is missing.")
@@ -279,6 +351,25 @@ Module SettingsThemeChecks
                     Next
                 Next
                 Dim options = DirectCast(toolbar.FindName("SearchOptionsToolbar"), WrapPanel)
+                Dim caseSensitive = DirectCast(toolbar.FindName("CaseSensitive_chk"), CheckBox)
+                Dim deepSearch = DirectCast(toolbar.FindName("EvtxDeepSearch_chk"), CheckBox)
+                Require(deepSearch.Content.Equals("EVTX Deep Search mode"), "EVTX Deep Search label changed.")
+                Require(CStr(deepSearch.ToolTip) = "Scans localeMetadata that might contain more results (Warning! Takes a very long time depending on amount of data)", "EVTX Deep Search tooltip changed.")
+                Require(System.Windows.Automation.AutomationProperties.GetName(deepSearch) = "EVTX Deep Search mode", "EVTX Deep Search accessible name is missing.")
+                Require(options.Children.IndexOf(deepSearch) = options.Children.IndexOf(caseSensitive) + 1, "EVTX Deep Search must be immediately right of Case sensitive.")
+                deepSearch.ApplyTemplate()
+                Dim checkBorder = DirectCast(deepSearch.Template.FindName("CheckBorder", deepSearch), Border)
+                Require(checkBorder IsNot Nothing AndAlso checkBorder.CornerRadius.TopLeft = 3, "EVTX Deep Search checkbox is not rounded.")
+                deepSearch.IsChecked = True
+                Pump(window)
+                Dim checkMark = DirectCast(deepSearch.Template.FindName("CheckMark", deepSearch), System.Windows.Shapes.Path)
+                Require(checkMark.Visibility = Visibility.Visible, "EVTX Deep Search checked state is not visible.")
+                CheckContrast(checkMark.Stroke, checkBorder.Background, "EVTX Deep Search check indicator")
+                deepSearch.IsChecked = False
+                deepSearch.IsEnabled = False
+                Pump(window)
+                Require(deepSearch.Opacity > 0 AndAlso deepSearch.Opacity < 1, "EVTX Deep Search disabled state is not styled.")
+                deepSearch.IsEnabled = True
                 Require(helpButton.TranslatePoint(New Point(), toolbar).X < settingsButton.TranslatePoint(New Point(), toolbar).X, "Help is not left of Settings.")
                 Dim actions = DirectCast(toolbar.FindName("SearchActionsPanel"), StackPanel)
                 Require(actions.Parent Is options.Parent AndAlso TypeOf actions.Parent Is Grid, "Search options and actions must share the same row.")
@@ -472,6 +563,15 @@ Module SettingsThemeChecks
         window.Dispatcher.Invoke(Sub()
                                  End Sub, DispatcherPriority.ContextIdle)
         window.UpdateLayout()
+    End Sub
+
+    Private Sub PumpUntil(window As Window, condition As Func(Of Boolean), timeout As TimeSpan)
+        Dim deadline = DateTime.UtcNow + timeout
+        Do
+            Pump(window)
+            If condition() Then Return
+            System.Threading.Thread.Sleep(25)
+        Loop While DateTime.UtcNow < deadline
     End Sub
 
     Private Iterator Function Descendants(parent As DependencyObject) As IEnumerable(Of DependencyObject)

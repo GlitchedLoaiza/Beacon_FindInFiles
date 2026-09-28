@@ -8,6 +8,18 @@ Module HelpChecks
         Require(Not BeaconSettings.CreateDefaults().StopAfterFirstMatchPerFile, "First-match must be unchecked by default.")
         Require(Not System.Text.Json.JsonSerializer.Deserialize(Of BeaconSettings)("{}").StopAfterFirstMatchPerFile, "Missing persisted preference must use the new default.")
         Require(BeaconSettingsService.Clone(New BeaconSettings With {.StopAfterFirstMatchPerFile = True}).StopAfterFirstMatchPerFile, "Explicit saved first-match preference was overwritten.")
+        Require(Not BeaconSettings.CreateDefaults().EvtxDeepSearch AndAlso BeaconSettings.CreateDefaults().EvtxFastMode, "EVTX Deep Search must be unchecked by default and normal search must be active.")
+        Require(Not BeaconSettingsService.Deserialize("{}").EvtxDeepSearch AndAlso BeaconSettingsService.Deserialize("{}").EvtxFastMode, "Missing persisted EVTX Deep Search preference must keep normal search active.")
+        Require(Not BeaconSettingsService.Deserialize("{""EvtxFastMode"":true}").EvtxDeepSearch AndAlso BeaconSettingsService.Deserialize("{""EvtxFastMode"":true}").EvtxFastMode, "Legacy enabled fast mode should migrate to unchecked Deep Search.")
+        Require(BeaconSettingsService.Deserialize("{""EvtxFastMode"":false}").EvtxDeepSearch AndAlso Not BeaconSettingsService.Deserialize("{""EvtxFastMode"":false}").EvtxFastMode, "Legacy disabled fast mode should migrate to checked Deep Search.")
+        Require(Not BeaconSettingsService.Deserialize("{""EvtxDeepSearch"":false,""EvtxFastMode"":false}").EvtxDeepSearch, "Canonical EVTX Deep Search should win over legacy fast-mode data.")
+        Require(Not System.Text.Json.JsonSerializer.Serialize(BeaconSettingsService.Clone(New BeaconSettings With {.EvtxDeepSearch = True})).Contains("EvtxFastMode"), "Saved settings should not serialize contradictory legacy fast-mode data.")
+        Require(Not BeaconSettings.CreateDefaults().EvtxLimitDeepSearchBeforeXml AndAlso BeaconSettings.CreateDefaults().EvtxDeepSearchTimeoutSeconds = 180, "EVTX Deep Search timeout limit should default off at 180 seconds.")
+        Require(Not BeaconSettingsService.Deserialize("{}").EvtxLimitDeepSearchBeforeXml AndAlso BeaconSettingsService.Deserialize("{}").EvtxDeepSearchTimeoutSeconds = 180, "Missing persisted EVTX timeout settings should keep the limit disabled.")
+        Dim roundTrip = BeaconSettingsService.Clone(New BeaconSettings With {.EvtxLimitDeepSearchBeforeXml = True, .EvtxDeepSearchTimeoutSeconds = 42})
+        Require(roundTrip.EvtxLimitDeepSearchBeforeXml AndAlso roundTrip.EvtxDeepSearchTimeoutSeconds = 42, "EVTX timeout settings did not round-trip.")
+        Require(BeaconSettingsService.Validate(New BeaconSettings With {.EvtxDeepSearchTimeoutSeconds = -5}).EvtxDeepSearchTimeoutSeconds = 1, "Invalid low EVTX timeout was not clamped.")
+        Require(BeaconSettingsService.Validate(New BeaconSettings With {.EvtxDeepSearchTimeoutSeconds = 100000}).EvtxDeepSearchTimeoutSeconds = 86400, "Invalid high EVTX timeout was not clamped.")
         Dim topics = HelpContent.Topics()
         Require(topics.Count >= 14 AndAlso topics.All(Function(topic) topic.Body.Length > 200), "Help topics are missing meaningful instructions.")
         Dim quickStart = topics.Single(Function(topic) topic.Title = "Start here — your first search").Body
@@ -37,9 +49,15 @@ Module HelpChecks
             Try
                 owner.Show()
                 Require(Not DirectCast(owner.FindName("StopAfterFirstMatch_chk"), CheckBox).IsChecked.GetValueOrDefault(), "Settings checkbox does not show the new default.")
+                Require(owner.FindName("EvtxFastMode_chk") Is Nothing AndAlso owner.FindName("EvtxFastModeHelp_txt") Is Nothing, "Settings retained the old EVTX fast-mode controls.")
                 DirectCast(owner.FindName("StopAfterFirstMatch_chk"), CheckBox).IsChecked = True
+                DirectCast(owner.FindName("LimitEvtxDeepSearch_chk"), CheckBox).IsChecked = True
+                DirectCast(owner.FindName("EvtxDeepSearchTimeout_txt"), TextBox).Text = "42"
                 DirectCast(owner.FindName("RestoreDefaults_btn"), Button).RaiseEvent(New RoutedEventArgs(Button.ClickEvent))
                 Require(Not DirectCast(owner.FindName("StopAfterFirstMatch_chk"), CheckBox).IsChecked.GetValueOrDefault(), "Restore defaults did not uncheck first-match.")
+                Require(Not DirectCast(owner.FindName("LimitEvtxDeepSearch_chk"), CheckBox).IsChecked.GetValueOrDefault() AndAlso
+                        DirectCast(owner.FindName("EvtxDeepSearchTimeout_txt"), TextBox).Text = "180" AndAlso
+                        Not DirectCast(owner.FindName("EvtxDeepSearchTimeout_txt"), TextBox).IsEnabled, "Restore defaults did not reset the EVTX timeout limit.")
                 Dim opened As New List(Of String)()
                 Dim failBrowser As Boolean = False
                 window = New HelpWindow(owner, dark, Sub(url)

@@ -5,6 +5,10 @@
     Private Sub Application_Startup(sender As Object, e As StartupEventArgs) Handles Me.Startup
         Me.ShutdownMode = ShutdownMode.OnExplicitShutdown
         Try
+            If Beacon.EvtxWorkerHost.IsWorkerInvocation(e.Args) Then
+                Shutdown(Beacon.EvtxWorkerHost.RunWorker(e.Args))
+                Return
+            End If
             _instance = New Beacon.SingleInstanceCoordinator(Beacon.SingleInstanceCoordinator.InstanceName(), AddressOf RequestActivation)
             If Not _instance.IsPrimary Then
                 Shutdown()

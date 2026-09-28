@@ -107,7 +107,8 @@ Namespace Beacon
             _progress?.Invoke(logical, True)
         End Sub
 
-        Private Async Function SearchDiskAsync(physical As String, logical As String, depth As Integer, token As CancellationToken) As Task
+        Private Async Function SearchDiskAsync(physical As String, logical As String, depth As Integer, token As CancellationToken,
+                                               Optional archiveOrigin As Boolean = False) As Task
             token.ThrowIfCancellationRequested()
             Dim extension = Path.GetExtension(physical).ToLowerInvariant()
             Dim result = NewResult(physical, logical, SourceResultKind.DiskText)
@@ -123,7 +124,12 @@ Namespace Beacon
                 If _options.SearchFileContents Then
                     If extension = ".evtx" Then
                         result.Kind = SourceResultKind.DiskEvent
-                        CollectEvents(physical, result, token)
+                        Dim eventOptions = _options
+                        If archiveOrigin Then
+                            eventOptions = BeaconSettingsService.Clone(_options)
+                            eventOptions.EvtxDeepSearch = False
+                        End If
+                        CollectEvents(physical, result, token, CLng(_options.MaximumFileSizeMb) * SearchConcurrencyPolicy.MiB, eventOptions)
                     ElseIf extension = ".har" OrElse _text.Contains(extension) Then
                         If extension = ".har" Then result.Kind = SourceResultKind.DiskHar
                         Using stream As New BoundedReadStream(New FileStream(physical, FileMode.Open, FileAccess.Read, FileShare.ReadWrite),
@@ -166,7 +172,7 @@ Namespace Beacon
                 For Each path In FileSystemTraversal.EnumerateFiles(directory, token, False, Nothing, AddressOf Issue, _options)
                     token.ThrowIfCancellationRequested()
                     If ResultLimitReached Then Exit For
-                    Await SearchDiskAsync(path, logical & " | " & IO.Path.GetRelativePath(directory, path), depth + 1, token).ConfigureAwait(False)
+                    Await SearchDiskAsync(path, logical & " | " & IO.Path.GetRelativePath(directory, path), depth + 1, token, archiveOrigin:=True).ConfigureAwait(False)
                 Next
                 Return
             End If
@@ -203,7 +209,10 @@ Namespace Beacon
                             If extension = ".evtx" Then
                                 result.Kind = SourceResultKind.ArchiveEvent
                                 result.TemporaryEventPath = Extract(entry, logicalEntry, budget, token)
-                                CollectEvents(result.TemporaryEventPath, result, token)
+                                Dim archiveLimit = CLng(_options.MaximumArchiveEntrySizeMb) * SearchConcurrencyPolicy.MiB
+                                Dim archiveOptions = BeaconSettingsService.Clone(_options)
+                                archiveOptions.EvtxDeepSearch = False
+                                CollectEvents(result.TemporaryEventPath, result, token, If(entry.Size > 0, Math.Min(entry.Size, archiveLimit), archiveLimit), archiveOptions)
                             ElseIf extension = ".har" OrElse _text.Contains(extension) Then
                                 If extension = ".har" Then result.Kind = SourceResultKind.ArchiveHar
                                 Using stream = OpenEntry(entry, logicalEntry, budget, token)
@@ -242,11 +251,16 @@ Namespace Beacon
             End Using
             Return path
         End Function
-        Private Sub CollectEvents(path As String, result As SourceSearchResult, token As CancellationToken)
+        Private Sub CollectEvents(path As String, result As SourceSearchResult, token As CancellationToken, fastCopyLimitBytes As Long,
+                                  Optional options As BeaconSettings = Nothing)
             Dim collected As New StructuredSearchResult(Of EventRecordSummary)()
+            Dim lease As IDisposable = Nothing
             Try
-                Dim service As New EvtxSearchService(_query, _options)
-                service.Collect(path, collected, token, Sub(ex, stage, severity) _report?.Invoke(result.LogicalPath, ex, stage, severity))
+                If _execution IsNot Nothing Then lease = _execution.EnterHeavyAsync(SearchConcurrencyPolicy.WorkerBytes, token).GetAwaiter().GetResult()
+                Using lease
+                    Dim service As New EvtxSearchService(_query, If(options, _options))
+                    service.Collect(path, collected, token, Sub(ex, stage, severity) _report?.Invoke(result.LogicalPath, ex, stage, severity), fastCopyLimitBytes)
+                End Using
             Finally
                 result.Events.AddRange(collected.Records)
                 result.Details.AddRange(collected.Details)

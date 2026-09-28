@@ -1,6 +1,7 @@
 Imports System.Diagnostics
 Imports System.IO
 Imports System.Text
+Imports System.Text.Json
 Imports System.Threading
 Imports Beacon
 
@@ -12,6 +13,11 @@ Module Program
     Function Main(args As String()) As Integer
         If args.Length = 3 AndAlso args(0) = "--measure-production-app" Then Return ApplicationScalingMeasurements.Run(args(1), args(2))
         If args.Length = 3 AndAlso args(0) = "--single-instance-check" Then Return SingleInstanceChecks.RunChildMode(args)
+        If args.Length >= 1 AndAlso args(0) = "--beacon-evtx-worker" Then
+            Dim mode = Environment.GetEnvironmentVariable("BEACON_EVTX_TEST_WORKER_MODE")
+            If Not String.IsNullOrEmpty(mode) Then Return FakeEvtxWorker(args, mode)
+            Return EvtxWorkerHost.RunWorker(args)
+        End If
         If args.Length > 0 AndAlso (args(0) = "l" OrElse args(0) = "e") Then Return FakeReader(args)
         If args.Length <> 1 OrElse Not File.Exists(args(0)) Then
             Console.Error.WriteLine("Usage: dotnet run --project tests/Beacon.SafetyChecks -- <path to bundled 7za.exe>")
@@ -124,6 +130,7 @@ Module Program
         Check("Settings dark theme templates and contrast", Sub() SettingsThemeChecks.Run(True))
         Check("Main Path/Search fields in light theme", Sub() SettingsThemeChecks.RunMainFields(False))
         Check("Main Path/Search fields in dark theme", Sub() SettingsThemeChecks.RunMainFields(True))
+        Check("EVTX Deep Search folder-only visibility", Sub() SettingsThemeChecks.RunMainDeepSearchVisibility(False))
         Check("Preview counters from light to dark", Sub() SettingsThemeChecks.RunCounterBars(False))
         Check("Preview counters from dark to light", Sub() SettingsThemeChecks.RunCounterBars(True))
         Check("Compact toolbar and wrench in light theme", Sub() SettingsThemeChecks.RunToolbar(False))
@@ -175,6 +182,7 @@ Module Program
         Check("HAR filters, bounded decoding and redacted exports", AddressOf HarChecks.Run)
         Check("Headless HAR service isolation and failure semantics", AddressOf StructuredSearchChecks.Har)
         Check("Headless EVTX service isolation and XML semantics", AddressOf StructuredSearchChecks.Events)
+        Check("EVTX worker timeout containment and fallback", AddressOf StructuredSearchChecks.EvtxIsolation)
         Check("Beginner help and multiple-record defaults", AddressOf HelpChecks.Run)
         Check("Headless preview service limits, sources and cleanup", AddressOf PreviewContentChecks.Run)
         Check("Headless source traversal, snapshots and lifetime", AddressOf SourceSearchChecks.Run)
@@ -216,6 +224,170 @@ Module Program
         End If
         Return 0
     End Function
+
+    Private Function FakeEvtxWorker(args As String(), mode As String) As Integer
+        Dim request = JsonSerializer.Deserialize(Of EvtxWorkerHost.EvtxWorkerRequest)(File.ReadAllText(args(1), Encoding.UTF8), New JsonSerializerOptions With {.PropertyNameCaseInsensitive = True})
+        If mode = "crash" Then Return 7
+        If mode = "regex-timeout" Then
+            EvtxWorkerHost.WriteMessage(New EvtxWorkerHost.EvtxWorkerMessage With {.Type = "regex-timeout"})
+            Return 1
+        End If
+        If mode = "invalid-json" Then
+            Console.WriteLine("BEACON-EVTX-1 {")
+            Return 0
+        End If
+        If mode = "malformed" Then
+            Console.WriteLine("not a beacon evtx protocol line")
+            Return 0
+        End If
+        If mode = "incomplete" Then
+            WriteFakeMatch(0, "Provider", "Information", 100, "anything", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            Return 0
+        End If
+        If mode = "backward" Then
+            WriteCheckpoint(1)
+            WriteFakeMatch(1, "Provider", "Information", 100, "anything", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            WriteComplete()
+            Return 0
+        End If
+        If mode = "after-complete" Then
+            WriteComplete()
+            WriteFakeMatch(0, "Provider", "Information", 100, "anything", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            Return 0
+        End If
+        If mode = "oversized-unterminated" Then
+            Console.Out.Write(New String("x"c, 270000))
+            Console.Out.Flush()
+            Return 0
+        End If
+        If mode = "hang" OrElse (mode = "timeout-zero" AndAlso Not request.XmlOnly) Then
+            Thread.Sleep(30000)
+            Return 0
+        End If
+        If mode = "slow-success" AndAlso Not request.XmlOnly Then
+            Thread.Sleep(1000)
+            WriteFakeMatch(0, "Provider", "Information", 100, "slow-success", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            WriteCheckpoint(0)
+            WriteComplete()
+            Return 0
+        End If
+        If mode = "success" Then
+            WriteFakeMatch(0, "Provider", "Information", 100, "rendered success message", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            WriteCheckpoint(0)
+            WriteComplete()
+            Return 0
+        End If
+        If mode = "inspect-fast-path" Then
+            Dim parent = Path.GetFileName(Path.GetDirectoryName(request.FilePath))
+            Dim metadata = Path.Combine(Path.GetDirectoryName(request.FilePath), "LocaleMetaData")
+            If Path.GetFileName(request.FilePath).Equals("sample.evtx", StringComparison.OrdinalIgnoreCase) AndAlso
+               parent.StartsWith("BeaconEvtxFast_", StringComparison.OrdinalIgnoreCase) AndAlso
+               Not Directory.Exists(metadata) AndAlso File.ReadAllText(request.FilePath) = "placeholder" Then
+                WriteFakeMatch(0, "Provider", "Information", 100, "fast-path-ok", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            End If
+            WriteComplete()
+            Return 0
+        End If
+        If mode = "inspect-original-path" Then
+            Dim parent = Path.GetFileName(Path.GetDirectoryName(request.FilePath))
+            Dim metadata = Path.Combine(Path.GetDirectoryName(request.FilePath), "LocaleMetaData")
+            If Path.GetFileName(request.FilePath).Equals("sample.evtx", StringComparison.OrdinalIgnoreCase) AndAlso
+               Not parent.StartsWith("BeaconEvtxFast_", StringComparison.OrdinalIgnoreCase) AndAlso
+               Directory.Exists(metadata) Then
+                WriteFakeMatch(0, "Provider", "Information", 100, "original-path-ok", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            End If
+            WriteComplete()
+            Return 0
+        End If
+        If mode = "timeout-fallback" Then
+            If request.XmlOnly Then
+                WriteFakeMatch(1, "Provider", "", 101, "", "<Event><System><EventID>101</EventID><Provider Name=""Provider""/><Level>4</Level></System><EventData><Data>xml-after-timeout</Data></EventData></Event>")
+                WriteCheckpoint(1)
+                WriteComplete()
+            Else
+                WriteFakeMatch(0, "Provider", "Warning", 100, "message-only-before-timeout", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>3</Level></System></Event>")
+                WriteCheckpoint(0)
+                Thread.Sleep(30000)
+            End If
+            Return 0
+        End If
+        If mode = "timeout-fallback-limit" Then
+            If request.XmlOnly Then
+                WriteFakeMatch(0, "Provider", "", 100, "", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System><EventData><Data>timeout-limit</Data></EventData></Event>")
+                WriteCheckpoint(0)
+                WriteFakeMatch(1, "Provider", "", 101, "", "<Event><System><EventID>101</EventID><Provider Name=""Provider""/><Level>4</Level></System><EventData><Data>timeout-limit</Data></EventData></Event>")
+                WriteComplete()
+            Else
+                WriteFakeMatch(0, "Provider", "Warning", 100, "timeout-limit", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>3</Level></System></Event>")
+                Thread.Sleep(30000)
+            End If
+            Return 0
+        End If
+        If mode = "fallback-hang" Then
+            If Not request.XmlOnly Then Return 7
+            Thread.Sleep(30000)
+            Return 0
+        End If
+        If mode = "replay-quota" Then
+            If request.XmlOnly Then
+                For sequence = 0 To Math.Min(3, request.RemainingMatches) - 1
+                    WriteFakeMatch(sequence, "Provider", "", 100 + sequence, "", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System><EventData><Data>replay-quota</Data></EventData></Event>")
+                    WriteCheckpoint(sequence)
+                Next
+                WriteComplete()
+            Else
+                WriteFakeMatch(0, "Provider", "Information", 100, "replay-quota", "<Event><System><EventID>100</EventID></System></Event>")
+                Thread.Sleep(30000)
+            End If
+            Return 0
+        End If
+        If mode = "duplicate-fallback" Then
+            If request.XmlOnly Then
+                WriteFakeMatch(0, "Provider", "", 100, "", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System><EventData><Data>dup</Data></EventData></Event>")
+                WriteCheckpoint(0)
+                WriteFakeMatch(1, "Provider", "", 101, "", "<Event><System><EventID>101</EventID><Provider Name=""Provider""/><Level>4</Level></System><EventData><Data>dup</Data></EventData></Event>")
+                WriteCheckpoint(1)
+                WriteComplete()
+            Else
+                WriteFakeMatch(0, "Provider", "Information", 100, "dup", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+                Thread.Sleep(30000)
+            End If
+            Return 0
+        End If
+        If mode = "limit-stop" Then
+            WriteFakeMatch(0, "Provider", "Information", 100, "limit-stop", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            WriteComplete()
+            Return 0
+        End If
+        If mode = "first-stop" Then
+            WriteFakeMatch(0, "Provider", "Information", 100, "first-stop", "<Event><System><EventID>100</EventID><Provider Name=""Provider""/><Level>4</Level></System></Event>")
+            WriteComplete()
+            Return 0
+        End If
+        If mode = "timeout-zero" AndAlso request.XmlOnly Then
+            WriteComplete()
+            Return 0
+        End If
+        WriteComplete()
+        Return 0
+    End Function
+
+    Private Sub WriteFakeMatch(sequence As Long, provider As String, level As String, eventId As Integer, message As String, xml As String)
+        EvtxWorkerHost.WriteMessage(New EvtxWorkerHost.EvtxWorkerMessage With {
+            .Type = "match",
+            .Sequence = sequence,
+            .Record = New EventRecordSummary With {.EventSequence = sequence, .Provider = provider, .Level = level, .EventId = eventId,
+                .LevelNumber = 4, .Message = message, .RawXml = xml, .TimeCreated = New DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc)}
+        })
+    End Sub
+
+    Private Sub WriteCheckpoint(sequence As Long)
+        EvtxWorkerHost.WriteMessage(New EvtxWorkerHost.EvtxWorkerMessage With {.Type = "checkpoint", .Sequence = sequence})
+    End Sub
+
+    Private Sub WriteComplete()
+        EvtxWorkerHost.WriteMessage(New EvtxWorkerHost.EvtxWorkerMessage With {.Type = "complete"})
+    End Sub
 
     Private Sub TestFakeReader(mode As String, cancel As Boolean)
         WithFixture(Sub(root)

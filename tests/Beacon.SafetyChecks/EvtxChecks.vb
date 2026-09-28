@@ -114,6 +114,7 @@ Module EvtxChecks
                     "Collapsing the side pane cleared the user's filters.")
             Require(DirectCast(window.FindName("EventXml_txt"), TextBox).Text.Contains("1001"), "XML did not track the selected event.")
             Require(DirectCast(window.FindName("CopyEventXml_btn"), Button).IsEnabled, "Complete XML cannot be copied.")
+            Require(DirectCast(window.FindName("EventLevel_txt"), TextBlock).Text = "[Level 2]", "XML-only severity was mislabeled as Information.")
             type.GetMethod("NavigateEventMatch", flags).Invoke(window, {True})
             Require(CInt(hitType.GetProperty("CurrentEventIndex").GetValue(hit)) = 1, "Navigation escaped the preview filter.")
             DirectCast(window.FindName("EventFilterIds_txt"), TextBox).Text = "invalid"

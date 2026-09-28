@@ -160,6 +160,7 @@ Namespace Beacon
 
         ''' <summary>Flag indicating whether a scan is currently in progress</summary>
         Private _isScanning As Boolean = False
+        Private _applyingSettings As Boolean = False
 
         ''' <summary>Current character position in text preview for F3 navigation</summary>
         Private _currentTextFindStart As Integer = 0
@@ -307,6 +308,8 @@ Namespace Beacon
             ' Wire input change handlers for button state updates
             AddHandler Path_txt.TextChanged, AddressOf AnyInputChanged
             AddHandler Search_txt.TextChanged, AddressOf AnyInputChanged
+            AddHandler EvtxDeepSearch_chk.Checked, AddressOf EvtxDeepSearchChanged
+            AddHandler EvtxDeepSearch_chk.Unchecked, AddressOf EvtxDeepSearchChanged
 
             ' Register global keyboard shortcut handler
             AddHandler Me.PreviewKeyDown, AddressOf MainWindow_PreviewKeyDown
@@ -389,8 +392,12 @@ Namespace Beacon
         End Sub
 
         Private Sub ApplySettings()
+            _applyingSettings = True
+            Try
             InitializeTheme()
             SearchMode_cmb.SelectedValue = _settings.DefaultSearchMode
+            EvtxDeepSearch_chk.IsChecked = _settings.EvtxDeepSearch
+            UpdateEvtxDeepSearchVisibility()
             UpdateSearchHint()
             _supportedTextExt.Clear()
             For Each extension In _settings.IncludedExtensions.Split(";"c, StringSplitOptions.RemoveEmptyEntries)
@@ -415,6 +422,21 @@ Namespace Beacon
             TextPreview_rtb.HorizontalScrollBarVisibility = If(_settings.PreviewWordWrap,
                                                                 ScrollBarVisibility.Disabled,
                                                                 ScrollBarVisibility.Auto)
+            Finally
+                _applyingSettings = False
+            End Try
+        End Sub
+
+        Private Sub EvtxDeepSearchChanged(sender As Object, e As RoutedEventArgs)
+            If _settings Is Nothing OrElse _applyingSettings OrElse _isScanning OrElse _isResetting OrElse _isClosing Then Return
+            _settings.EvtxDeepSearch = EvtxDeepSearch_chk.IsChecked.GetValueOrDefault()
+            Try
+                _settings = BeaconSettingsService.Validate(_settings)
+                BeaconSettingsService.Save(_settings)
+                Status("EVTX Deep Search preference saved")
+            Catch ex As Exception When TypeOf ex Is IOException OrElse TypeOf ex Is UnauthorizedAccessException
+                Status("EVTX Deep Search preference changed for this session; saving failed.")
+            End Try
         End Sub
 
         ''' <summary>
@@ -498,6 +520,7 @@ Namespace Beacon
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&H50, &H50, &H50))        ' #505050
             Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H1E, &H1E, &H1E))     ' #1E1E1E
             Resources("SelectionBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H18, &H3C, &H50))
+            Resources("CheckmarkBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
 
             ' Update event preview text colors for dark mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HFF, &H60, &H60)) ' Lighter red for dark mode
@@ -532,6 +555,7 @@ Namespace Beacon
             Resources("InputBorderBrush") = New SolidColorBrush(Color.FromRgb(&HCC, &HCC, &HCC))        ' #CCCCCC
             Resources("CodeBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HFA, &HFA, &HFA))     ' #FAFAFA
             Resources("SelectionBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&HE5, &HF1, &HFF))
+            Resources("CheckmarkBrush") = New SolidColorBrush(Colors.White)
 
             ' Restore event preview text colors for light mode
             EventLevel_txt.Foreground = New SolidColorBrush(Color.FromRgb(&HC0, &H0, &H0)) ' Original dark red
@@ -939,6 +963,20 @@ Namespace Beacon
             UpdateButtonsState()
         End Sub
 
+        Private Function SelectedSourceIsFolder() As Boolean
+            Dim p = If(Path_txt.Text, "").Trim()
+            If String.IsNullOrWhiteSpace(p) Then Return False
+            Try
+                Return Directory.Exists(p)
+            Catch ex As Exception When TypeOf ex Is IOException OrElse TypeOf ex Is UnauthorizedAccessException OrElse TypeOf ex Is ArgumentException OrElse TypeOf ex Is NotSupportedException
+                Return False
+            End Try
+        End Function
+
+        Private Sub UpdateEvtxDeepSearchVisibility()
+            EvtxDeepSearch_chk.Visibility = If(SelectedSourceIsFolder(), Visibility.Visible, Visibility.Collapsed)
+        End Sub
+
         ''' <summary>
         ''' Updates button enable/disable states based on:
         ''' - Scanning state
@@ -947,8 +985,10 @@ Namespace Beacon
         ''' </summary>
         Private Sub UpdateButtonsState()
             UpdateReportingButtons()
+            UpdateEvtxDeepSearchVisibility()
             Settings_btn.IsEnabled = Not (_isScanning OrElse _isResetting OrElse _isClosing)
             SearchMode_cmb.IsEnabled = Settings_btn.IsEnabled
+            EvtxDeepSearch_chk.IsEnabled = Settings_btn.IsEnabled AndAlso EvtxDeepSearch_chk.Visibility = Visibility.Visible
             If _isResetting OrElse _isClosing Then
                 Scan_btn.IsEnabled = False
                 Reset_btn.IsEnabled = False
@@ -966,6 +1006,7 @@ Namespace Beacon
                 Path_txt.IsEnabled = False
                 Search_txt.IsEnabled = False
                 CaseSensitive_chk.IsEnabled = False
+                EvtxDeepSearch_chk.IsEnabled = False
                 Return
             End If
 
@@ -993,6 +1034,7 @@ Namespace Beacon
             Path_txt.IsEnabled = False
             Search_txt.IsEnabled = True
             CaseSensitive_chk.IsEnabled = True
+            EvtxDeepSearch_chk.IsEnabled = EvtxDeepSearch_chk.Visibility = Visibility.Visible
         End Sub
 
 #End Region
@@ -1137,6 +1179,7 @@ Namespace Beacon
                 End If
                 _activeQuery = query
                 _searchOptions = BeaconSettingsService.Clone(_settings)
+                If Not SelectedSourceIsFolder() Then _searchOptions.EvtxDeepSearch = False
                 EvtxFilter.FromSettings(_searchOptions)
                 HarFilter.FromSettings(_searchOptions)
             Catch ex As ArgumentException
@@ -2007,11 +2050,10 @@ Namespace Beacon
 #Region "EVTX Search (Cancellation-safe)"
 
         ''' <summary>
-        ''' Scans EVTX file for events containing search term with graceful DLL handling
-        ''' OPTIMIZATION: Pre-filters using XML representation before expensive FormatDescription() call
-        ''' This yields 2-10x performance improvement for EVTX scanning
+        ''' Scans EVTX files in an isolated worker. Rendered-message search uses the captured EVTX settings;
+        ''' if a configured render limit is reached, Beacon preserves delivered matches and tries a separate bounded XML-only fallback.
         ''' RESILIENCE: Safely handles missing message DLLs (LevelDisplayName, ProviderName)
-        ''' Limits to 300 matches per file to prevent memory issues
+        ''' Limits matches per file according to structured/EVTX settings to prevent memory issues.
         ''' </summary>
         ''' <param name="evtxPath">Path to the EVTX file</param>
         ''' <param name="term">Search term to find</param>
@@ -2027,177 +2069,39 @@ Namespace Beacon
 
             Try
                 Return Await Task.Run(Function()
-
-                                          Dim comparison = If(caseSensitive, StringComparison.Ordinal, StringComparison.OrdinalIgnoreCase)
-
+                                          Dim mode = If(exactMatch, SearchMode.ExactWord, SearchMode.PlainText)
+                                          Dim query As New SearchQuery(term, mode, caseSensitive)
+                                          Dim collected As New StructuredSearchResult(Of EventRecordSummary)()
+                                          Dim service As New EvtxSearchService(query, _settings)
+                                          service.Collect(evtxPath, collected, ct,
+                                              Sub(ex, stage, severity)
+                                                  Dispatcher.BeginInvoke(Sub() RecordDiagnostic(evtxPath, ex, stage, severity))
+                                              End Sub)
+                                          If collected.Records.Count = 0 Then Return Nothing
                                           Dim hit As New SearchHit With {
                                               .Kind = HitKind.EvtxFileOnDisk,
                                               .FilePath = evtxPath,
-                                              .DisplayName = evtxPath
+                                              .DisplayName = evtxPath,
+                                              .PartialReason = collected.PartialReason
                                           }
-
-                                          ' Read EVTX events with graceful cancellation handling
-                                          Using rdr As New EventLogReader(evtxPath, PathType.FilePath)
-                                              While True
-                                                  ' Do NOT throw - exit cleanly to avoid VS "user-unhandled"
-                                                  If ct.IsCancellationRequested Then Return Nothing
-
-                                                  Dim rec = rdr.ReadEvent()
-                                                  If rec Is Nothing Then Exit While
-
-                                                  Using rec
-                                                      ' OPTIMIZATION: Check XML representation first (much faster than FormatDescription)
-                                                      Dim xmlString As String = Nothing
-                                                      Try
-                                                          xmlString = rec.ToXml()
-                                                      Catch
-                                                          Continue While
-                                                      End Try
-
-                                                      ' Pre-filter: check XML, bare Event ID, and the synthetic "Event ID NNN" label.
-                                                      ' Some EVTX files store qualifier-encoded IDs in XML (e.g., 20560 instead of 4624),
-                                                      ' so rec.Id is the only reliable source for the displayed Event ID number.
-                                                      ' Users can also search "Event ID 813" (the label shown in the UI) and expect matches.
-                                                      Dim eventIdStr = rec.Id.ToString()
-                                                      Dim eventIdLabel = "Event ID " & eventIdStr  ' synthetic label shown in the UI
-                                                      Dim xmlHasTerm = Not String.IsNullOrEmpty(xmlString) AndAlso xmlString.IndexOf(term, comparison) >= 0
-                                                      Dim idHasTerm = eventIdStr.IndexOf(term, comparison) >= 0
-                                                      Dim idLabelHasTerm = eventIdLabel.IndexOf(term, comparison) >= 0
-
-                                                      If Not xmlHasTerm AndAlso Not idHasTerm AndAlso Not idLabelHasTerm Then
-                                                          Continue While
-                                                      End If
-
-                                                      ' Pretty-print XML for readable display in fallback messages
-                                                      Dim prettyXml As String = xmlString
-                                                      Try
-                                                          prettyXml = XDocument.Parse(xmlString).ToString()
-                                                      Catch
-                                                          ' Use raw XML if parsing fails
-                                                      End Try
-
-                                                      ' Now try to get the formatted message
-                                                      Dim msg As String = ""
-                                                      Dim formattedMsg As String = ""  ' preserves original FormatDescription() result
-                                                      Dim msgFailed As Boolean = False
-                                                      Dim useFallback As Boolean = False
-                                                      Dim hasMatch As Boolean = False
-
-                                                      Try
-                                                          msg = rec.FormatDescription()
-                                                          ' FormatDescription can return Nothing or empty string when DLLs are missing
-                                                          If String.IsNullOrEmpty(msg) Then
-                                                              msgFailed = True
-                                                              useFallback = True
-                                                          Else
-                                                              formattedMsg = msg  ' preserve before any fallback overwrites it
-
-                                                              ' Check if the formatted message contains the search term
-                                                              If exactMatch Then
-                                                                  hasMatch = ContainsExactMatch(msg, term, caseSensitive)
-                                                              Else
-                                                                  hasMatch = msg.IndexOf(term, comparison) >= 0
-                                                              End If
-
-                                                              ' If formatted message doesn't contain the term, fall back to XML
-                                                              If Not hasMatch Then
-                                                                  useFallback = True
-                                                              End If
-                                                          End If
-                                                      Catch ex As Exception
-                                                          ' Exception thrown when message DLLs are completely missing
-                                                          msgFailed = True
-                                                          useFallback = True
-                                                      End Try
-
-                                                      ' Use fallback with pretty-printed XML when:
-                                                      ' 1. Formatting failed (DLL missing), OR
-                                                      ' 2. Formatted message doesn't contain the search term (term only in raw XML)
-                                                      If useFallback Then
-                                                          If msgFailed Then
-                                                              msg = "⚠️ Warning: Message unavailable - required DLL not found." & vbCrLf &
-                                                                    "Event data may not render correctly. Showing raw XML data below:" & vbCrLf & vbCrLf &
-                                                                    prettyXml
-                                                          Else
-                                                              msg = "ℹ️ Note: Search term found in raw event data (XML), not in formatted message." & vbCrLf &
-                                                                    "Showing raw XML data below:" & vbCrLf & vbCrLf &
-                                                                    prettyXml
-                                                          End If
-
-                                                          If exactMatch Then
-                                                              hasMatch = ContainsExactMatch(msg, term, caseSensitive)
-                                                          Else
-                                                              hasMatch = msg.IndexOf(term, comparison) >= 0
-                                                          End If
-                                                      End If
-
-                                                      ' Final fallback: term matched the bare Event ID number or the "Event ID NNN" label.
-                                                      ' When the DLL is present, restore the formatted message (raw XML is not needed).
-                                                      ' When the DLL is missing, show both the warning and raw XML.
-                                                      If Not hasMatch AndAlso (idHasTerm OrElse idLabelHasTerm) Then
-                                                          If msgFailed Then
-                                                              msg = "⚠️ Warning: Message unavailable - required DLL not found." & vbCrLf &
-                                                                    "Event data may not render correctly." & vbCrLf &
-                                                                    $"ℹ️ Note: Search term matched Event ID {rec.Id}." & vbCrLf &
-                                                                    "Showing raw event XML below:" & vbCrLf & vbCrLf &
-                                                                    prettyXml
-                                                          Else
-                                                              ' DLL is present: show the formatted message, not raw XML
-                                                              msg = formattedMsg
-                                                          End If
-                                                          hasMatch = True
-                                                      End If
-
-                                                      ' Only add if it actually matches (respects exact match rules)
-                                                      If hasMatch Then
-                                                          ' Safely get properties that may throw when DLLs are missing
-                                                          Dim eventLevel As String = "Unknown"
-                                                          Dim eventProvider As String = "Unknown"
-
-                                                          Try
-                                                              eventLevel = rec.LevelDisplayName
-                                                              If String.IsNullOrEmpty(eventLevel) Then eventLevel = "Unknown"
-                                                          Catch
-                                                              ' LevelDisplayName throws when DLL is missing
-                                                              eventLevel = "Unknown"
-                                                          End Try
-
-                                                          Try
-                                                              eventProvider = rec.ProviderName
-                                                              If String.IsNullOrEmpty(eventProvider) Then eventProvider = "Unknown"
-                                                          Catch
-                                                              ' ProviderName may also throw
-                                                              eventProvider = "Unknown"
-                                                          End Try
-
-                                                          hit.MatchingEvents.Add(New EventSummary With {
-                                                               .Level = eventLevel,
-                                                               .Provider = eventProvider,
-                                                               .EventId = rec.Id,
-                                                               .TimeCreated = rec.TimeCreated,
-                                                               .Message = msg
-                                                               })
-
-                                                          ' Limit matches per file to prevent memory exhaustion
-                                                          If hit.MatchingEvents.Count >= Math.Min(_settings.EvtxMaximumMatches, _settings.MaximumStructuredMatches) Then
-                                                              Interlocked.Increment(_structuredLimitFiles)
-                                                              Exit While
-                                                          End If
-                                                      End If
-                                                  End Using
-                                              End While
-                                          End Using
-
-                                          If hit.MatchingEvents.Count > 0 Then
-                                              Return hit
-                                          End If
-
-                                          Return Nothing
-
+                                          hit.Details.AddRange(collected.Details)
+                                          hit.MatchingEvents.AddRange(collected.Records.Select(Function(item) New EventSummary With {
+                                              .Level = item.Level,
+                                              .Provider = item.Provider,
+                                              .EventId = item.EventId,
+                                              .TimeCreated = item.TimeCreated,
+                                              .Message = item.Message,
+                                              .LevelNumber = item.LevelNumber,
+                                              .RawXml = item.RawXml,
+                                              .XmlShortened = item.XmlShortened,
+                                              .MessageUnavailable = item.MessageUnavailable
+                                          }))
+                                          Return hit
                                       End Function)
             Catch ex As OperationCanceledException
                 Return Nothing
             Catch ex As Exception
+                Dim notification = Dispatcher.BeginInvoke(Sub() RecordDiagnostic(evtxPath, ex, "EVTX scan", "Warning"))
                 Return Nothing
             End Try
         End Function
@@ -3248,7 +3152,7 @@ Namespace Beacon
         ''' </summary>
         Private Sub RenderEvent(ev As EventRecordSummary)
             RenderEventXml(ev)
-            Dim lvl = If(String.IsNullOrWhiteSpace(ev.Level), "Information", ev.Level)
+            Dim lvl = If(String.IsNullOrWhiteSpace(ev.Level), If(ev.LevelNumber.HasValue, "Level " & ev.LevelNumber.Value.ToString(), "Unknown"), ev.Level)
             EventLevel_txt.Text = $"[{lvl}]"
             EventId_txt.Text = $"Event ID {ev.EventId}"
             EventProvider_txt.Text = ev.Provider

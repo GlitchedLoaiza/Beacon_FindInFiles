@@ -55,6 +55,7 @@
     <Compile Include="../../Beacon_FindInFiles/SearchOutputBudget.vb" Link="Production/SearchOutputBudget.vb" />
     <Compile Include="../../Beacon_FindInFiles/HarSearchService.vb" Link="Production/HarSearchService.vb" />
     <Compile Include="../../Beacon_FindInFiles/EvtxSearchService.vb" Link="Production/EvtxSearchService.vb" />
+    <Compile Include="../../Beacon_FindInFiles/EvtxWorkerHost.vb" Link="Production/EvtxWorkerHost.vb" />
     <Compile Include="../../Beacon_FindInFiles/MatchContext.vb" Link="Production/MatchContext.vb" />
     <Compile Include="../../Beacon_FindInFiles/WebSearchScripts.vb" Link="Production/WebSearchScripts.vb" />
     <Compile Include="../../Beacon_FindInFiles/MainWindow.xaml.vb" Link="MainWindow.xaml.vb" />

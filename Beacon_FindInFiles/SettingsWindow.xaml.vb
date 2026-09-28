@@ -50,6 +50,8 @@ Namespace Beacon
             AddHandler CheckUpdates_btn.Click, AddressOf CheckUpdates_Click
             AddHandler RedactHar_chk.Checked, AddressOf UpdateHarPrivacyHelp
             AddHandler RedactHar_chk.Unchecked, AddressOf UpdateHarPrivacyHelp
+            AddHandler LimitEvtxDeepSearch_chk.Checked, AddressOf UpdateEvtxDeepSearchLimitState
+            AddHandler LimitEvtxDeepSearch_chk.Unchecked, AddressOf UpdateEvtxDeepSearchLimitState
 
             ApplyTheme(isDarkMode)
             LoadControls()
@@ -92,6 +94,12 @@ Namespace Beacon
                 "HAR redaction: On. Recognized sensitive fields are hidden and unstructured bodies are withheld in newly captured HAR previews and exports. Searches still use original bounded data, so matching values can be hidden. Redaction is not full anonymization; review before sharing.",
                 "HAR redaction: Off. Newly captured HAR previews and exports retain original matching text; body size and decoding limits still apply. Review sensitive data before sharing.") & vbCrLf & vbCrLf &
                 "Save and run a new scan to apply this choice. Existing results keep the redaction setting used when they were collected."
+        End Sub
+
+        Private Sub UpdateEvtxDeepSearchLimitState(sender As Object, e As RoutedEventArgs)
+            If EvtxDeepSearchTimeout_txt IsNot Nothing Then
+                EvtxDeepSearchTimeout_txt.IsEnabled = LimitEvtxDeepSearch_chk.IsChecked.GetValueOrDefault()
+            End If
         End Sub
 
         Private Sub ApplyTheme(isDarkMode As Boolean)
@@ -141,6 +149,9 @@ Namespace Beacon
             ArchiveTimeout_txt.Text = _workingSettings.ArchiveProcessTimeoutSeconds.ToString()
 
             EvtxMatches_txt.Text = _workingSettings.EvtxMaximumMatches.ToString()
+            LimitEvtxDeepSearch_chk.IsChecked = _workingSettings.EvtxLimitDeepSearchBeforeXml
+            EvtxDeepSearchTimeout_txt.Text = _workingSettings.EvtxDeepSearchTimeoutSeconds.ToString()
+            UpdateEvtxDeepSearchLimitState(Nothing, Nothing)
             RawXmlFallback_chk.IsChecked = _workingSettings.ShowRawXmlWhenMessageUnavailable
             EvtxResourcePolicy_cmb.SelectedItem = EvtxResourcePolicy.OfflineOnly
             EvtxIds_txt.Text = _workingSettings.EvtxEventIds
@@ -199,6 +210,8 @@ Namespace Beacon
                 _workingSettings.ArchiveProcessTimeoutSeconds = ParseInteger(ArchiveTimeout_txt, "Archive timeout")
 
                 _workingSettings.EvtxMaximumMatches = ParseInteger(EvtxMatches_txt, "Maximum EVTX matches")
+                _workingSettings.EvtxLimitDeepSearchBeforeXml = LimitEvtxDeepSearch_chk.IsChecked.GetValueOrDefault()
+                _workingSettings.EvtxDeepSearchTimeoutSeconds = ParseInteger(EvtxDeepSearchTimeout_txt, "EVTX Deep Search rendering limit")
                 Dim filter As New EvtxFilter(EvtxIds_txt.Text, EvtxProvider_cmb.Text, EvtxLevels_txt.Text, EvtxFrom_txt.Text, EvtxTo_txt.Text)
                 _workingSettings.EvtxEventIds = EvtxIds_txt.Text.Trim()
                 _workingSettings.EvtxProvider = EvtxProvider_cmb.Text.Trim()

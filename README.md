@@ -1,6 +1,6 @@
-# Beacon: Find in Files v2.2 — Your logs, easier to explore
+# Beacon: Find in Files v2.2.1 — Your logs, easier to explore
 
-![Version](https://img.shields.io/badge/version-2.2.0-blue)
+![Version](https://img.shields.io/badge/version-2.2.1-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)
 ![Framework](https://img.shields.io/badge/.NET-10-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -9,7 +9,7 @@
 
 Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-> **Beacon 2.2** brings automatic multicore searching and clearer ways to explore matches. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads; updating the source branch does not upload release assets. Current package and promotion details live [here](docs/releases/2.2.0/PROMOTION.md). The previous Release snapshot is preserved on [`Beacon2.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.1), and earlier release notes remain below.
+> **Beacon 2.2.1** uses **normal EVTX search by default**. For logs supplied with extra message files, choose folder-only **EVTX Deep Search**, with an optional time limit for each file. Clearer warnings explain when some messages may be missing from your results. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. The [2.2.0 release record](docs/releases/2.2.0/PROMOTION.md), earlier [`Beacon2.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.1) source snapshot, and release notes below remain available for older versions.
 
 ## 🎯 Features at a glance
 
@@ -44,12 +44,12 @@ Keep the included `LICENSE` and `licenses` folder with the app when sharing it. 
 
 ### 🔐 Verify your download
 
-Use the checksum for the **same file and version** you downloaded. The [2.2.0 release checksum list](docs/releases/2.2.0/packages/06b8a89/SHA256SUMS.txt) contains separate values for the ZIP and EXE.
+Use the checksum for the **same file and version** you downloaded. The historical [2.2.0 release checksum list](docs/releases/2.2.0/packages/06b8a89/SHA256SUMS.txt) contains separate values for that ZIP and EXE; it does **not** verify a 2.2.1 download.
 
 <details>
-<summary>Show the 2.2.0 release hashes and PowerShell verification steps</summary>
+<summary>Show the historical 2.2.0 release hashes and PowerShell verification steps</summary>
 
-These values identify the verified package built from committed Release source. The [artifact manifest](docs/releases/2.2.0/packages/06b8a89/release-manifest.json) contains the full build details. Check GitHub Releases for asset availability; source promotion does not upload the download automatically.
+These values identify the verified 2.2.0 package built from committed Release source. The [artifact manifest](docs/releases/2.2.0/packages/06b8a89/release-manifest.json) contains the full build details. Check GitHub Releases for asset availability; source promotion does not upload the download automatically.
 
 <!-- RELEASE-HASHES: copied from the verified 2.2.0 Release package; regenerate after rebuilding, repackaging, or signing. -->
 Built on **2026-09-23 UTC** from clean **Release** source at `06b8a89` (Release configuration, win-x64, self-contained single-file, ReadyToRun off). The later documentation commit records these hashes without changing the application source:
@@ -144,10 +144,11 @@ Adjust these in Settings, save, and run the search again. Higher limits can use 
 | Maximum preview size | 25 MB |
 | Maximum request/response body size | 25 MB per body |
 | Archive nesting depth | 1; configurable from 0 to 5 |
+| EVTX search time limits | Normal message search: 3 minutes per file. Deep Search: no time limit unless you enable one (1–86,400 seconds per file). Switching to raw XML starts a separate 3-minute limit. |
 
 Archive entry counts, expanded bytes, compression ratios, and helper timeouts have additional safeguards. Beacon counts before searching, including inside nested archives. That can take time, and changing files, read errors, or cancellation can leave the final scanned count below the original total.
 
-New settings leave first-match mode and HAR redaction unchecked. Existing explicitly saved choices are preserved.
+New settings leave first-match mode, HAR redaction, and EVTX Deep Search off. Updates keep your saved choices: an older enabled EVTX fast-mode setting means Deep Search stays off; disabled fast mode means Deep Search is selected instead. If you've already chosen Deep Search on or off, that choice is kept.
 
 </details>
 
@@ -159,7 +160,12 @@ New settings leave first-match mode and HAR redaction unchecked. Existing explic
 - Open **Event tools** on the right to narrow the events you see—for example, choose **Error** and click **Apply filters**. **Clear filters** brings the other collected events back.
 - To filter the next scan instead, use **Settings → EVTX and HAR**, save, and rescan.
 - Expand **Raw event XML** beneath the message to inspect or copy the event's structured data. Incomplete XML is clearly labeled.
-- Missing a readable message? Event tools explains how to get a portable log from the source computer. XML remains searchable; Beacon doesn't download provider DLLs.
+- **Normal search is the default:** Beacon searches a temporary copy of just the EVTX file, using messages available on this computer and raw event XML. Your original files and their extra message files are untouched. Some message-only matches may be missed; check the results and **Diagnostics** for coverage warnings.
+- **Want to use extra message files supplied with a log?** Select its folder, then check **EVTX Deep Search mode** beside **Case sensitive** and rescan. This option appears only when a folder is selected and is off by default. Keep the EVTX and its accompanying **LocaleMetaData** folder together so Windows can use those message files.
+- **Searching an archive?** EVTX entries in ZIP, CAB, and all other supported archives always use normal search, including nested archives inside a selected folder. To use Deep Search, extract the EVTX and its accompanying message files to a folder first.
+- **Choose how long to wait:** Deep Search has no time limit by default; it runs until finished, cancelled, or a match limit is reached. To set a limit, enable **Settings → EVTX and HAR → Limit EVTX Deep Search time before switching to XML**, choose 1–86,400 seconds per file, save, and rescan. The suggested 180 seconds (3 minutes) applies only when you enable this setting.
+- **Reaching a time limit?** If message rendering reaches its limit or fails, Beacon keeps the matches already collected and searches the remaining events as raw XML, with an incomplete-coverage warning. You can also **Cancel** the scan. Normal message search and XML fallback each have a separate 3-minute limit per file.
+- **Still missing a readable message?** Event tools explains how to export logs with their message information. Beacon doesn't download provider DLLs, and neither mode guarantees every message or faster searches on every log.
 
 ### HAR: saved HTTP traffic
 
@@ -229,12 +235,12 @@ Use the visible navigation buttons when a shortcut does not apply to the active 
 - **A match isn't highlighted?** It may be in a name/path, hidden by HAR redaction, or displayed differently in a formatted document. Regex can also match a position without selecting characters; Help explains this.
 - **A preview is shortened?** Raise the preview limit in Settings if appropriate. Incomplete HTML/XML/JSON is shown as text so you can still read the available content.
 - **Large or unusual files?** HAR documents can use considerable memory. Multipart/ZIP64 edge cases and large solid archives need testing with your representative files; a partial read isn't a full archive integrity check.
-- **An EVTX message is missing?** Check Raw event XML and the offline guidance in Event tools. Logs brought from another machine may need its exported locale metadata alongside the EVTX.
+- **An EVTX message is missing?** Check Raw event XML and the offline guidance in Event tools. Logs brought from another computer may need its exported **LocaleMetaData** folder alongside the EVTX. Select the containing folder, enable **EVTX Deep Search mode**, and rescan. Some messages may still be unavailable; raw XML can help you investigate them.
 - **Network or access problems?** Network latency and workplace policies can limit access. Ownership recovery is optional and asks for confirmation; don't try it casually on system or evidence files.
 - **Looking for more speed?** Beacon automatically uses available processor capacity for independent files and archives; no manual worker tuning is needed. There is no fixed eight-core limit, but memory, storage, the query, and the amount of independent work can limit the benefit. A single file or archive tree is still processed sequentially.
 - **Why does counting take time?** Beacon still counts before searching, and counting can repeat archive extraction. Temporary nested files remain available for previews until Reset/close. Leave those files alone while Beacon uses them.
 
-The in-app **Help** guide has step-by-step troubleshooting. Maintainer validation and release details are tracked separately in the [release record](docs/releases/2.2.0/PROMOTION.md).
+The in-app **Help** guide has step-by-step troubleshooting. Previous package validation and release details remain in the historical [2.2.0 release record](docs/releases/2.2.0/PROMOTION.md).
 
 ## 🔧 For developers
 
@@ -257,14 +263,14 @@ The regression runner is a console application, not a Test Explorer assembly. It
 Create a self-contained release package and fresh checksums with PowerShell 7:
 
 ```powershell
-.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.2.0-Release"
+.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.2.1-Release"
 ```
 
 The script creates the EXE/ZIP, includes legal notices, verifies the contents, preserves old artifacts, and writes checksums and a manifest. It does not commit, sign, or upload anything. It defaults to ReadyToRun off; `-ReadyToRun` opts in without a profile, and `-PublishProfilePath` accepts a `.pubxml` path. Raw `dotnet publish` uses the project's ReadyToRun default (on), so its hash may differ. User-specific publish paths are not required.
 
 The development-only [`BenchmarkSuite1`](BenchmarkSuite1/BenchmarkSuite1.csproj) includes [production multicore benchmark instructions](BenchmarkSuite1/PRODUCTION-BENCHMARKS.md) and [measured results](tests/Beacon.SafetyChecks/PerformanceEvidence/multicore-production/REPORT.md), including approximately 200 MiB compressed ZIPs. These are workload- and machine-specific measurements, not a promise for every scan. The earlier [optimization and rollback record](tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md) remains available.
 
-For final packaging and **Beta → Release** provenance, follow the [release record](docs/releases/2.2.0/PROMOTION.md). Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+For historical 2.2.0 packaging and **Beta → Release** provenance, see the [release record](docs/releases/2.2.0/PROMOTION.md). A 2.2.1 package needs its own validation and checksums. Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 </details>
 
@@ -279,7 +285,16 @@ Share bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_Find
 
 ## 📋 Changelog
 
-### v2.2.0
+### v2.2.1
+
+#### 🛠️ Fixed and changed
+
+- Normal EVTX search is the default, leaves original files untouched, and warns when some event messages may be missed.
+- Optional folder-only **EVTX Deep Search mode** uses extra message files supplied alongside an EVTX. Archive entries, including CAB and nested archives, remain in normal mode.
+- Deep Search has no time limit by default, with an optional per-file limit in Settings. Cancel when needed; if message rendering reaches its limit or fails, Beacon keeps collected matches and continues with raw XML.
+- Existing explicit EVTX fast-mode choices migrate to the new checkbox. Earlier features, themes, archive safeguards, and dependency versions remain unchanged.
+
+### v2.2.0 — earlier release notes
 
 #### ✨ Added
 

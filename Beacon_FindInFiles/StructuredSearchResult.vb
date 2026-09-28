@@ -9,6 +9,7 @@ Namespace Beacon
         Public Property RawXml As String = ""
         Public Property XmlShortened As Boolean
         Public Property MessageUnavailable As Boolean
+        Public Property EventSequence As Long = -1
     End Class
 
     Public NotInheritable Class StructuredSearchResult(Of T)

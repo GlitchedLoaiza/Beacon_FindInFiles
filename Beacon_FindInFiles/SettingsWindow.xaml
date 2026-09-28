@@ -77,6 +77,10 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
                     <TextBlock Text="Windows Event Logs" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Maximum matching events per file"/><TextBox x:Name="EvtxMatches_txt"/>
+                    <CheckBox x:Name="LimitEvtxDeepSearch_chk" Content="Limit EVTX Deep Search time before switching to XML"
+                              ToolTip="Unchecked: EVTX Deep Search keeps native rendering running until it finishes or you cancel. Checked: each file switches to XML after the selected seconds; XML fallback still has its separate safety limit."/>
+                    <TextBlock Text="Deep Search rendering limit (seconds)"/>
+                    <TextBox x:Name="EvtxDeepSearchTimeout_txt" ToolTip="Seconds per EVTX file before Deep Search switches from native message rendering to raw XML fallback. Default is 180 seconds."/>
                     <TextBlock Text="Pre-scan event filters (blank = any)" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Event IDs (comma-separated, e.g. 1000,1001)"/><TextBox x:Name="EvtxIds_txt"/>
                     <TextBlock Text="Provider (choose or type; blank = any)"/><ComboBox x:Name="EvtxProvider_cmb" IsEditable="True" IsTextSearchEnabled="False"
