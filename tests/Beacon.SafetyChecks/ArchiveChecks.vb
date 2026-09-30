@@ -272,7 +272,7 @@ Module ArchiveChecks
                         End Using
                         Dim compressed = tarPath & ".gz"
                         Run7Zip(sevenZip, root, {"a", "-tgzip", compressed, tarPath})
-                        Dim before = Directory.GetFiles(Path.GetTempPath(), "BeaconTar_*.tar").ToHashSet(StringComparer.OrdinalIgnoreCase)
+                        Dim before = Directory.GetDirectories(Path.GetTempPath(), "BeaconTar_*").ToHashSet(StringComparer.OrdinalIgnoreCase)
                         Dim settings = Options()
                         settings.MaximumArchiveExpandedSizeMb = 1
                         Expect(Of InvalidDataException)(Sub()
@@ -302,7 +302,7 @@ Module ArchiveChecks
                             Dim budget As New ArchiveReadBudget(entrySettings, New FileInfo(compressed).Length)
                             Expect(Of InvalidDataException)(Sub() budget.Register(entry.Key, entry.Size, entry.CompressedSize, entry.IsEncrypted, entry.LinkTarget))
                         End Using
-                        Ensure(Directory.GetFiles(Path.GetTempPath(), "BeaconTar_*.tar").All(Function(path) before.Contains(path)), "Temporary TAR leaked after success/failure/cancellation.")
+                        Ensure(Directory.GetDirectories(Path.GetTempPath(), "BeaconTar_*").All(Function(path) before.Contains(path)), "Temporary TAR directory leaked after success/failure/cancellation.")
                         Using exclusive As New FileStream(compressed, FileMode.Open, FileAccess.ReadWrite, FileShare.None)
                             Ensure(exclusive.Length > 0, "Archive file handle was not released.")
                         End Using

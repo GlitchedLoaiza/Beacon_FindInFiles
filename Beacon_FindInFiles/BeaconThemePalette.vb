@@ -18,7 +18,7 @@ Namespace Beacon
         End Function
 
         Public Shared Function UsesDarkBackground(theme As AppTheme, systemDark As Boolean) As Boolean
-            Return theme = AppTheme.Dark OrElse (FollowsSystem(theme) AndAlso systemDark)
+            Return theme = AppTheme.Dark OrElse theme = AppTheme.Aero OrElse (FollowsSystem(theme) AndAlso systemDark)
         End Function
 
         Public Shared Function IsEnabled(resources As ResourceDictionary) As Boolean
@@ -29,6 +29,7 @@ Namespace Beacon
             resources(Marker) = enabled
             resources("ActionButtonDisabledOpacity") = If(enabled, 1.0, 0.5)
             resources("SettingsButtonDisabledOpacity") = If(enabled, 1.0, 0.55)
+            resources("SelectionBorderBrush") = Brushes.Transparent
             If enabled Then
                 SetBrush(resources, "AccentBrush", If(darkBackground, Color.FromRgb(&HE5, &H8E, &H9A), ButtonCrimson))
                 SetBrush(resources, "SelectionBackgroundBrush", If(darkBackground, Color.FromRgb(&H48, &H2B, &H31), Color.FromRgb(&HF7, &HE6, &HE9)))
@@ -72,11 +73,13 @@ Namespace Beacon
         End Sub
 
         Public Shared Sub CopyOwnerColors(owner As Window, child As Window, Optional darkBackground As Boolean = False)
+            AeroTheme.Apply(child, False)
             For Each key In owner.Resources.Keys
-                Dim brush = TryCast(owner.Resources(key), SolidColorBrush)
+                Dim brush = TryCast(owner.Resources(key), Brush)
                 If brush IsNot Nothing Then child.Resources(key) = brush.CloneCurrentValue()
             Next
             ApplyButtons(child.Resources, IsEnabled(owner.Resources), darkBackground)
+            If AeroTheme.IsEnabled(owner.Resources) Then AeroTheme.Apply(child, True)
         End Sub
 
         Private Shared Sub SetBrush(resources As ResourceDictionary, key As String, color As Color)

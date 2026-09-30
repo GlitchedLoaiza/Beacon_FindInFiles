@@ -15,7 +15,10 @@
                         <ContentPresenter/>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="TopicBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/></Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="TopicBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+                            <Setter TargetName="TopicBorder" Property="BorderBrush" Value="{DynamicResource SelectionBorderBrush}"/>
+                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="TopicBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
                         <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="TopicBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
                     </ControlTemplate.Triggers>

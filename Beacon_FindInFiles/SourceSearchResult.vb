@@ -26,7 +26,7 @@ Namespace Beacon
 
     Friend NotInheritable Class SearchTemporarySources
         Implements IDisposable
-        Private ReadOnly _directories As New List(Of String)()
+        Private ReadOnly _directories As New List(Of PrivateTemporaryDirectory)()
         Private _disposed As Boolean
 
         Public ReadOnly Property HasSources As Boolean
@@ -37,23 +37,16 @@ Namespace Beacon
 
         Public Function CreateDirectory() As String
             ObjectDisposedException.ThrowIf(_disposed, Me)
-            Dim path = IO.Path.Combine(IO.Path.GetTempPath(), "BeaconSearch_" & Guid.NewGuid().ToString("N"))
-            Directory.CreateDirectory(path)
-            _directories.Add(path)
-            Return path
+            Dim directory = PrivateTemporaryDirectory.Create("BeaconSearch_")
+            _directories.Add(directory)
+            Return directory.DirectoryPath
         End Function
 
         Public Sub Dispose() Implements IDisposable.Dispose
             If _disposed Then Return
             _disposed = True
-            For Each path In _directories
-                Try
-                    Directory.Delete(path, True)
-                Catch ex As IOException
-                    Debug.WriteLine($"Could not remove search temporary directory: {ex.Message}")
-                Catch ex As UnauthorizedAccessException
-                    Debug.WriteLine($"Could not remove search temporary directory: {ex.Message}")
-                End Try
+            For Each directory In _directories
+                directory.Dispose()
             Next
             _directories.Clear()
         End Sub

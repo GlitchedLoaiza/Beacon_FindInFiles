@@ -19,8 +19,39 @@ Module Program
             Return EvtxWorkerHost.RunWorker(args)
         End If
         If args.Length > 0 AndAlso (args(0) = "l" OrElse args(0) = "e") Then Return FakeReader(args)
+        If args.Length = 1 AndAlso args(0) = "--theme-checks" Then
+            CheckAeroThemes()
+            Check("Beacon Theme system backgrounds and logo-red buttons", AddressOf BeaconThemeChecks.Run)
+            Check("Native caption themes preserve Windows frames", AddressOf NativeCaptionChecks.Transitions)
+            For Each dark In {False, True}
+                Check($"Settings theme templates and contrast (dark={dark})", Sub() SettingsThemeChecks.Run(dark))
+                Check($"Main Path/Search fields (dark={dark})", Sub() SettingsThemeChecks.RunMainFields(dark))
+                Check($"Preview counter theme transitions (dark={dark})", Sub() SettingsThemeChecks.RunCounterBars(dark))
+                Check($"Compact toolbar (dark={dark})", Sub() SettingsThemeChecks.RunToolbar(dark))
+                Check($"Compact results (dark={dark})", Sub() SettingsThemeChecks.RunCompactResults(dark))
+                Check($"Scan report theme (dark={dark})", Sub() SettingsThemeChecks.RunReport(dark))
+            Next
+            Check("Editable UTC picker, severity and provider dropdowns", AddressOf FilterControlChecks.Run)
+            Check("Summary themes, minimum layout and bounded virtualization", AddressOf PreviewPresentationChecks.Run)
+            Console.WriteLine($"{_passed} passed; {_failed} failed.")
+            Return If(_failed = 0, 0, 1)
+        End If
+        If args.Length = 1 AndAlso args(0) = "--notification-checks" Then
+            CheckCompletionNotifications()
+            Check("Settings light theme templates and contrast", Sub() SettingsThemeChecks.Run(False))
+            Check("Settings dark theme templates and contrast", Sub() SettingsThemeChecks.Run(True))
+            Console.WriteLine($"{_passed} passed; {_failed} failed.")
+            Return If(_failed = 0, 0, 1)
+        End If
+        If args.Length = 1 AndAlso args(0) = "--security-checks" Then
+            CheckSecurityBoundaries()
+            Check("Isolated web highlighting and offline report rendering", AddressOf WebSearchChecks.Run)
+            Check("EVTX worker timeout containment and fallback", AddressOf StructuredSearchChecks.EvtxIsolation)
+            Console.WriteLine($"{_passed} passed; {_failed} failed.")
+            Return If(_failed = 0, 0, 1)
+        End If
         If args.Length <> 1 OrElse Not File.Exists(args(0)) Then
-            Console.Error.WriteLine("Usage: dotnet run --project tests/Beacon.SafetyChecks -- <path to bundled 7za.exe>")
+            Console.Error.WriteLine("Usage: dotnet run --project tests/Beacon.SafetyChecks -- <path to bundled 7za.exe> | --theme-checks | --notification-checks | --security-checks")
             Return 2
         End If
 
@@ -198,9 +229,35 @@ Module Program
         Check("Tour replay and Summary remain independent of active multicore search", AddressOf TourReplayChecks.ActiveSearch)
         Check("Optimized line-context order and isolation", AddressOf OptimizationChecks.TextContextParity)
         Check("Beacon Theme system backgrounds and logo-red buttons", AddressOf BeaconThemeChecks.Run)
+        CheckAeroThemes()
+        CheckCompletionNotifications()
+        CheckSecurityBoundaries()
         Console.WriteLine($"{_passed} passed; {_failed} failed.")
         Return If(_failed = 0, 0, 1)
     End Function
+
+    Private Sub CheckAeroThemes()
+        Check("Aero persistence, gradient contrast and accessible resources", AddressOf AeroThemeChecks.PersistenceAndContrast)
+        Check("Aero main layout, rendering and reversible theme transitions", AddressOf AeroThemeChecks.MainWindowTransitions)
+        Check("Aero owned windows and caption commands", AddressOf AeroThemeChecks.OwnedWindowsAndChrome)
+        Check("Aero selected preview text remains readable", AddressOf AeroThemeChecks.SelectionReadability)
+        Check("Aero progress shine, range accuracy and motion preferences", AddressOf AeroThemeChecks.ProgressAppearance)
+    End Sub
+
+    Private Sub CheckCompletionNotifications()
+        Check("Completion-alert policy, background gating and duplicate suppression", AddressOf SearchCompletionNotificationChecks.Policy)
+        Check("Completion-alert activation cleanup and native-effect failure isolation", AddressOf SearchCompletionNotificationChecks.LifecycleAndFailures)
+        Check("Completion-alert settings defaults, round-trips and themed controls", AddressOf SearchCompletionNotificationChecks.Settings)
+        Check("Search completion alerts, zero results, limits, cancellation and shutdown", AddressOf SearchCompletionNotificationChecks.ScanIntegration)
+    End Sub
+
+    Private Sub CheckSecurityBoundaries()
+        Check("Private temporary permissions, path locks and safe cleanup", AddressOf SecurityBoundaryChecks.PrivateStorage)
+        Check("Verified CAB helper resists replacement through its lifetime", AddressOf SecurityBoundaryChecks.HelperIntegrity)
+        Check("EVTX worker request bounds and validation", AddressOf SecurityBoundaryChecks.WorkerRequests)
+        Check("Production Windows imports resolve from System32", AddressOf SecurityBoundaryChecks.NativeImports)
+        Check("Static preview rejects malicious active and network content", AddressOf WebPreviewSecurityChecks.Run)
+    End Sub
 
     Private Function NewBudget(Optional settings As BeaconSettings = Nothing) As ArchiveReadBudget
         Return New ArchiveReadBudget(If(settings, New BeaconSettings()), 1024 * 1024)

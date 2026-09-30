@@ -148,6 +148,7 @@ Namespace Beacon
         Private ReadOnly _hits As New ObservableCollection(Of SearchHit)
         Private _settings As BeaconSettings
         Private _searchOptions As BeaconSettings
+        Private ReadOnly _completionNotifier As SearchCompletionNotifier
         Private _activeQuery As SearchQuery
         Private _selectedSearchMode As SearchMode
         Private _resultLimitReached As Boolean
@@ -199,7 +200,7 @@ Namespace Beacon
 
         ''' <summary>Tracks temporary EVTX files extracted from archives for cleanup</summary>
         Private ReadOnly _tempToDelete As New List(Of String)
-        Private ReadOnly _tempDirectories As New List(Of String)
+        Private ReadOnly _tempDirectories As New List(Of PrivateTemporaryDirectory)
 
         Private ReadOnly _accessIssueLock As New Object()
         Private ReadOnly _ownershipPromptedPaths As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
@@ -216,6 +217,8 @@ Namespace Beacon
 
         ''' <summary>WebView2 user data folder path (for cleanup on exit)</summary>
         Private _webView2DataFolder As String = ""
+        Private _webViewProfile As PrivateTemporaryDirectory
+        Private _webPreviewSecurity As WebPreviewSecurity
 
         ''' <summary>Single shared initialization operation used by startup and preview requests</summary>
         Private _webViewInitializationTask As Task(Of Boolean)
@@ -264,11 +267,17 @@ Namespace Beacon
         ''' Constructor: Initializes UI controls, wires event handlers, and sets initial state.
         ''' </summary>
         Public Sub New()
+            Me.New(Nothing)
+        End Sub
+
+        Friend Sub New(notificationPlatform As ISearchCompletionNotificationPlatform)
             Debug.WriteLine("========================================")
             Debug.WriteLine("MainWindow constructor started")
             Debug.WriteLine("========================================")
 
             InitializeComponent()
+            _completionNotifier = If(notificationPlatform Is Nothing,
+                New SearchCompletionNotifier(Me), New SearchCompletionNotifier(Me, notificationPlatform))
             InitializeTextPreviewUi()
             InitializeEvtxControls()
             HarPreviewFilters_host.Content = _harPreviewEditor
@@ -449,16 +458,30 @@ Namespace Beacon
                 Debug.WriteLine($"Theme initialized: {If(_isDarkMode, "Dark", "Light")} mode")
             Catch ex As Exception
                 Debug.WriteLine($"Error initializing theme, using Light mode: {ex.Message}")
+                AeroTheme.Apply(Me, False)
                 ApplyLightTheme()
             End Try
         End Sub
 
         Private Sub ApplyThemeSelection(systemDark As Boolean)
+            AeroTheme.Apply(Me, False)
             If BeaconThemePalette.UsesDarkBackground(_settings.Theme, systemDark) Then
                 ApplyDarkTheme()
             Else
                 ApplyLightTheme()
             End If
+            If _settings.Theme = AppTheme.Aero Then
+                AeroTheme.Apply(Me, True)
+                EventLevel_txt.SetResourceReference(TextBlock.ForegroundProperty, "EventLevelForegroundBrush")
+                EventTime_txt.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush")
+                For Each previewText As TextBlock In {EventId_txt, EventProvider_txt, EventMessage_txt}
+                    previewText.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimaryBrush")
+                Next
+            End If
+            For Each child As Window In OwnedWindows
+                BeaconThemePalette.CopyOwnerColors(Me, child, _isDarkMode)
+                NativeCaptionTheme.Apply(child, _isDarkMode)
+            Next
         End Sub
 
         Private Sub ApplyPreviewTheme()
@@ -629,6 +652,7 @@ Namespace Beacon
 
         ''' <summary>Returns the shared WebView2 initialization task, retrying after a failed attempt.</summary>
         Private Async Function EnsureWebView2InitializedAsync() As Task(Of Boolean)
+            If _isClosing Then Return False
             If _webViewInitialized AndAlso WebPreview_wv2?.CoreWebView2 IsNot Nothing Then Return True
 
             If _webViewInitializationTask Is Nothing OrElse
@@ -653,19 +677,22 @@ Namespace Beacon
                 If WebPreview_wv2.CoreWebView2 Is Nothing Then
                     Debug.WriteLine("Initializing WebView2 with Beacon session environment...")
                     Dim environment = Await CreateBeaconWebView2EnvironmentAsync()
+                    If _isClosing Then
+                        DisposeWebPreview()
+                        Return False
+                    End If
                     Await WebPreview_wv2.EnsureCoreWebView2Async(environment)
                 End If
 
+                If _isClosing Then
+                    DisposeWebPreview()
+                    Return False
+                End If
                 If WebPreview_wv2.CoreWebView2 Is Nothing Then Return False
                 _webView2DataFolder = WebPreview_wv2.CoreWebView2.Environment.UserDataFolder
 
-                With WebPreview_wv2.CoreWebView2.Settings
-                    .AreDefaultContextMenusEnabled = False
-                    .IsScriptEnabled = True
-                    .AreDevToolsEnabled = False
-                    .IsWebMessageEnabled = True
-                    .IsStatusBarEnabled = False
-                End With
+                WebPreview_wv2.AllowExternalDrop = False
+                If _webPreviewSecurity Is Nothing Then _webPreviewSecurity = New WebPreviewSecurity(WebPreview_wv2.CoreWebView2)
 
                 Try
                     WebPreview_wv2.CoreWebView2.Profile.PreferredColorScheme =
@@ -710,6 +737,7 @@ Namespace Beacon
             ' Cancel the close event so we can finish cleanup first
             e.Cancel = True
             _isClosing = True
+            _completionNotifier.CancelPending()
             _updateCheckCancellation.Cancel()
 
             Try
@@ -726,47 +754,11 @@ Namespace Beacon
                         Debug.WriteLine($"Export stopped during shutdown: {ex.Message}")
                     End Try
                 End If
-                ' Dispose WebView2 to release file locks
-                If _webViewInitialized AndAlso WebPreview_wv2 IsNot Nothing Then
-                    Try
-                        Debug.WriteLine("Disposing WebView2...")
-
-                        ' Navigate to blank page to release current page resources
-                        If WebPreview_wv2.CoreWebView2 IsNot Nothing Then
-                            Try
-                                WebPreview_wv2.NavigateToString("about:blank")
-                                WebPreview_wv2.CoreWebView2.Stop()
-                            Catch
-                                ' Ignore errors stopping navigation
-                            End Try
-                        End If
-
-                        ' Clear source and dispose
-                        WebPreview_wv2.Source = Nothing
-                        WebPreview_wv2.Dispose()
-                        Debug.WriteLine("✓ WebView2 disposed")
-
-                    Catch ex As Exception
-                        Debug.WriteLine($"Warning: Error disposing WebView2: {ex.Message}")
-                    End Try
-                End If
+                If _webViewInitializationTask IsNot Nothing Then Await _webViewInitializationTask
+                DisposeWebPreview()
 
                 ' Cleanup temp EVTX files
                 CleanupTemp()
-
-                ' QUICK attempt to delete WebView2 folder (don't block shutdown for long)
-                If IsBeaconWebView2SessionFolder(_webView2DataFolder) AndAlso Directory.Exists(_webView2DataFolder) Then
-                    Debug.WriteLine($"Attempting quick cleanup of WebView2 folder: {_webView2DataFolder}")
-
-                    ' Single quick attempt with minimal wait
-                    Try
-                        System.Threading.Thread.Sleep(300)
-                        Directory.Delete(_webView2DataFolder, True)
-                        Debug.WriteLine($"✓ Successfully deleted WebView2 folder")
-                    Catch
-                        Debug.WriteLine($"⚠ WebView2 folder still in use - will be cleaned up on next app launch")
-                    End Try
-                End If
 
             Catch ex As Exception
                 Debug.WriteLine($"✗ Error during cleanup: {ex.Message}")
@@ -782,67 +774,43 @@ Namespace Beacon
             End Try
         End Sub
 
-        Private Shared Function GetBeaconWebView2Root() As String
-            Return Path.Combine(Path.GetTempPath(), "Beacon", "WebView2")
-        End Function
-
         Private Async Function CreateBeaconWebView2EnvironmentAsync() As Task(Of Microsoft.Web.WebView2.Core.CoreWebView2Environment)
-            If String.IsNullOrEmpty(_webView2DataFolder) Then
-                _webView2DataFolder = Path.Combine(GetBeaconWebView2Root(), $"session-{Guid.NewGuid():N}")
+            If _webViewProfile Is Nothing Then
+                _webViewProfile = PrivateTemporaryDirectory.Create("BeaconWebView2_")
+                _webView2DataFolder = _webViewProfile.DirectoryPath
             End If
 
-            Directory.CreateDirectory(_webView2DataFolder)
             Return Await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(Nothing, _webView2DataFolder)
         End Function
 
-        Private Shared Function IsBeaconWebView2SessionFolder(folder As String) As Boolean
-            If String.IsNullOrWhiteSpace(folder) Then Return False
-
+        Private Sub DisposeWebPreview()
             Try
-                Dim root = Path.GetFullPath(GetBeaconWebView2Root()).TrimEnd(Path.DirectorySeparatorChar) & Path.DirectorySeparatorChar
-                Dim candidate = Path.GetFullPath(folder)
-                Return candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase) AndAlso
-                       Path.GetFileName(candidate).StartsWith("session-", StringComparison.OrdinalIgnoreCase)
-            Catch
-                Return False
+                _webPreviewSecurity?.Dispose()
+            Catch ex As Exception
+                Debug.WriteLine($"Could not release the isolated preview: {ex.Message}")
+            Finally
+                _webPreviewSecurity = Nothing
+                _webViewInitialized = False
+                Try
+                    WebPreview_wv2?.Dispose()
+                Catch ex As Exception
+                    Debug.WriteLine($"Could not dispose WebView2: {ex.Message}")
+                Finally
+                    _webViewProfile?.Dispose()
+                    _webViewProfile = Nothing
+                End Try
             End Try
-        End Function
+        End Sub
 
         ''' <summary>
-        ''' Cleans up only Beacon-owned WebView2 session folders from previous runs.
+        ''' Cleans up private inactive temporary sessions without following redirected paths.
         ''' </summary>
         Private Sub CleanupOldWebView2Folders()
-            Try
-                Debug.WriteLine("========================================")
-                Debug.WriteLine("Checking for old Beacon WebView2 folders to cleanup...")
-
-                Dim foldersDeleted = 0
-                Dim root = GetBeaconWebView2Root()
-                If Directory.Exists(root) Then
-                    For Each folder In Directory.EnumerateDirectories(root, "session-*", SearchOption.TopDirectoryOnly)
-                        If Not IsBeaconWebView2SessionFolder(folder) Then Continue For
-
-                        Try
-                            Debug.WriteLine($"Deleting old Beacon WebView2 folder: {folder}")
-                            Directory.Delete(folder, True)
-                            foldersDeleted += 1
-                            Debug.WriteLine("✓ Deleted")
-                        Catch ex As Exception
-                            Debug.WriteLine($"Could not delete {folder}: {ex.Message}")
-                        End Try
-                    Next
-                End If
-
-                If foldersDeleted > 0 Then
-                    Debug.WriteLine($"✓✓✓ Cleaned up {foldersDeleted} old WebView2 folder(s)")
-                Else
-                    Debug.WriteLine("No old Beacon WebView2 folders found")
-                End If
-                Debug.WriteLine("========================================")
-
-            Catch ex As Exception
-                Debug.WriteLine($"Error during old folder cleanup: {ex.Message}")
-            End Try
+            Dim cleanup = Task.Run(Sub()
+                                       For Each prefix In {"BeaconWebView2_", "BeaconPreview_", "BeaconSearch_", "BeaconCabPreview_", "BeaconCabExtract_", "BeaconFindInFiles_", "BeaconTar_", "BeaconEvtxFast_", "BeaconEvtxWorker_"}
+                                           PrivateTemporaryDirectory.CleanupStale(prefix)
+                                       Next
+                                   End Sub)
         End Sub
 
 #End Region
@@ -1157,6 +1125,7 @@ Namespace Beacon
         ''' </summary>
         Private Sub CancelScan()
             Try
+                _completionNotifier.CancelPending()
                 If _scanCts IsNot Nothing Then _scanCts.Cancel()
                 Status("Cancelling...")
             Catch
@@ -1187,7 +1156,8 @@ Namespace Beacon
                 Return
             End Try
 
-            Interlocked.Increment(_scanGeneration)
+            Dim generation = Interlocked.Increment(_scanGeneration)
+            _completionNotifier.BeginSearch(generation)
             Volatile.Write(_scanPublicationComplete, False)
             Dim previews = DrainPreviewOperationsAsync()
 
@@ -1322,9 +1292,14 @@ Namespace Beacon
 
                                                    UpdateButtonsState()
 
-                                                   ' Always return focus to search box when scan ends (cancel or complete)
-                                                   Search_txt.Focus()
-                                                   Keyboard.Focus(Search_txt)
+                                                    ' Preserve the user's foreground window when a background scan finishes.
+                                                    If IsActive Then
+                                                        Search_txt.Focus()
+                                                        Keyboard.Focus(Search_txt)
+                                                    End If
+                                                    If generation = Volatile.Read(_scanGeneration) AndAlso Not (_isResetting OrElse _isClosing) Then
+                                                        _completionNotifier.Complete(generation, _scanRun.State, _searchOptions)
+                                                    End If
 
                                                End Sub)
                          End Try
@@ -1341,6 +1316,7 @@ Namespace Beacon
         Private Async Sub Reset_btn_Click(sender As Object, e As RoutedEventArgs)
             If _isResetting OrElse _isClosing Then Return
             _isResetting = True
+            _completionNotifier.CancelPending()
             NextFile_btn.Visibility = Visibility.Collapsed
             HidePreviewNavigation()
             UpdateButtonsState()
@@ -1734,9 +1710,9 @@ Namespace Beacon
                                    Debug.WriteLine($"=== Starting CAB scan using 7-Zip: {Path.GetFileName(cabPath)} (depth {depth}) ===")
 
                                    ' Extract CAB to temp directory using 7-Zip
-                                   Dim tempExtractDir = Path.Combine(Path.GetTempPath(), "BeaconCabExtract_" & Guid.NewGuid().ToString("N"))
-                                   Directory.CreateDirectory(tempExtractDir)
-                                   _tempDirectories.Add(tempExtractDir)
+                                   Dim temporary = PrivateTemporaryDirectory.Create("BeaconCabExtract_")
+                                   Dim tempExtractDir = temporary.DirectoryPath
+                                   _tempDirectories.Add(temporary)
 
                                    Try
                                        ' Extract using 7-Zip command line
@@ -2578,10 +2554,10 @@ Namespace Beacon
         ''' <summary>
         ''' Clears WebView2 content to prevent black screen or lingering content
         ''' </summary>
-        Private Sub ClearWebPreview()
-            If _webViewInitialized Then
+        Private Async Sub ClearWebPreview()
+            If _webViewInitialized AndAlso _webPreviewSecurity IsNot Nothing Then
                 Try
-                    WebPreview_wv2.NavigateToString("<html><body style='margin:0;padding:0;background:white;'></body></html>")
+                    Await _webPreviewSecurity.ShowHtmlAsync("<html><body style='margin:0;padding:0;background:white;'></body></html>")
                 Catch
                     ' Ignore errors clearing WebView2 preview
                 End Try
@@ -2614,7 +2590,7 @@ Namespace Beacon
                 If Not IsPreviewSelectionCurrent(generation, selected) Then Return
                 Debug.WriteLine($"Error loading content: {ex.Message}")
                 ' On error, show error message in WebView
-                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading file:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+                ShowWebPreviewError("Error loading file: " & ex.Message)
             End Try
         End Sub
 
@@ -2640,13 +2616,13 @@ Namespace Beacon
             Try
                 Dim preview = New PreviewContentService(_settings, AddressOf RecordFileSystemIssue).ReadArchive(archivePath, entryName)
                 If preview Is Nothing Then
-                    WebPreview_wv2.NavigateToString("<html><body><h3>Error: Entry not found in archive</h3></body></html>")
+                    ShowWebPreviewError("Entry not found in archive.")
                 Else
                     Await ShowWebPreviewAsync(preview, extension)
                 End If
             Catch ex As Exception
                 If Not IsPreviewSelectionCurrent(generation, selected) Then Return
-                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading from archive:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+                ShowWebPreviewError("Error loading from archive: " & ex.Message)
             End Try
         End Sub
 
@@ -2674,19 +2650,16 @@ Namespace Beacon
                 If content IsNot Nothing Then
                     Await ShowWebPreviewAsync(content, extension)
                 Else
-                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error: File '{System.Security.SecurityElement.Escape(entryName)}' not found in extracted CAB contents</h3></body></html>")
+                    ShowWebPreviewError($"File '{entryName}' not found in extracted CAB contents.")
                 End If
             Catch ex As Exception
                 If Not IsPreviewSelectionCurrent(generation, selected) Then Return
-                WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading CAB preview:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
+                ShowWebPreviewError("Error loading CAB preview: " & ex.Message)
             End Try
         End Sub
 
         ''' <summary>
-        ''' Core method to load and highlight HTML/XML/JSON content in WebView2.
-        ''' Falls back to a temp file for large content because WebView2.NavigateToString
-        ''' has an ~2 MB limit and throws "Value does not fall within the expected range"
-        ''' when the rendered HTML string exceeds it (common with large XML files).
+        ''' Loads static offline HTML/XML/JSON through the isolated response controller.
         ''' </summary>
         Private Async Function LoadWebContentAsync(content As String, extension As String) As Task
             Dim generation = Volatile.Read(_previewGeneration)
@@ -2703,31 +2676,8 @@ Namespace Beacon
                 htmlToRender = InjectThemeAwareCSS(content)
             End If
 
-            ' NavigateToString limit is ~2 MB; write to temp file for larger content
-            Const MAX_INLINE As Integer = 1_500_000
-            If htmlToRender.Length > MAX_INLINE Then
-                Dim tempFile = Path.Combine(Path.GetTempPath(), "BeaconPreview_" & Guid.NewGuid().ToString("N") & ".html")
-                Try
-                    File.WriteAllText(tempFile, htmlToRender, System.Text.Encoding.UTF8)
-                    _tempToDelete.Add(tempFile)
-                    WebPreview_wv2.CoreWebView2.Navigate("file:///" & tempFile.Replace("\", "/"))
-                Catch ex As Exception
-                    Debug.WriteLine($"Error navigating to temp file: {ex.Message}")
-                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error displaying file:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
-                    Return
-                End Try
-            Else
-                Try
-                    WebPreview_wv2.NavigateToString(htmlToRender)
-                Catch ex As Exception
-                    Debug.WriteLine($"NavigateToString failed: {ex.Message}")
-                    WebPreview_wv2.NavigateToString($"<html><body><h3>Error loading content:</h3><pre>{System.Security.SecurityElement.Escape(ex.Message)}</pre></body></html>")
-                    Return
-                End Try
-            End If
-
-            ' Wait for navigation to complete before highlighting
-            Await Task.Delay(300)
+            If _webPreviewSecurity Is Nothing Then Throw New InvalidOperationException("The isolated web preview is unavailable.")
+            If Not Await _webPreviewSecurity.ShowHtmlAsync(htmlToRender) Then Return
             If Not IsPreviewSelectionCurrent(generation, selected) Then Return
 
             ' Apply search highlighting
@@ -2738,9 +2688,22 @@ Namespace Beacon
             End If
         End Function
 
+        Private Async Sub ShowWebPreviewError(message As String)
+            Try
+                If _webPreviewSecurity IsNot Nothing Then
+                    Await _webPreviewSecurity.ShowHtmlAsync($"<html><body><pre>{System.Security.SecurityElement.Escape(message)}</pre></body></html>")
+                Else
+                    ShowTextPreviewMode()
+                    SetTextPreview(message)
+                End If
+            Catch ex As Exception
+                Debug.WriteLine($"Could not display preview error: {ex.Message}")
+            End Try
+        End Sub
+
         ''' <summary>
-        ''' Injects search-highlight CSS into HTML content (no theme color overrides)
-        ''' The page is left to render with its own colors/backgrounds as the author intended.
+        ''' Adds search-highlight CSS while preserving the document's own colors.
+        ''' Active content and external resources are blocked by the preview controller.
         ''' </summary>
         Private Function InjectThemeAwareCSS(htmlContent As String) As String
             ' Only inject styles needed for search highlighting - leave page colors untouched
@@ -3466,13 +3429,13 @@ Namespace Beacon
         ''' EventLogReader requires file path, cannot read from stream
         ''' </summary>
         Private Function ExtractEntryToTemp(entry As ZipArchiveEntry) As String
-            Dim tempDir = Path.Combine(Path.GetTempPath(), "BeaconFindInFiles")
-            Directory.CreateDirectory(tempDir)
-
-            Dim tempFile = Path.Combine(tempDir, Guid.NewGuid().ToString("N") & "_" & Path.GetFileName(entry.FullName))
+            Dim temporary = PrivateTemporaryDirectory.Create("BeaconFindInFiles_")
+            _tempDirectories.Add(temporary)
+            Dim name = Guid.NewGuid().ToString("N") & "_" & Path.GetFileName(entry.FullName)
+            Dim tempFile = Path.Combine(temporary.DirectoryPath, name)
 
             Using input = entry.Open()
-                Using output As New FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None)
+                Using output = temporary.CreateFile(name)
                     input.CopyTo(output)
                 End Using
             End Using
@@ -3488,14 +3451,14 @@ Namespace Beacon
         ''' </summary>
         Private Function ExtractArchiveEntryToTemp(entry As IArchiveEntry, archivePath As String,
                                                     Optional ct As CancellationToken = Nothing, Optional budget As ArchiveReadBudget = Nothing) As String
-            Dim tempDir = Path.Combine(Path.GetTempPath(), "BeaconFindInFiles")
-            Directory.CreateDirectory(tempDir)
-
-            Dim tempFile = Path.Combine(tempDir, Guid.NewGuid().ToString("N") & "_" & Path.GetFileName(entry.Key))
+            Dim temporary = PrivateTemporaryDirectory.Create("BeaconFindInFiles_")
+            _tempDirectories.Add(temporary)
+            Dim name = Guid.NewGuid().ToString("N") & "_" & Path.GetFileName(entry.Key)
+            Dim tempFile = Path.Combine(temporary.DirectoryPath, name)
 
             _tempToDelete.Add(tempFile)
             Using input = OpenBoundedArchiveEntry(entry, archivePath, ct, budget)
-                Using output As New FileStream(tempFile, FileMode.Create, FileAccess.Write, FileShare.None)
+                Using output = temporary.CreateFile(name)
                     input.CopyTo(output)
                 End Using
             End Using
@@ -3552,14 +3515,8 @@ Namespace Beacon
                 SafeDelete(f)
             Next
             _tempToDelete.Clear()
-            For Each directoryPath In _tempDirectories.ToList()
-                Try
-                    Directory.Delete(directoryPath, True)
-                Catch ex As IOException
-                    Debug.WriteLine($"Could not remove Beacon extraction directory: {ex.Message}")
-                Catch ex As UnauthorizedAccessException
-                    Debug.WriteLine($"Could not remove Beacon extraction directory: {ex.Message}")
-                End Try
+            For Each directory In _tempDirectories.ToList()
+                directory.Dispose()
             Next
             _tempDirectories.Clear()
         End Sub
@@ -3579,6 +3536,7 @@ Namespace Beacon
             InvalidatePreviewRequests()
             _updateCheckCancellation.Cancel()
             RemoveHandler Microsoft.Win32.SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
+            DisposeWebPreview()
             CleanupTemp()
             If _scanCts IsNot Nothing Then
                 _scanCts.Cancel()

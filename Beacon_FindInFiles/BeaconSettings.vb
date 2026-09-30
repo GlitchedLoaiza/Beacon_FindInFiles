@@ -33,10 +33,13 @@ Namespace Beacon
         Light
         Dark
         Beacon
+        Aero
     End Enum
 
     Public Class BeaconSettings
         Public Property Theme As AppTheme = AppTheme.System
+        Public Property NotifyOnSearchCompletion As Boolean = True
+        Public Property NotifyOnlyInBackground As Boolean = True
         Public Property MaximumStructuredMatches As Integer = 300
         Public Property MaximumTotalResults As Integer = 10000
         Public Property MaximumFileSizeMb As Integer = 500

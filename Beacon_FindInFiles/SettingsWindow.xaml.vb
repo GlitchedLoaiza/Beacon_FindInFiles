@@ -103,6 +103,8 @@ Namespace Beacon
         End Sub
 
         Private Sub ApplyTheme(isDarkMode As Boolean)
+            AeroTheme.Apply(Me, False)
+            If _workingSettings.Theme = AppTheme.Aero Then isDarkMode = True
             NativeCaptionTheme.Apply(Me, isDarkMode)
             If isDarkMode Then
                 Resources("WindowBackgroundBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
@@ -120,10 +122,13 @@ Namespace Beacon
                 Resources("CheckmarkBrush") = New SolidColorBrush(Color.FromRgb(&H20, &H20, &H20))
             End If
             BeaconThemePalette.ApplyButtons(Resources, _workingSettings.Theme = AppTheme.Beacon, isDarkMode)
+            If _workingSettings.Theme = AppTheme.Aero Then AeroTheme.Apply(Me, True)
         End Sub
 
         Private Sub LoadControls()
             Theme_cmb.SelectedValue = _workingSettings.Theme.ToString()
+            NotifyOnCompletion_chk.IsChecked = _workingSettings.NotifyOnSearchCompletion
+            NotifyOnlyInBackground_chk.IsChecked = _workingSettings.NotifyOnlyInBackground
             MaximumTotalResults_txt.Text = _workingSettings.MaximumTotalResults.ToString()
             MaximumStructuredMatches_txt.Text = _workingSettings.MaximumStructuredMatches.ToString()
             SearchMode_cmb.SelectedItem = _workingSettings.DefaultSearchMode
@@ -185,6 +190,8 @@ Namespace Beacon
         Private Sub Save_btn_Click(sender As Object, e As RoutedEventArgs)
             Try
                 _workingSettings.Theme = [Enum].Parse(Of AppTheme)(CStr(Theme_cmb.SelectedValue))
+                _workingSettings.NotifyOnSearchCompletion = NotifyOnCompletion_chk.IsChecked.GetValueOrDefault()
+                _workingSettings.NotifyOnlyInBackground = NotifyOnlyInBackground_chk.IsChecked.GetValueOrDefault()
                 _workingSettings.MaximumTotalResults = ParseInteger(MaximumTotalResults_txt, "Maximum total results")
                 _workingSettings.MaximumStructuredMatches = ParseInteger(MaximumStructuredMatches_txt, "Maximum structured matches")
                 _workingSettings.DefaultSearchMode = DirectCast(SearchMode_cmb.SelectedItem, SearchMode)

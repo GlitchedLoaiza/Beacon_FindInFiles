@@ -22,9 +22,11 @@ Namespace Beacon
             Else
                 BeaconThemePalette.ApplyButtons(Resources, False)
             End If
-            Resources("CheckmarkBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H20, &H20, &H20), Colors.White))
+            If Not AeroTheme.IsEnabled(Resources) Then
+                Resources("CheckmarkBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H20, &H20, &H20), Colors.White))
+            End If
             NativeCaptionTheme.Apply(Me, dark)
-            If Not BeaconThemePalette.IsEnabled(Resources) Then
+            If Not BeaconThemePalette.IsEnabled(Resources) AndAlso Not AeroTheme.IsEnabled(Resources) Then
                 Resources("SelectionBackgroundBrush") = New SolidColorBrush(If(dark, Color.FromRgb(&H18, &H3C, &H50), Color.FromRgb(&HE5, &HF1, &HFF)))
             End If
             Severity_cmb.ItemsSource = {"All", "Warning", "Error", "Information"}

@@ -31,6 +31,11 @@
         <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#FAFAFA"/>
         <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="#E5F1FF"/>
         <SolidColorBrush x:Key="CheckmarkBrush" Color="White"/>
+        <SolidColorBrush x:Key="ToolbarDividerBrush" Color="Transparent"/>
+        <SolidColorBrush x:Key="SplitterBrush" Color="#C0C0C0"/>
+        <SolidColorBrush x:Key="DetailsHeaderBrush" Color="Transparent"/>
+        <Visibility x:Key="AeroDecorationVisibility">Collapsed</Visibility>
+        <Visibility x:Key="LegacyDecorationVisibility">Visible</Visibility>
 
         <Style x:Key="SearchResultItem" TargetType="ListBoxItem">
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -45,7 +50,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ResultBorder" Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/></Trigger>
-                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="ResultBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/></Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ResultBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+                                <Setter TargetName="ResultBorder" Property="BorderBrush" Value="{DynamicResource SelectionBorderBrush}"/>
+                            </Trigger>
                             <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="ResultBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -321,8 +329,15 @@
                 <Image x:Name="ToolbarWatermark" Grid.ColumnSpan="2"
                        Source="/beacon_no_bg.png" Width="36" Height="36"
                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,38,0,4"
+                       Visibility="{DynamicResource LegacyDecorationVisibility}"
                        Opacity="0.28" IsHitTestVisible="False" Focusable="False"
                        RenderOptions.BitmapScalingMode="HighQuality"/>
+                <Border x:Name="AeroWatermark" Grid.ColumnSpan="2" Width="28" Height="28"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,38,0,4"
+                        Visibility="{DynamicResource AeroDecorationVisibility}" Background="{DynamicResource AccentBrush}"
+                        Effect="{DynamicResource AeroGlowEffect}" IsHitTestVisible="False" Focusable="False">
+                    <Border.OpacityMask><ImageBrush ImageSource="/beacon_no_bg.png" Stretch="Uniform"/></Border.OpacityMask>
+                </Border>
                 <WrapPanel x:Name="SearchOptionsToolbar" Grid.Column="0" Margin="0,0,12,0">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,4">
                     <TextBlock Text="Search mode:" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -358,6 +373,7 @@
                 </StackPanel>
             </Grid>
         </Grid>
+        <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom" Background="{DynamicResource ToolbarDividerBrush}" IsHitTestVisible="False"/>
 
         <!-- ========================= -->
         <!-- MAIN CONTENT              -->
@@ -403,7 +419,7 @@
                                                   IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                                         <ToggleButton.Template>
                                             <ControlTemplate TargetType="ToggleButton">
-                                                <Border x:Name="HeaderBorder" Padding="10,8" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent" Background="Transparent">
+                                                <Border x:Name="HeaderBorder" Padding="10,8" CornerRadius="4" BorderThickness="1" BorderBrush="Transparent" Background="{DynamicResource DetailsHeaderBrush}">
                                                     <StackPanel Orientation="Horizontal">
                                                         <Path x:Name="Chevron" Data="M 0,0 L 4,4 L 0,8" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.5" Width="10" Margin="0,0,8,0" VerticalAlignment="Center"/>
                                                         <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"/>
@@ -450,7 +466,7 @@
                           Grid.Column="1"
                           Width="5"
                           HorizontalAlignment="Stretch"
-                          Background="#C0C0C0"/>
+                          Background="{DynamicResource SplitterBrush}"/>
 
             <!-- PREVIEW -->
             <Grid Grid.Row="0"
@@ -868,6 +884,7 @@
                 <!-- WEB PREVIEW (HTML/XML) -->
                 <GroupBox Header="Preview (HTML/XML)"
                           x:Name="WebPreview_grp"
+                          ToolTip="Static offline preview. Document scripts, external resources, navigation, and downloads are blocked."
                           Visibility="Collapsed">
 
                     <wv2:WebView2 x:Name="WebPreview_wv2"/>

@@ -21,7 +21,8 @@ Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and a
 - **Look inside nested archives:** configurable depth and limits, with matching files shown under their original archive paths.
 - **Investigate events and requests:** collapsible EVTX/HAR tools, editable date pickers, and filters that help narrow the view.
 - **Share a readable report:** export matching files and nearby context to a self-contained HTML file.
-- **Make it comfortable:** Light, Dark, System, and Beacon Theme, adjustable previews, and native Windows window controls.
+- **Make it comfortable:** Light, Dark, System, Beacon Theme, or Aero, with adjustable previews. Standard themes keep native Windows controls; Aero adds a dark glossy palette, cyan accents, and a classic-style frame.
+- **Know when a search finishes:** a Windows notification sound and taskbar highlight let you know when a background search is done, without bringing Beacon to the front. Change or disable this in **Settings → Preview and diagnostics → Completion alerts**. Your Windows sound scheme is respected; no audio file is bundled.
 - **Get help as you go:** an optional welcome tour you can replay from Help, plus a searchable offline guide and beginner regex lessons.
 
 Whether you're tracking an error across diagnostic bundles, finding a configuration value, or reviewing a saved web request, Beacon helps you get to the relevant text.
@@ -117,6 +118,10 @@ Not sure about regex? Start with **Literal text**, then explore the in-app lesso
 **Don't see the View option?** Summary is available for plain-text content matches from disk or archives. It is not offered for EVTX, HAR, HTML, XML, JSON, or name/path-only results—even when a document falls back to a text preview.
 
 Summary uses context captured during the search: it does not search again, reopen the source, or change exports. Long lines can be shortened, and capture limits still apply. A match beyond Full's loaded prefix may still be readable in Summary. Records with no visible highlight are identified as record anchors rather than invented text highlights.
+
+HTML/XML/JSON previews are **static and offline**: active elements and connection hints are removed before display, and document scripts, external resources, navigation, and downloads are blocked while Beacon's search highlighting remains available. Inline styling and embedded raster images are supported; imported controls and external links are inactive, and document-level layout may be simplified. Pages that depend on scripts or remote content may look incomplete. Source files and search results are unchanged. Update checks and links you explicitly open from Help or Feedback are separate from this preview policy.
+
+Extracted files and browser profiles use private Windows temporary directories; the CAB helper is verified and protected against replacement while in use. Cleanup is best-effort, so crashes or locked files can leave data until a later cleanup. This is not encrypted storage or protection from a compromised Windows account, administrator, or operating system.
 
 ### Changing, cancelling, and resetting
 

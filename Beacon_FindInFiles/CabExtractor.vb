@@ -57,18 +57,19 @@ Namespace Beacon
                     Next
                 End Using
 
-                Directory.CreateDirectory(outputDirectory)
-                Dim root = Path.GetFullPath(outputDirectory).TrimEnd(Path.DirectorySeparatorChar) & Path.DirectorySeparatorChar
-                For Each entry In entries
-                    ct.ThrowIfCancellationRequested()
-                    Dim destination = Path.GetFullPath(Path.Combine(root, entry.Key))
-                    If Not destination.StartsWith(root, StringComparison.OrdinalIgnoreCase) Then Throw New InvalidDataException("CAB path escapes output directory.")
-                    Directory.CreateDirectory(Path.GetDirectoryName(destination))
-                    Using output As New FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None)
-                        Await RunAsync(executable, {"e", "-so", "-spd", "-y", "-pBeacon-No-Password", "--", Path.GetFullPath(archivePath), entry.Key}, output, entry.Value, budget, ct)
-                        If output.Length <> entry.Value Then Throw New InvalidDataException("CAB entry size does not match metadata.")
-                    End Using
-                Next
+                Using rootLease = PrivateTemporaryDirectory.LockDirectory(outputDirectory, createMissing:=True)
+                    Dim root = Path.GetFullPath(outputDirectory).TrimEnd(Path.DirectorySeparatorChar) & Path.DirectorySeparatorChar
+                    For Each entry In entries
+                        ct.ThrowIfCancellationRequested()
+                        Dim destination = Path.GetFullPath(Path.Combine(root, entry.Key))
+                        If Not destination.StartsWith(root, StringComparison.OrdinalIgnoreCase) Then Throw New InvalidDataException("CAB path escapes output directory.")
+                        Using parentLease = PrivateTemporaryDirectory.LockDirectory(Path.GetDirectoryName(destination), createMissing:=True),
+                              output As New FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None)
+                            Await RunAsync(executable, {"e", "-so", "-spd", "-y", "-pBeacon-No-Password", "--", Path.GetFullPath(archivePath), entry.Key}, output, entry.Value, budget, ct)
+                            If output.Length <> entry.Value Then Throw New InvalidDataException("CAB entry size does not match metadata.")
+                        End Using
+                    Next
+                End Using
             End Using
         End Function
 

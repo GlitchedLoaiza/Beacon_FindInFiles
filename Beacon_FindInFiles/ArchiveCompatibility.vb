@@ -33,9 +33,7 @@ Namespace Beacon
                     Return ArchiveFactory.OpenArchive(path, New ReaderOptions With {.Providers = Providers})
                 End If
 
-                Dim temporaryPath = IO.Path.Combine(IO.Path.GetTempPath(), "BeaconTar_" & Guid.NewGuid().ToString("N") & ".tar")
-                Dim temporary As New FileStream(temporaryPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
-                                                81920, FileOptions.DeleteOnClose)
+                Dim temporary = PrivateTemporaryDirectory.CreateTemporaryStream("BeaconTar_", ".tar")
                 Dim archiveOwnsTemporary As Boolean
                 Try
                     Dim budget As New ArchiveReadBudget(settings, source.Length)

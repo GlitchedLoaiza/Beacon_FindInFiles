@@ -1,0 +1,627 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+                    xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework">
+    <sys:Boolean x:Key="UsesAeroTheme">True</sys:Boolean>
+    <sys:Double x:Key="ActionButtonDisabledOpacity">1</sys:Double>
+    <sys:Double x:Key="SettingsButtonDisabledOpacity">1</sys:Double>
+    <sys:Double x:Key="TextSelectionOpacity">1</sys:Double>
+    <Visibility x:Key="AeroDecorationVisibility">Visible</Visibility>
+    <Visibility x:Key="LegacyDecorationVisibility">Collapsed</Visibility>
+
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#15191C"/>
+    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#191D1F"/>
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#414B51"/>
+    <SolidColorBrush x:Key="CodeBackgroundBrush" Color="#171B1D"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#D5E4ED"/>
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A9BDC9"/>
+    <SolidColorBrush x:Key="TextTertiaryBrush" Color="#96ACBA"/>
+    <SolidColorBrush x:Key="EventLevelForegroundBrush" Color="#FF9E9E"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#79CCFF"/>
+    <SolidColorBrush x:Key="AeroLabelBrush" Color="#A4D2EF"/>
+    <SolidColorBrush x:Key="InputBorderBrush" Color="#4B606D"/>
+    <SolidColorBrush x:Key="SelectionBackgroundBrush" Color="#234C65"/>
+    <SolidColorBrush x:Key="SelectionBorderBrush" Color="#4C7B98"/>
+    <SolidColorBrush x:Key="CheckmarkBrush" Color="#10202B"/>
+    <SolidColorBrush x:Key="TextSelectionBrush" Color="#234C65"/>
+    <SolidColorBrush x:Key="TextSelectionForegroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ToolbarDividerBrush" Color="#28556D"/>
+    <SolidColorBrush x:Key="SplitterBrush" Color="#304653"/>
+    <SolidColorBrush x:Key="AeroInsetBrush" Color="#101619"/>
+    <SolidColorBrush x:Key="AeroDisabledForegroundBrush" Color="#899DA9"/>
+    <SolidColorBrush x:Key="ActionButtonForegroundBrush" Color="#D5E4ED"/>
+    <SolidColorBrush x:Key="ActionButtonDisabledForegroundBrush" Color="#899DA9"/>
+    <SolidColorBrush x:Key="ActionButtonBorderBrush" Color="#54616A"/>
+    <SolidColorBrush x:Key="ActionButtonFocusBrush" Color="#79CCFF"/>
+    <SolidColorBrush x:Key="PrimaryButtonForegroundBrush" Color="#D5E4ED"/>
+    <SolidColorBrush x:Key="PrimaryButtonDisabledForegroundBrush" Color="#899DA9"/>
+
+    <SolidColorBrush x:Key="AeroProgressBorderBrush" Color="#527180"/>
+    <SolidColorBrush x:Key="AeroProgressFillBorderBrush" Color="#357C2B"/>
+    <LinearGradientBrush x:Key="AeroProgressTrackBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#0B1115" Offset="0"/>
+        <GradientStop Color="#192126" Offset="0.45"/>
+        <GradientStop Color="#28343B" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroProgressFillBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#C7F6A0" Offset="0"/>
+        <GradientStop Color="#8CE65A" Offset="0.12"/>
+        <GradientStop Color="#5ED32C" Offset="0.46"/>
+        <GradientStop Color="#23A91C" Offset="0.5"/>
+        <GradientStop Color="#38C524" Offset="0.88"/>
+        <GradientStop Color="#7EE446" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroProgressShineBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#00FFFFFF" Offset="0"/>
+        <GradientStop Color="#20FFFFFF" Offset="0.2"/>
+        <GradientStop Color="#BFFFFFFF" Offset="0.5"/>
+        <GradientStop Color="#20FFFFFF" Offset="0.8"/>
+        <GradientStop Color="#00FFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="InputBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#252A2D" Offset="0"/>
+        <GradientStop Color="#161A1D" Offset="0.18"/>
+        <GradientStop Color="#191E21" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ButtonBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#42494E" Offset="0"/>
+        <GradientStop Color="#30363A" Offset="0.46"/>
+        <GradientStop Color="#242A2E" Offset="0.5"/>
+        <GradientStop Color="#1B2024" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ButtonHoverBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#42647C" Offset="0"/>
+        <GradientStop Color="#2B4658" Offset="0.46"/>
+        <GradientStop Color="#203848" Offset="0.5"/>
+        <GradientStop Color="#172A37" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ButtonPressedBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#142734" Offset="0"/>
+        <GradientStop Color="#234153" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ActionButtonBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#42494E" Offset="0"/>
+        <GradientStop Color="#30363A" Offset="0.46"/>
+        <GradientStop Color="#242A2E" Offset="0.5"/>
+        <GradientStop Color="#1B2024" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ActionButtonHoverBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#42647C" Offset="0"/>
+        <GradientStop Color="#2B4658" Offset="0.46"/>
+        <GradientStop Color="#203848" Offset="0.5"/>
+        <GradientStop Color="#172A37" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ActionButtonPressedBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#142734" Offset="0"/>
+        <GradientStop Color="#234153" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="ActionButtonDisabledBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#30363A" Offset="0"/>
+        <GradientStop Color="#1A2024" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PrimaryButtonBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#345166" Offset="0"/>
+        <GradientStop Color="#263B49" Offset="0.46"/>
+        <GradientStop Color="#1C2C37" Offset="0.5"/>
+        <GradientStop Color="#14212B" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PrimaryButtonHoverBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#42647C" Offset="0"/>
+        <GradientStop Color="#203848" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PrimaryButtonPressedBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#142734" Offset="0"/>
+        <GradientStop Color="#234153" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="PrimaryButtonDisabledBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#303C44" Offset="0"/>
+        <GradientStop Color="#18232B" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="StatusBarBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#121C23" Offset="0"/>
+        <GradientStop Color="#0A1116" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="DetailsHeaderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#353E44" Offset="0"/>
+        <GradientStop Color="#202A31" Offset="0.5"/>
+        <GradientStop Color="#171E23" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroPanelHeaderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#344F62" Offset="0"/>
+        <GradientStop Color="#22313C" Offset="0.2"/>
+        <GradientStop Color="#171F25" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroPanelBorderBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#4C83A3" Offset="0"/>
+        <GradientStop Color="#3C4C57" Offset="0.12"/>
+        <GradientStop Color="#3B474E" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroHighlightBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#38FFFFFF" Offset="0"/>
+        <GradientStop Color="#08FFFFFF" Offset="0.5"/>
+        <GradientStop Color="#14FFFFFF" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroFrameBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#A5B6C0" Offset="0"/>
+        <GradientStop Color="#414E57" Offset="0.2"/>
+        <GradientStop Color="#263B48" Offset="0.6"/>
+        <GradientStop Color="#788D9B" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroCaptionBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#303D47" Offset="0"/>
+        <GradientStop Color="#0C1A24" Offset="0.5"/>
+        <GradientStop Color="#0A141D" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroReflectionBrush" StartPoint="0,1" EndPoint="1,0">
+        <GradientStop Color="#00BDEBFF" Offset="0"/>
+        <GradientStop Color="#48D3F1FF" Offset="0.08"/>
+        <GradientStop Color="#04BDEBFF" Offset="0.19"/>
+        <GradientStop Color="#009BD8FF" Offset="0.37"/>
+        <GradientStop Color="#209BD8FF" Offset="0.43"/>
+        <GradientStop Color="#009BD8FF" Offset="0.47"/>
+        <GradientStop Color="#009BD8FF" Offset="0.55"/>
+        <GradientStop Color="#309BD8FF" Offset="0.6"/>
+        <GradientStop Color="#009BD8FF" Offset="0.65"/>
+        <GradientStop Color="#009BD8FF" Offset="0.84"/>
+        <GradientStop Color="#48D3F1FF" Offset="0.96"/>
+        <GradientStop Color="#00BDEBFF" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroCloseBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#D59487" Offset="0"/>
+        <GradientStop Color="#A84838" Offset="0.48"/>
+        <GradientStop Color="#8F3025" Offset="0.52"/>
+        <GradientStop Color="#713024" Offset="1"/>
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="AeroCloseHoverBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#F3AA91" Offset="0"/>
+        <GradientStop Color="#CE4A32" Offset="0.5"/>
+        <GradientStop Color="#A52B1E" Offset="1"/>
+    </LinearGradientBrush>
+    <ImageBrush x:Key="AeroLogoMask" ImageSource="beacon_no_bg.png" Stretch="Uniform"/>
+    <DropShadowEffect x:Key="AeroGlowEffect" Color="#3AAFFF" BlurRadius="9" ShadowDepth="0" Opacity="0.65"/>
+    <Geometry x:Key="AeroFolderIcon">M 1,4 L 1,13 L 13,13 L 15,6 L 5,6 L 4,4 Z M 1,4 L 1,2 L 6,2 L 8,4 L 13,4 L 13,6</Geometry>
+    <Geometry x:Key="AeroArchiveIcon">M 8,1 L 14,4 L 14,12 L 8,15 L 2,12 L 2,4 Z M 2,4 L 8,7 L 14,4 M 8,7 L 8,15 M 5,2.5 L 11,5.5</Geometry>
+    <Geometry x:Key="AeroSettingsIcon">M 6,1 L 10,1 L 10,3 L 12,4 L 14,3 L 16,6 L 14,7 L 14,9 L 16,10 L 14,13 L 12,12 L 10,13 L 10,15 L 6,15 L 6,13 L 4,12 L 2,13 L 0,10 L 2,9 L 2,7 L 0,6 L 2,3 L 4,4 L 6,3 Z M 11,8 A 3,3 0 1 1 5,8 A 3,3 0 1 1 11,8</Geometry>
+    <Geometry x:Key="AeroExportIcon">M 6,3 L 1,3 L 1,14 L 12,14 L 12,10 M 5,9 L 5,7 L 13,7 M 10,3 L 14,7 L 10,11</Geometry>
+    <Geometry x:Key="AeroCopyIcon">M 5,4 L 14,4 L 14,15 L 5,15 Z M 11,4 L 11,1 L 2,1 L 2,12 L 5,12</Geometry>
+    <Geometry x:Key="AeroDiagnosticsIcon">M 0,8 L 4,8 L 6,2 L 9,14 L 11,6 L 13,8 L 16,8</Geometry>
+
+    <Style x:Key="AeroFocusVisual" TargetType="Control">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Control">
+                    <Border Margin="-2" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="2"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="Button">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="MinWidth" Value="90"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="10,4"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource ActionButtonBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ActionButtonForegroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ActionButtonBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource AeroFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="ButtonBorder" CornerRadius="2" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <Border BorderBrush="{DynamicResource AeroHighlightBrush}" BorderThickness="1" CornerRadius="1" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center">
+                                <Path x:Name="ActionIcon" Width="15" Height="15" Margin="0,0,6,0" Visibility="Collapsed" Stretch="Uniform"
+                                      Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.2" StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                <ContentPresenter x:Name="ButtonContent" VerticalAlignment="Center" RecognizesAccessKey="True"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}"/>
+                            </StackPanel>
+                        </Border>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Name" Value="BrowseFolder_btn">
+                            <Setter TargetName="ActionIcon" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="ActionIcon" Property="Data" Value="{StaticResource AeroFolderIcon}"/>
+                            <Setter TargetName="ButtonContent" Property="Content" Value="Folder"/>
+                        </Trigger>
+                        <Trigger Property="Name" Value="BrowseZip_btn">
+                            <Setter TargetName="ActionIcon" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="ActionIcon" Property="Data" Value="{StaticResource AeroArchiveIcon}"/>
+                            <Setter TargetName="ButtonContent" Property="Content" Value="Archive"/>
+                        </Trigger>
+                        <Trigger Property="Name" Value="Settings_btn">
+                            <Setter TargetName="ActionIcon" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="ActionIcon" Property="Data" Value="{StaticResource AeroSettingsIcon}"/>
+                            <Setter TargetName="ButtonContent" Property="Content" Value="Settings"/>
+                        </Trigger>
+                        <Trigger Property="Name" Value="ExportResults_btn">
+                            <Setter TargetName="ActionIcon" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="ActionIcon" Property="Data" Value="{StaticResource AeroExportIcon}"/>
+                        </Trigger>
+                        <Trigger Property="Name" Value="CopyPaths_btn">
+                            <Setter TargetName="ActionIcon" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="ActionIcon" Property="Data" Value="{StaticResource AeroCopyIcon}"/>
+                        </Trigger>
+                        <Trigger Property="Name" Value="Diagnostics_btn">
+                            <Setter TargetName="ActionIcon" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="ActionIcon" Property="Data" Value="{StaticResource AeroDiagnosticsIcon}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="ActionIcon" Property="Stroke" Value="{DynamicResource AeroDisabledForegroundBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Name" Value="Scan_btn"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ActionButtonHoverBrush}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource ActionButtonPressedBrush}"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource ActionButtonDisabledBrush}"/>
+                <Setter Property="Foreground" Value="{DynamicResource ActionButtonDisabledForegroundBrush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{DynamicResource PrimaryButtonBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource PrimaryButtonHoverBrush}"/></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource PrimaryButtonPressedBrush}"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="{DynamicResource PrimaryButtonDisabledBrush}"/></Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style TargetType="TextBox">
+        <Setter Property="MinHeight" Value="30"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Background" Value="{DynamicResource InputBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="SelectionBrush" Value="{DynamicResource TextSelectionBrush}"/>
+        <Setter Property="SelectionTextBrush" Value="{DynamicResource TextSelectionForegroundBrush}"/>
+        <Setter Property="SelectionOpacity" Value="1"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="InputBorder" CornerRadius="2" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="InputBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource AeroDisabledForegroundBrush}"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="MinHeight" Value="24"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource AeroFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Border x:Name="CheckBorder" Width="16" Height="16" CornerRadius="2" BorderThickness="1" VerticalAlignment="Center"
+                                Background="{DynamicResource ButtonBackgroundBrush}" BorderBrush="{DynamicResource InputBorderBrush}">
+                            <Path x:Name="CheckMark" Data="M 2,7 L 5,10 L 11,3" Stroke="{DynamicResource CheckmarkBrush}" StrokeThickness="2" Visibility="Collapsed"/>
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="CheckBorder" Property="Background" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="CheckMark" Property="Data" Value="M 3,7 L 11,7"/>
+                            <Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource AccentBrush}"/>
+                            <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource AeroDisabledForegroundBrush}"/><Setter Property="Opacity" Value="0.7"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="AeroComboToggle" TargetType="ToggleButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="ClickMode" Value="Press"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="ComboBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2">
+                        <Path Data="M 0,0 L 4,4 L 8,0" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="ItemBorder" Margin="1" Padding="{TemplateBinding Padding}" Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
+                        <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource SelectionBorderBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectionBackgroundBrush}"/>
+                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource SelectionBorderBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="ComboBox">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Margin" Value="0,5,0,14"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}"/>
+        <Setter Property="MaxDropDownHeight" Value="300"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource AeroFocusVisual}"/>
+        <Setter Property="ItemContainerStyle" Value="{StaticResource {x:Type ComboBoxItem}}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton x:Name="DropDownToggle" Style="{StaticResource AeroComboToggle}" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"/>
+                        <ContentPresenter x:Name="SelectionPresenter" Margin="8,0,30,0" VerticalAlignment="Center" IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                        <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Margin="3,0,30,0" MinHeight="0" Padding="5,3" VerticalAlignment="Stretch"
+                                 Background="{TemplateBinding Background}" Foreground="{TemplateBinding Foreground}" IsReadOnly="{TemplateBinding IsReadOnly}" BorderThickness="0">
+                            <TextBox.Template><ControlTemplate TargetType="TextBox"><ScrollViewer x:Name="PART_ContentHost"/></ControlTemplate></TextBox.Template>
+                        </TextBox>
+                        <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False" IsOpen="{TemplateBinding IsDropDownOpen}">
+                            <Border x:Name="PopupBorder" Margin="0,2,0,0" Padding="3" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                    MaxHeight="{TemplateBinding MaxDropDownHeight}" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource InputBorderBrush}" BorderThickness="1">
+                                <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True"><Setter TargetName="SelectionPresenter" Property="Visibility" Value="Collapsed"/><Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/></Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource AeroDisabledForegroundBrush}"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="GroupBox">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AeroLabelBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AeroPanelBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="GroupBox">
+                    <Border x:Name="AeroPanelBorder" CornerRadius="2" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <Grid>
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                            <Border Background="{DynamicResource AeroPanelHeaderBrush}" Padding="10,4" MinHeight="23">
+                                <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" TextElement.Foreground="{TemplateBinding Foreground}"/>
+                            </Border>
+                            <ContentPresenter Grid.Row="1" Margin="{TemplateBinding Padding}"/>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="ListBox">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style TargetType="RichTextBox">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <!-- RichTextBox paints selection over its glyphs, so the overlay must remain translucent. -->
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="SelectionTextBrush" Value="{DynamicResource TextSelectionForegroundBrush}"/>
+        <Setter Property="SelectionOpacity" Value="0.3"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RichTextBox">
+                    <Border x:Name="PreviewBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                        <ScrollViewer x:Name="PART_ContentHost" Focusable="False" HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                      VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style TargetType="GridSplitter">
+        <Setter Property="Background" Value="{DynamicResource SplitterBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource AeroFocusVisual}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="GridSplitter">
+                    <Border BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1,0" Background="{TemplateBinding Background}">
+                        <Path Data="M 0,0 L 1,0 M 0,4 L 1,4 M 0,8 L 1,8 M 0,12 L 1,12 M 0,16 L 1,16" Stroke="{DynamicResource TextTertiaryBrush}" StrokeThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <ControlTemplate x:Key="AeroProgressAnimatedTemplate" TargetType="ProgressBar">
+        <Border x:Name="ProgressFrame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" SnapsToDevicePixels="True">
+            <Grid x:Name="ProgressLayout" Margin="1">
+                <Grid x:Name="PART_Track" ClipToBounds="True">
+                    <Grid x:Name="PART_Indicator" HorizontalAlignment="Left" ClipToBounds="True">
+                        <Border x:Name="ProgressFill" Background="{TemplateBinding Foreground}" BorderBrush="{DynamicResource AeroProgressFillBorderBrush}"
+                                BorderThickness="1" CornerRadius="2"/>
+                        <Rectangle x:Name="PART_GlowRect" Width="80" HorizontalAlignment="Left" Fill="{DynamicResource AeroProgressShineBrush}"/>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsIndeterminate" Value="True"><Setter TargetName="ProgressFill" Property="Visibility" Value="Collapsed"/></Trigger>
+            <Trigger Property="Orientation" Value="Vertical">
+                <Setter TargetName="ProgressLayout" Property="LayoutTransform"><Setter.Value><RotateTransform Angle="-90"/></Setter.Value></Setter>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <ControlTemplate x:Key="AeroProgressStaticTemplate" TargetType="ProgressBar">
+        <Border x:Name="ProgressFrame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" SnapsToDevicePixels="True">
+            <Grid x:Name="ProgressLayout" Margin="1">
+                <Grid x:Name="PART_Track" ClipToBounds="True">
+                    <Grid x:Name="PART_Indicator" HorizontalAlignment="Left" ClipToBounds="True">
+                        <Border x:Name="ProgressFill" Background="{TemplateBinding Foreground}" BorderBrush="{DynamicResource AeroProgressFillBorderBrush}"
+                                BorderThickness="1" CornerRadius="2"/>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsIndeterminate" Value="True">
+                <Setter TargetName="ProgressFill" Property="Width" Value="64"/>
+                <Setter TargetName="ProgressFill" Property="HorizontalAlignment" Value="Center"/>
+            </Trigger>
+            <Trigger Property="Orientation" Value="Vertical">
+                <Setter TargetName="ProgressLayout" Property="LayoutTransform"><Setter.Value><RotateTransform Angle="-90"/></Setter.Value></Setter>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+    <Style TargetType="ProgressBar">
+        <Setter Property="Foreground" Value="{DynamicResource AeroProgressFillBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource AeroProgressTrackBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AeroProgressBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Template" Value="{DynamicResource AeroProgressTemplate}"/>
+    </Style>
+
+    <Style x:Key="AeroCaptionButton" TargetType="Button">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="MinWidth" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0"/>
+        <Setter Property="Focusable" Value="True"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AeroFrameBrush}"/>
+        <Setter Property="FocusVisualStyle" Value="{StaticResource AeroFocusVisual}"/>
+        <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="0,0,2,2">
+                        <Border BorderBrush="{DynamicResource AeroHighlightBrush}" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource ButtonHoverBrush}"/><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource ButtonPressedBrush}"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/></Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger>
+        </Style.Triggers>
+    </Style>
+    <Style x:Key="AeroCloseButton" TargetType="Button" BasedOn="{StaticResource AeroCaptionButton}">
+        <Setter Property="Width" Value="50"/>
+        <Setter Property="Background" Value="{DynamicResource AeroCloseBrush}"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{DynamicResource AeroCloseHoverBrush}"/></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter Property="Background" Value="{DynamicResource AeroCloseBrush}"/></Trigger>
+        </Style.Triggers>
+    </Style>
+    <ControlTemplate x:Key="AeroWindowTemplate" TargetType="Window">
+        <Border x:Name="AeroFrame" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource AeroFrameBrush}" BorderThickness="1" CornerRadius="3"
+                TextElement.Foreground="{DynamicResource TextPrimaryBrush}">
+            <Grid Margin="4,0,4,4">
+                <Grid.RowDefinitions><RowDefinition Height="32"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <Grid x:Name="AeroCaption" Background="{DynamicResource AeroCaptionBrush}" ClipToBounds="True">
+                    <Rectangle Fill="{DynamicResource AeroReflectionBrush}" IsHitTestVisible="False"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Border Width="18" Height="18" Margin="5,0,7,0" Background="{DynamicResource AccentBrush}" OpacityMask="{StaticResource AeroLogoMask}"
+                                Effect="{DynamicResource AeroGlowEffect}" IsHitTestVisible="False"/>
+                        <TextBlock Grid.Column="1" Text="{TemplateBinding Title}" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Segoe UI" FontSize="12"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" IsHitTestVisible="False"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" shell:WindowChrome.IsHitTestVisibleInChrome="True" KeyboardNavigation.TabNavigation="Continue">
+                            <Button x:Name="AeroMinimizeButton" Style="{StaticResource AeroCaptionButton}" ToolTip="Minimize" AutomationProperties.Name="Minimize"
+                                    Command="{x:Static SystemCommands.MinimizeWindowCommand}" CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}">
+                                <Path Data="M 0,0 L 9,0" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="2" Margin="0,5,0,0"/>
+                            </Button>
+                            <Button x:Name="AeroMaximizeButton" Style="{StaticResource AeroCaptionButton}" ToolTip="Maximize" AutomationProperties.Name="Maximize"
+                                    Command="{x:Static SystemCommands.MaximizeWindowCommand}" CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}">
+                                <Path x:Name="MaximizeGlyph" Data="M 0,0 L 9,0 L 9,8 L 0,8 Z M 0,2 L 9,2" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1"/>
+                            </Button>
+                            <Button x:Name="AeroCloseButton" Style="{StaticResource AeroCloseButton}" ToolTip="Close" AutomationProperties.Name="Close"
+                                    Command="{x:Static SystemCommands.CloseWindowCommand}" CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}">
+                                <Path Data="M 0,0 L 8,8 M 8,0 L 0,8" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+                <Border Grid.Row="1" BorderBrush="{DynamicResource ToolbarDividerBrush}" BorderThickness="1">
+                    <AdornerDecorator>
+                        <ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ContentTemplateSelector}"/>
+                    </AdornerDecorator>
+                </Border>
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsActive" Value="False">
+                <Setter TargetName="AeroCaption" Property="Opacity" Value="0.72"/>
+            </Trigger>
+            <Trigger Property="WindowState" Value="Maximized">
+                <Setter TargetName="AeroFrame" Property="CornerRadius" Value="0"/>
+                <Setter TargetName="AeroFrame" Property="Margin" Value="{x:Static SystemParameters.WindowResizeBorderThickness}"/>
+                <Setter TargetName="MaximizeGlyph" Property="Data" Value="M 0,3 L 7,3 L 7,10 L 0,10 Z M 3,3 L 3,0 L 10,0 L 10,7 L 7,7"/>
+                <Setter TargetName="AeroMaximizeButton" Property="ToolTip" Value="Restore"/>
+                <Setter TargetName="AeroMaximizeButton" Property="AutomationProperties.Name" Value="Restore"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+</ResourceDictionary>

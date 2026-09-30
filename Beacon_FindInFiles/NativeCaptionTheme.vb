@@ -15,7 +15,7 @@ Namespace Beacon
         Private _dark As Boolean
         Private _closed As Boolean
 
-        <DllImport("dwmapi.dll", PreserveSig:=True)>
+        <DllImport("dwmapi.dll", PreserveSig:=True), DefaultDllImportSearchPaths(DllImportSearchPath.System32)>
         Private Shared Function DwmSetWindowAttribute(handle As IntPtr, attribute As Integer, ByRef value As Integer, size As Integer) As Integer
         End Function
 

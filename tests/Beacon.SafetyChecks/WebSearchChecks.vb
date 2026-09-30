@@ -29,13 +29,15 @@ Module WebSearchChecks
     Private Async Function ExerciseAsync() As Task
         Dim profile = Path.Combine(Path.GetTempPath(), "BeaconWebSearchTests-" & Guid.NewGuid().ToString("N"))
         Dim browser As New WebView2()
+        Dim security As WebPreviewSecurity = Nothing
         Dim window As New Window With {.Content = browser, .Width = 650, .Height = 400, .Left = -10000, .Top = -10000,
                                        .ShowActivated = False, .ShowInTaskbar = False, .WindowStartupLocation = WindowStartupLocation.Manual}
         Try
             window.Show()
             Dim environment = Await CoreWebView2Environment.CreateAsync(Nothing, profile).WaitAsync(TimeSpan.FromSeconds(20))
             Await browser.EnsureCoreWebView2Async(environment).WaitAsync(TimeSpan.FromSeconds(20))
-            Await LoadHtml(browser, "<html><body><p>😀 <span>connection </span><b>failed</b>; code=123</p><p style='display:none'>hidden</p><script>var hidden='hidden';</script></body></html>")
+            security = New WebPreviewSecurity(browser.CoreWebView2)
+            Await LoadHtml(security, "<html><body><p>😀 <span>connection </span><b>failed</b>; code=123</p><p style='display:none'>hidden</p><script>var hidden='hidden';</script></body></html>")
             Dim original = Await browser.ExecuteScriptAsync("document.body.textContent")
             Dim query As New SearchQuery("connection failed", SearchMode.PlainText, False)
             Dim captured = JsonSerializer.Deserialize(Of String)(Await browser.ExecuteScriptAsync(WebSearchScripts.Capture(10000, "inline")))
@@ -77,7 +79,7 @@ Module WebSearchChecks
             report.Results(0).Matches(0).ContextKind = "Event text lines"
             Dim reportPath = Path.Combine(profile, "context-report.html")
             Await ScanReportWriter.SaveAsync(report, reportPath, ScanReportFormat.Html, True, False, CancellationToken.None)
-            Await LoadHtml(browser, File.ReadAllText(reportPath))
+            Await LoadHtml(security, File.ReadAllText(reportPath))
             Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('.snippet tr').length") = "5", "HTML report did not render five context rows.")
             Require(Await browser.ExecuteScriptAsync("document.querySelector('.snippet mark').textContent") = """error""", "HTML report did not highlight the match.")
             Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('script,img:not([data-beacon-brand])').length") = "0", "Log text became active report content.")
@@ -102,6 +104,7 @@ Module WebSearchChecks
             Require(Await browser.ExecuteScriptAsync("document.querySelectorAll('.snippet tr.focus').length") = "1", "The matching context line is not identified.")
             Require(Await browser.ExecuteScriptAsync("document.body.scrollWidth <= window.innerWidth + 1") = "true", "HTML report overflows a normal browser viewport.")
         Finally
+            security?.Dispose()
             browser.Dispose()
             window.Close()
             For attempt = 1 To 5
@@ -118,23 +121,8 @@ Module WebSearchChecks
         End Try
     End Function
 
-    Private Async Function LoadHtml(browser As WebView2, html As String) As Task
-        Dim ready As New TaskCompletionSource(Of Boolean)(TaskCreationOptions.RunContinuationsAsynchronously)
-        Dim handler As EventHandler(Of CoreWebView2NavigationCompletedEventArgs) =
-            Sub(sender, args)
-                If args.IsSuccess Then
-                    ready.TrySetResult(True)
-                Else
-                    ready.TrySetException(New IOException("Test navigation failed: " & args.WebErrorStatus.ToString()))
-                End If
-            End Sub
-        AddHandler browser.NavigationCompleted, handler
-        Try
-            browser.NavigateToString(html)
-            Await ready.Task.WaitAsync(TimeSpan.FromSeconds(10))
-        Finally
-            RemoveHandler browser.NavigationCompleted, handler
-        End Try
+    Private Async Function LoadHtml(security As WebPreviewSecurity, html As String) As Task
+        Require(Await security.ShowHtmlAsync(html), "Isolated preview navigation failed.")
     End Function
 
     Private Sub Require(condition As Boolean, message As String)

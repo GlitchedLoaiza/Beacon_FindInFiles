@@ -45,29 +45,18 @@ Namespace Beacon
         Public Function ReadCab(cabPath As String, entryName As String, Optional token As CancellationToken = Nothing) As PreviewText
             token.ThrowIfCancellationRequested()
             ArchiveSafety.ValidateEntryName(entryName)
-            Dim directory = Path.Combine(Path.GetTempPath(), "BeaconCabPreview_" & Guid.NewGuid().ToString("N"))
-            Try
-                If Not SevenZipHelper.ExtractCab(cabPath, directory, _options, token, _report) Then
+            Using directory = PrivateTemporaryDirectory.Create("BeaconCabPreview_")
+                If Not SevenZipHelper.ExtractCab(cabPath, directory.DirectoryPath, _options, token, _report) Then
                     Throw New InvalidDataException("Failed to extract CAB file.")
                 End If
                 token.ThrowIfCancellationRequested()
-                Dim extracted = Path.GetFullPath(Path.Combine(directory, entryName))
-                Dim root = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar) & Path.DirectorySeparatorChar
+                Dim extracted = Path.GetFullPath(Path.Combine(directory.DirectoryPath, entryName))
+                Dim root = directory.DirectoryPath.TrimEnd(Path.DirectorySeparatorChar) & Path.DirectorySeparatorChar
                 If Not extracted.StartsWith(root, StringComparison.OrdinalIgnoreCase) Then Throw New InvalidDataException("Unsafe CAB preview entry path.")
                 If Not File.Exists(extracted) Then Return Nothing
                 Dim reader As New PreviewContentService(_options, Sub(source, ex) _report?.Invoke(cabPath & " | " & entryName, ex))
                 Return reader.ReadFile(extracted, token)
-            Finally
-                If System.IO.Directory.Exists(directory) Then
-                    Try
-                        System.IO.Directory.Delete(directory, True)
-                    Catch ex As IOException
-                        Debug.WriteLine($"Could not remove CAB preview directory: {ex.Message}")
-                    Catch ex As UnauthorizedAccessException
-                        Debug.WriteLine($"Could not remove CAB preview directory: {ex.Message}")
-                    End Try
-                End If
-            End Try
+            End Using
         End Function
     End Class
 End Namespace

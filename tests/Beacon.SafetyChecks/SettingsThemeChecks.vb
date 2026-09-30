@@ -85,7 +85,7 @@ Module SettingsThemeChecks
             CheckFontSelector(window, dark)
             NativeCaptionChecks.Verify(window, dark)
             Dim theme = DirectCast(window.FindName("Theme_cmb"), ComboBox)
-            Require(theme.Items.Cast(Of ComboBoxItem)().Select(Function(item) CStr(item.Content)).SequenceEqual({"Light", "Dark", "System theme", "Beacon Theme"}), "Theme choices are incorrect.")
+            Require(theme.Items.Cast(Of ComboBoxItem)().Select(Function(item) CStr(item.Content)).SequenceEqual({"Light", "Dark", "System theme", "Beacon Theme", "Aero"}), "Theme choices are incorrect.")
             Require(CStr(theme.SelectedValue) = "System", "Theme should default to Windows preferences.")
             Dim limitDeep = DirectCast(window.FindName("LimitEvtxDeepSearch_chk"), CheckBox)
             Dim deepTimeout = DirectCast(window.FindName("EvtxDeepSearchTimeout_txt"), TextBox)

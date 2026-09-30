@@ -106,12 +106,22 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="16">
                     <TextBlock Text="Appearance" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Theme"/>
-                    <ComboBox x:Name="Theme_cmb" SelectedValuePath="Tag" IsEditable="False" ToolTip="System theme and Beacon Theme follow Windows app colors. Beacon Theme adds muted-crimson buttons, off-white text and red focus/selection accents. Changes apply when saved.">
+                    <ComboBox x:Name="Theme_cmb" SelectedValuePath="Tag" IsEditable="False" AutomationProperties.Name="Theme"
+                              ToolTip="System theme and Beacon Theme follow Windows app colors. Beacon Theme adds muted-crimson buttons, off-white text and red focus/selection accents. Aero adds a dark glossy palette, cyan accents, and a classic-style frame, with a native high-contrast fallback. Changes apply when saved.">
                         <ComboBoxItem Content="Light" Tag="Light"/>
                         <ComboBoxItem Content="Dark" Tag="Dark"/>
                         <ComboBoxItem Content="System theme" Tag="System"/>
                         <ComboBoxItem Content="Beacon Theme" Tag="Beacon"/>
+                        <ComboBoxItem Content="Aero" Tag="Aero"/>
                     </ComboBox>
+                    <TextBlock Text="Completion alerts" Style="{StaticResource SectionHeader}"/>
+                    <CheckBox x:Name="NotifyOnCompletion_chk" Content="Notify when a search finishes"
+                              ToolTip="Play the Windows notification sound and flash Beacon's taskbar button for finished searches, including no matches or a result limit. Canceled and failed searches stay silent."/>
+                    <CheckBox x:Name="NotifyOnlyInBackground_chk" Content="Only notify while Beacon is in the background"
+                              IsEnabled="{Binding IsChecked, ElementName=NotifyOnCompletion_chk}"
+                              ToolTip="Turn this off to also hear the sound while Beacon is active. The taskbar flashes only while Beacon is in the background, without stealing focus."/>
+                    <TextBlock Text="Uses the Windows Instant Message Notification sound and System Sounds volume. Your Windows sound scheme, including No Sounds, is respected."
+                               TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,14"/>
                     <TextBlock Text="Preview" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Font family"/>
                     <ComboBox x:Name="PreviewFont_cmb" IsEditable="False" IsTextSearchEnabled="True" IsTextSearchCaseSensitive="False"
@@ -138,7 +148,7 @@
             <Button x:Name="RestoreDefaults_btn" Grid.Column="0" HorizontalAlignment="Left" Content="Restore defaults"/>
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button x:Name="Cancel_btn" Content="Cancel" IsCancel="True"/>
-                <Button x:Name="Save_btn" Content="Save" IsDefault="True" Style="{StaticResource PrimaryButton}"/>
+                <Button x:Name="Save_btn" Content="Save" IsDefault="True" Style="{DynamicResource PrimaryButton}"/>
             </StackPanel>
         </Grid>
     </Grid>

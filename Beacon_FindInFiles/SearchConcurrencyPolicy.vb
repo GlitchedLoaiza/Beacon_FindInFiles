@@ -57,7 +57,7 @@ Namespace Beacon
             Public AvailableExtendedVirtual As ULong
         End Structure
 
-        <DllImport("kernel32.dll", SetLastError:=True)>
+        <DllImport("kernel32.dll", SetLastError:=True), DefaultDllImportSearchPaths(DllImportSearchPath.System32)>
         Private Shared Function GlobalMemoryStatusEx(ByRef status As MemoryStatus) As <MarshalAs(UnmanagedType.Bool)> Boolean
         End Function
     End Class

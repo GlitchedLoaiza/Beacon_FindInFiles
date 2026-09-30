@@ -20,6 +20,7 @@ Namespace Beacon
         Private Const ProtocolWarning As String = "warning"
         Private Const ProtocolRegexTimeout As String = "regex-timeout"
         Private Const MaxLineChars As Integer = 262144
+        Friend Const MaximumRequestBytes As Integer = 262144
         Private Const NormalSearchCoverageWarning As String = "EVTX normal search: Deep Search is disabled, so sibling archived message resources were not searched; local message resources and raw XML were used, so message-only matches can be missed"
         Private Shared ReadOnly DefaultRenderingBudget As TimeSpan = TimeSpan.FromSeconds(180)
         Friend Shared RenderingBudget As TimeSpan? = Nothing
@@ -38,8 +39,8 @@ Namespace Beacon
                 If Not IsWorkerInvocation(args) Then Return 2
                 Dim requestPath = args(1)
                 If String.IsNullOrWhiteSpace(requestPath) OrElse Not File.Exists(requestPath) Then Return 2
-                Dim request = JsonSerializer.Deserialize(Of EvtxWorkerRequest)(File.ReadAllText(requestPath, Encoding.UTF8), JsonOptions())
-                If request Is Nothing OrElse String.IsNullOrWhiteSpace(request.FilePath) OrElse Not File.Exists(request.FilePath) Then Return 2
+                Dim request = ReadRequest(requestPath)
+                If Not File.Exists(request.FilePath) Then Return 2
                 Dim query As New SearchQuery(request.QueryText, request.QueryMode, request.CaseSensitive)
                 Dim options = If(request.Settings, New BeaconSettings())
                 options.MaximumStructuredMatches = Math.Max(0, Math.Min(options.MaximumStructuredMatches, Math.Max(0, request.RemainingMatches)))
@@ -66,6 +67,26 @@ Namespace Beacon
                 End Try
                 Return 1
             End Try
+        End Function
+
+        Friend Shared Function ReadRequest(requestPath As String) As EvtxWorkerRequest
+            If String.IsNullOrWhiteSpace(requestPath) OrElse Not Path.IsPathFullyQualified(requestPath) Then Throw New InvalidDataException("The EVTX request path must be absolute.")
+            Using directory = PrivateTemporaryDirectory.LockDirectory(Path.GetDirectoryName(requestPath)),
+                  input = PrivateTemporaryDirectory.OpenRead(requestPath)
+                If input.Length < 1 OrElse input.Length > MaximumRequestBytes Then Throw New InvalidDataException("The EVTX worker request exceeds its size limit.")
+                Using bounded As New BoundedReadStream(input, MaximumRequestBytes, CancellationToken.None)
+                    Dim request = JsonSerializer.Deserialize(Of EvtxWorkerRequest)(bounded, RequestJsonOptions)
+                    If request Is Nothing OrElse String.IsNullOrWhiteSpace(request.FilePath) OrElse request.FilePath.Length > 32767 OrElse
+                       Not Path.IsPathFullyQualified(request.FilePath) OrElse request.QueryText Is Nothing OrElse request.QueryText.Length > 4096 OrElse
+                       Not [Enum].IsDefined(request.QueryMode) OrElse request.StartSequence < 0 OrElse
+                       request.RemainingMatches < 0 OrElse request.RemainingMatches > 100000 Then
+                        Throw New InvalidDataException("The EVTX worker request is invalid.")
+                    End If
+                    request.Settings = BeaconSettingsService.Validate(request.Settings)
+                    EvtxFilter.FromSettings(request.Settings)
+                    Return request
+                End Using
+            End Using
         End Function
 
         Friend Shared Sub CollectIsolated(filePath As String, query As SearchQuery, settings As BeaconSettings,
@@ -120,20 +141,20 @@ Namespace Beacon
 
         Private Shared Function TryCreateFastModeCopy(filePath As String, copyLimitBytes As Long, token As CancellationToken,
                                                       report As Action(Of Exception, String, String)) As EvtxFastModeCopy
-            Dim directory = Path.Combine(Path.GetTempPath(), "BeaconEvtxFast_" & Guid.NewGuid().ToString("N"))
+            Dim directory As PrivateTemporaryDirectory = Nothing
             Try
                 token.ThrowIfCancellationRequested()
                 Dim sourceIdentity = EvtxSourceIdentity.Capture(filePath)
                 Dim sourceInfo As New FileInfo(filePath)
                 Dim limit = If(copyLimitBytes > 0, copyLimitBytes, sourceInfo.Length)
                 If sourceInfo.Length > limit Then Throw New InvalidDataException("EVTX file exceeds the normal-search copy limit.")
-                IO.Directory.CreateDirectory(directory)
-                Dim target = Path.Combine(directory, Path.GetFileName(filePath))
+                directory = PrivateTemporaryDirectory.Create("BeaconEvtxFast_")
+                Dim target = Path.Combine(directory.DirectoryPath, Path.GetFileName(filePath))
                 Dim copied As Long
                 Dim buffer(81919) As Byte
                 Using input As New FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, buffer.Length, FileOptions.SequentialScan),
                       bounded As New BoundedReadStream(input, limit, token),
-                      output As New FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None, buffer.Length, FileOptions.SequentialScan)
+                      output = directory.CreateFile(Path.GetFileName(filePath), options:=FileOptions.SequentialScan)
                     While True
                         Dim count = bounded.Read(buffer, 0, buffer.Length)
                         If count = 0 Then Exit While
@@ -144,25 +165,16 @@ Namespace Beacon
                 End Using
                 If copied <> sourceInfo.Length Then Throw New IOException("EVTX normal-search copy did not preserve the source byte count.")
                 If Not sourceIdentity.Matches(filePath) Then Throw New IOException("EVTX file changed while Beacon was preparing the normal-search copy.")
-                Return New EvtxFastModeCopy(directory, target, report)
+                Return New EvtxFastModeCopy(directory, target)
             Catch ex As OperationCanceledException
-                CleanupFastModeDirectory(directory, report)
+                directory?.Dispose()
                 Throw
             Catch ex As Exception When TypeOf ex Is IOException OrElse TypeOf ex Is UnauthorizedAccessException OrElse TypeOf ex Is InvalidDataException
-                CleanupFastModeDirectory(directory, report)
+                directory?.Dispose()
                 report?.Invoke(ex, "EVTX normal search copy", "Warning")
                 Return Nothing
             End Try
         End Function
-
-        Private Shared Sub CleanupFastModeDirectory(directory As String, report As Action(Of Exception, String, String))
-            If String.IsNullOrWhiteSpace(directory) OrElse Not IO.Directory.Exists(directory) Then Return
-            Try
-                IO.Directory.Delete(directory, True)
-            Catch ex As Exception When TypeOf ex Is IOException OrElse TypeOf ex Is UnauthorizedAccessException
-                report?.Invoke(ex, "EVTX normal search cleanup", "Warning")
-            End Try
-        End Sub
 
         Private Shared Function ResolveRenderingBudget(settings As BeaconSettings) As TimeSpan?
             If RenderingBudget.HasValue Then Return RenderingBudget
@@ -204,8 +216,19 @@ Namespace Beacon
             Dim request As New EvtxWorkerRequest With {.FilePath = filePath, .QueryText = query.Text, .QueryMode = query.Mode,
                 .CaseSensitive = query.CaseSensitive, .Settings = BeaconSettingsService.Clone(settings), .XmlOnly = xmlOnly,
                 .StartSequence = startSequence, .RemainingMatches = remaining + replayedMatches}
-            Dim requestPath = Path.Combine(Path.GetTempPath(), "BeaconEvtxWorker_" & Guid.NewGuid().ToString("N") & ".json")
-            File.WriteAllText(requestPath, JsonSerializer.Serialize(request, JsonOptions()), Encoding.UTF8)
+            Dim requestBytes = JsonSerializer.SerializeToUtf8Bytes(request, JsonOptions())
+            If requestBytes.Length > MaximumRequestBytes Then Throw New InvalidDataException("The EVTX worker request exceeds its size limit.")
+            Using requestDirectory = PrivateTemporaryDirectory.Create("BeaconEvtxWorker_")
+            Dim requestPath = Path.Combine(requestDirectory.DirectoryPath, "request.json")
+            Using output = requestDirectory.CreateFile("request.json")
+                output.Write(requestBytes)
+            End Using
+            Using requestLock = PrivateTemporaryDirectory.OpenRead(requestPath)
+            Dim stored(requestBytes.Length - 1) As Byte
+            requestLock.ReadExactly(stored)
+            If requestLock.Length <> requestBytes.Length OrElse Not requestBytes.AsSpan().SequenceEqual(stored) Then
+                Throw New InvalidDataException("The EVTX request changed before the worker started.")
+            End If
             Dim process As Process = Nothing
             Dim processStarted As Boolean
             Dim outputTask As Task = Nothing
@@ -294,13 +317,10 @@ Namespace Beacon
                 Finally
                     process?.Dispose()
                     readerCancellation.Dispose()
-                    Try
-                        File.Delete(requestPath)
-                    Catch ex As Exception When TypeOf ex Is IOException OrElse TypeOf ex Is UnauthorizedAccessException
-                        report?.Invoke(ex, "EVTX worker cleanup", "Warning")
-                    End Try
                 End Try
             End Try
+            End Using
+            End Using
         End Function
 
         Private Shared Sub ReadBoundedLines(reader As TextReader, consume As Action(Of String), token As CancellationToken)
@@ -636,6 +656,7 @@ Namespace Beacon
         End Sub
 
         Private Shared ReadOnly s_jsonOptions As New JsonSerializerOptions With {.PropertyNameCaseInsensitive = True}
+        Private Shared ReadOnly RequestJsonOptions As New JsonSerializerOptions With {.PropertyNameCaseInsensitive = True, .MaxDepth = 16}
 
         Private Shared Function JsonOptions() As JsonSerializerOptions
             Return s_jsonOptions
@@ -682,14 +703,12 @@ Namespace Beacon
         Private NotInheritable Class EvtxFastModeCopy
             Implements IDisposable
 
-            Private ReadOnly _directory As String
-            Private ReadOnly _report As Action(Of Exception, String, String)
+            Private ReadOnly _directory As PrivateTemporaryDirectory
             Private _disposed As Boolean
 
-            Public Sub New(directory As String, filePath As String, report As Action(Of Exception, String, String))
+            Public Sub New(directory As PrivateTemporaryDirectory, filePath As String)
                 _directory = directory
                 _FilePath = filePath
-                _report = report
             End Sub
 
             Public ReadOnly Property FilePath As String
@@ -697,7 +716,7 @@ Namespace Beacon
             Public Sub Dispose() Implements IDisposable.Dispose
                 If _disposed Then Return
                 _disposed = True
-                CleanupFastModeDirectory(_directory, _report)
+                _directory.Dispose()
             End Sub
         End Class
 

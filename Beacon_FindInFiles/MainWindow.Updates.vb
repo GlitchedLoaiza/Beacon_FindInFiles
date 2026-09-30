@@ -31,15 +31,15 @@ Namespace Beacon
             Public Parameter As IntPtr
         End Structure
 
-        <DllImport("shell32.dll")>
+        <DllImport("shell32.dll"), DefaultDllImportSearchPaths(DllImportSearchPath.System32)>
         Private Shared Function SHAppBarMessage(message As UInteger, ByRef data As TaskbarData) As UIntPtr
         End Function
 
-        <DllImport("user32.dll", SetLastError:=True)>
+        <DllImport("user32.dll", SetLastError:=True), DefaultDllImportSearchPaths(DllImportSearchPath.System32)>
         Private Shared Function GetWindowRect(handle As IntPtr, ByRef bounds As DesktopRectangle) As <MarshalAs(UnmanagedType.Bool)> Boolean
         End Function
 
-        <DllImport("user32.dll", SetLastError:=True)>
+        <DllImport("user32.dll", SetLastError:=True), DefaultDllImportSearchPaths(DllImportSearchPath.System32)>
         Private Shared Function SetWindowPos(handle As IntPtr, insertAfter As IntPtr, x As Integer, y As Integer,
                                              width As Integer, height As Integer, flags As UInteger) As <MarshalAs(UnmanagedType.Bool)> Boolean
         End Function

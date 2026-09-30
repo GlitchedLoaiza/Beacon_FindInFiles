@@ -14,15 +14,11 @@ Namespace Beacon
     });
     var nodes = [], parts = [], offset = 0;
     if (!document.body) return null;
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-        acceptNode: function(node) {
-            var parent = node.parentElement;
-            if (!parent || parent.closest('script,style,noscript') || !parent.getClientRects().length || getComputedStyle(parent).visibility === 'hidden') return NodeFilter.FILTER_REJECT;
-            return NodeFilter.FILTER_ACCEPT;
-        }
-    });
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     var node;
     while ((node = walker.nextNode()) && offset < __LIMIT__ && nodes.length < 50000) {
+        var parent = node.parentElement;
+        if (!parent || parent.closest('script,style,noscript') || !parent.getClientRects().length || getComputedStyle(parent).visibility === 'hidden') continue;
         var text = node.nodeValue.slice(0, __LIMIT__ - offset);
         nodes.push({node: node, original: node.nodeValue, start: offset, end: offset + text.length});
         parts.push(text);

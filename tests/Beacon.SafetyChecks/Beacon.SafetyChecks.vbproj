@@ -11,10 +11,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Beacon_FindInFiles/ArchiveSafety.vb" Link="Production/ArchiveSafety.vb" />
+    <Compile Include="../../Beacon_FindInFiles/PrivateTemporaryDirectory.vb" Link="Production/PrivateTemporaryDirectory.vb" />
+    <Compile Include="../../Beacon_FindInFiles/WebPreviewSecurity.vb" Link="Production/WebPreviewSecurity.vb" />
     <Compile Include="../../Beacon_FindInFiles/ArchiveCompatibility.vb" Link="Production/ArchiveCompatibility.vb" />
     <Compile Include="../../Beacon_FindInFiles/BeaconSettings.vb" Link="Production/BeaconSettings.vb" />
     <Compile Include="../../Beacon_FindInFiles/BeaconThemePalette.vb" Link="Production/BeaconThemePalette.vb" />
+    <Compile Include="../../Beacon_FindInFiles/AeroTheme.vb" Link="Production/AeroTheme.vb" />
     <Compile Include="../../Beacon_FindInFiles/NativeCaptionTheme.vb" Link="Production/NativeCaptionTheme.vb" />
+    <Compile Include="../../Beacon_FindInFiles/SearchCompletionNotifier.vb" Link="Production/SearchCompletionNotifier.vb" />
     <Compile Include="../../Beacon_FindInFiles/SingleInstanceCoordinator.vb" Link="Production/SingleInstanceCoordinator.vb" />
     <Compile Include="../../Beacon_FindInFiles/InstanceWindowActivation.vb" Link="Production/InstanceWindowActivation.vb" />
     <Compile Include="../../Beacon_FindInFiles/CabExtractor.vb" Link="Production/CabExtractor.vb" />
@@ -31,6 +35,7 @@
     <Compile Include="../../Beacon_FindInFiles/TourWindow.xaml.vb" Link="TourWindow.xaml.vb" />
     <Page Include="../../Beacon_FindInFiles/TourWindow.xaml" Link="TourWindow.xaml" />
     <Page Include="../../Beacon_FindInFiles/SettingsStyles.xaml" Link="SettingsStyles.xaml" />
+    <Page Include="../../Beacon_FindInFiles/AeroStyles.xaml" Link="AeroStyles.xaml" />
     <Compile Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml.vb" Link="UtcDateTimePicker.xaml.vb" />
     <Page Include="../../Beacon_FindInFiles/UtcDateTimePicker.xaml" Link="UtcDateTimePicker.xaml" />
     <Compile Include="../../Beacon_FindInFiles/SeveritySelector.xaml.vb" Link="SeveritySelector.xaml.vb" />

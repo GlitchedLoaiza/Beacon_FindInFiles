@@ -9,7 +9,7 @@ Imports System.Security.Cryptography
 ''' </summary>
 Public Class SevenZipHelper
 
-    Private Shared _extractedSevenZipPath As String = Nothing
+    Private Shared _verifiedHelper As VerifiedHelper
     Private Shared ReadOnly _lockObject As New Object()
 
     ''' <summary>
@@ -18,63 +18,81 @@ Public Class SevenZipHelper
     ''' <returns>Path to extracted 7za.exe, or Nothing if extraction failed</returns>
     Private Shared Function EnsureSevenZipExtracted() As String
         SyncLock _lockObject
-            ' If already extracted, return cached path
-            If Not String.IsNullOrEmpty(_extractedSevenZipPath) AndAlso File.Exists(_extractedSevenZipPath) Then
-                Return _extractedSevenZipPath
-            End If
+            If _verifiedHelper IsNot Nothing Then Return _verifiedHelper.ExecutablePath
 
             Try
-                ' Try to extract 7za.exe from embedded resources
                 Dim assembly As Assembly = Assembly.GetExecutingAssembly()
                 Dim resourceName As String = assembly.GetManifestResourceNames().FirstOrDefault(Function(r) r.EndsWith("7za.exe"))
 
                 If String.IsNullOrEmpty(resourceName) Then
-                    Debug.WriteLine("ERROR: 7za.exe not found in embedded resources")
-                    Debug.WriteLine("Available resources: " & String.Join(", ", assembly.GetManifestResourceNames()))
-                    Return Nothing
+                    Throw New IOException("7za.exe was not found in the embedded resources.")
                 End If
-
-                ' Extract to an application-owned, versioned directory.
-                Dim version = assembly.GetName().Version?.ToString()
-                If String.IsNullOrWhiteSpace(version) Then version = "unknown"
-                Dim tempDir = Path.Combine(Path.GetTempPath(), "Beacon", "Tools", version)
-                Directory.CreateDirectory(tempDir)
-
-                _extractedSevenZipPath = Path.Combine(tempDir, "7za.exe")
-
+                Beacon.PrivateTemporaryDirectory.CleanupStale("BeaconTool_")
                 Using resourceStream = assembly.GetManifestResourceStream(resourceName)
-                    If resourceStream Is Nothing Then
-                        Debug.WriteLine("ERROR: Could not open resource stream for " & resourceName)
-                        Return Nothing
-                    End If
-
-                    Dim embeddedHash = SHA256.HashData(resourceStream)
-                    Dim existingIsValid = File.Exists(_extractedSevenZipPath) AndAlso
-                        CryptographicOperations.FixedTimeEquals(embeddedHash, SHA256.HashData(File.ReadAllBytes(_extractedSevenZipPath)))
-
-                    If Not existingIsValid Then
-                        resourceStream.Position = 0
-                        Dim pendingPath = _extractedSevenZipPath & ".new"
-                        Using fileStream As New FileStream(pendingPath, FileMode.Create, FileAccess.Write, FileShare.None)
-                            resourceStream.CopyTo(fileStream)
-                            fileStream.Flush(True)
-                        End Using
-                        File.Move(pendingPath, _extractedSevenZipPath, True)
-                        Debug.WriteLine("✓ Extracted verified 7za.exe to: " & _extractedSevenZipPath)
-                    Else
-                        Debug.WriteLine("✓ Verified existing 7za.exe at: " & _extractedSevenZipPath)
-                    End If
+                    If resourceStream Is Nothing Then Throw New IOException("The embedded CAB helper could not be opened.")
+                    _verifiedHelper = VerifiedHelper.Create(resourceStream)
                 End Using
-
-                Return _extractedSevenZipPath
-
+                AddHandler AppDomain.CurrentDomain.ProcessExit, AddressOf ReleaseHelper
+                Return _verifiedHelper.ExecutablePath
             Catch ex As Exception
-                Debug.WriteLine("ERROR extracting 7za.exe: " & ex.Message)
-                Debug.WriteLine("Stack trace: " & ex.StackTrace)
+                _verifiedHelper?.Dispose()
+                _verifiedHelper = Nothing
+                Debug.WriteLine("Could not prepare the verified CAB helper: " & ex.Message)
                 Return Nothing
             End Try
         End SyncLock
     End Function
+
+    Private Shared Sub ReleaseHelper(sender As Object, e As EventArgs)
+        SyncLock _lockObject
+            _verifiedHelper?.Dispose()
+            _verifiedHelper = Nothing
+        End SyncLock
+    End Sub
+
+    Friend NotInheritable Class VerifiedHelper
+        Implements IDisposable
+        Private ReadOnly _directory As Beacon.PrivateTemporaryDirectory
+        Private ReadOnly _image As FileStream
+
+        Private Sub New(directory As Beacon.PrivateTemporaryDirectory, image As FileStream)
+            _directory = directory
+            _image = image
+            ExecutablePath = Path.Combine(directory.DirectoryPath, "7za.exe")
+        End Sub
+
+        Public ReadOnly Property ExecutablePath As String
+
+        Public Shared Function Create(source As Stream) As VerifiedHelper
+            If Not source.CanSeek Then Throw New ArgumentException("The embedded helper stream must be seekable.", NameOf(source))
+            source.Position = 0
+            Dim expected = SHA256.HashData(source)
+            source.Position = 0
+            Dim directory = Beacon.PrivateTemporaryDirectory.Create("BeaconTool_")
+            Dim image As FileStream = Nothing
+            Try
+                Using output = directory.CreateFile("7za.exe")
+                    source.CopyTo(output)
+                    output.Flush(True)
+                End Using
+                image = Beacon.PrivateTemporaryDirectory.OpenRead(Path.Combine(directory.DirectoryPath, "7za.exe"))
+                If Not CryptographicOperations.FixedTimeEquals(expected, SHA256.HashData(image)) Then
+                    Throw New InvalidDataException("The extracted CAB helper does not match its embedded image.")
+                End If
+                ' Retain the verified handle and ancestor-directory locks through every execution.
+                Return New VerifiedHelper(directory, image)
+            Catch
+                image?.Dispose()
+                directory.Dispose()
+                Throw
+            End Try
+        End Function
+
+        Public Sub Dispose() Implements IDisposable.Dispose
+            _image.Dispose()
+            _directory.Dispose()
+        End Sub
+    End Class
 
     ''' <summary>
     ''' Extracts a CAB file to the specified output directory using 7z.exe

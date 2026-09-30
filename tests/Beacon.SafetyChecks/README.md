@@ -1,6 +1,6 @@
 # Beacon safeguard regression checks
 
-This Windows/.NET 10 console runner compiles production code and WPF views as linked source files, using the same WebView2 and SharpCompress versions as Beacon. Checks create isolated off-screen WPF windows on an STA thread. Source/navigation tests instantiate MainWindow with its application startup/shutdown handlers detached and use temporary fixtures, not customer logs. The runner does not alter persisted settings, ownership, or permissions. Browser checks require the installed WebView2 Runtime and use a separate temporary profile.
+This Windows/.NET 10 console runner compiles production code and WPF views as linked source files, using the same WebView2 and SharpCompress versions as Beacon. Checks create isolated off-screen WPF windows on an STA thread. Source/navigation tests instantiate MainWindow with its application startup/shutdown handlers detached and use temporary fixtures, not customer logs. The runner does not alter persisted settings, source-file ownership, or permissions outside its private test directories. Browser checks require the installed WebView2 Runtime and use a separate temporary profile.
 
 From the repository root:
 
@@ -9,6 +9,28 @@ dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- "$P
 ```
 
 A nonzero exit code indicates a failure. This is an executable regression runner, not a Test Explorer/MSTest project. Solution builds compile it; run the command above to execute the checks.
+
+## Theme-only validation
+
+Run `dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- --theme-checks` for Aero and existing-theme regression checks without archive/browser fixtures. This covers persistent theme selection, gradient contrast, system-color high-contrast resources, reversible styles and chrome, owned windows, editable controls, and layout at minimum and larger widths. Caption checks briefly exercise maximize, minimize, restore, and cancellable close on test windows.
+
+The Aero layout check writes `artifacts/aero-theme-96dpi.png` and `artifacts/aero-theme-144dpi.png` beneath the runner's output directory. These are rendered previews, not pixel-identical screenshot comparisons. Interactive dragging, edge resizing, Windows snapping, and moving between monitors with different scaling still need desktop verification. Existing saved preferences are not changed.
+
+## Completion-alert validation
+
+Run `dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- --notification-checks` to check notification policy, duplicate/stale completion suppression, activation cleanup, effect failures, settings round-trips, and real scan completion/cancellation/reset/shutdown flows. The checks use injected effects: they do not play sounds, flash the real taskbar, or write user settings. Native eligibility is checked without invoking playback or flashing.
+
+Interactive sound/taskbar verification should use a normal Beacon window and the desired Windows sound scheme. The configured `Notification.IM` event supplies the sound, with no bundled WAV or added package. Background-only alerts are enabled by default; canceled and failed scans stay silent, and application activation clears taskbar attention.
+
+## Security-boundary validation
+
+Run `dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- --security-checks` for private-directory ACLs, exclusive creation, lifetime locks, stale cleanup, helper-image substitution/replacement, bounded worker requests, Windows DLL import restrictions, and hostile web-preview fixtures. A loopback-only trap detects unexpected page connections; fixture data is synthetic. Directory redirection uses a junction if symlink creation is unavailable; the additional file-symlink case explicitly reports a skip when Windows denies its creation.
+
+The preview controller carries source markup as chunk-encoded JSON data, parses it in an inert template, and removes active/resource-hint elements and unsafe attributes before live attachment. Document scripts remain disabled; host-injected highlighting, restrictive CSP/no-store headers, browser offline mode, and request/navigation/capability guards provide independent layers. Only validated private document addresses reach the host navigation API. Large documents use a private response stream rather than a navigable local-file URL. Browser highlighting, Unicode (including chunk-boundary surrogate pairs), regex, stale captures, and embedded report styling/raster images are checked through the same controller. Inert construction adds preview-only parsing work, not a new search pass or per-record matching check.
+
+The zero-connection assertion covers imported content and the supported controller entry points. A separate loopback-only characterization deliberately bypasses the controller: raw CoreWebView2.Navigate can initiate speculative connections before NavigationStarting cancellation. It must not be called with imported destinations. WebView2 is not an OS network sandbox, and trusted host code or a compromised host remains outside this boundary.
+
+Private temp directories are atomically created with user/System access, reject reparse-point ancestors, and retain handles against path replacement. The CAB helper retains its verified read-only file handle until process exit; worker requests are bounded to 256 KiB/16 JSON levels and retained read-only during the worker phase. These checks do not prove immunity to a compromised account/admin/kernel, encrypt working data, or guarantee zero performance overhead. Security setup stays outside per-record matching; existing scan/preview limits and provider behavior remain in force.
 
 ## Current 2.2.1 validation
 

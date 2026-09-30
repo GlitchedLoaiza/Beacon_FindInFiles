@@ -20,7 +20,7 @@ Module BeaconThemeChecks
             Require(BeaconSettingsService.Validate(BeaconSettingsService.Clone(New BeaconSettings With {.Theme = theme})).Theme = theme,
                     "Theme did not survive validated settings serialization.")
             For Each systemDark In {False, True}
-                Dim expected = theme = AppTheme.Dark OrElse ((theme = AppTheme.System OrElse theme = AppTheme.Beacon) AndAlso systemDark)
+                Dim expected = theme = AppTheme.Dark OrElse theme = AppTheme.Aero OrElse ((theme = AppTheme.System OrElse theme = AppTheme.Beacon) AndAlso systemDark)
                 Require(BeaconThemePalette.UsesDarkBackground(theme, systemDark) = expected, "Theme background resolution is incorrect.")
             Next
             Require(BeaconThemePalette.FollowsSystem(theme) = (theme = AppTheme.System OrElse theme = AppTheme.Beacon), "System-following modes are incorrect.")
