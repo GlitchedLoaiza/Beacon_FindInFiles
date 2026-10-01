@@ -222,6 +222,7 @@ Namespace Beacon
 
         ''' <summary>Single shared initialization operation used by startup and preview requests</summary>
         Private _webViewInitializationTask As Task(Of Boolean)
+        Private ReadOnly _webViewInitializationCancellation As New CancellationTokenSource()
 
         ' --- UI throttling for "Scanning file: ..." label ---
         ''' <summary>Stopwatch for measuring time between label updates</summary>
@@ -654,13 +655,18 @@ Namespace Beacon
         Private Async Function EnsureWebView2InitializedAsync() As Task(Of Boolean)
             If _isClosing Then Return False
             If _webViewInitialized AndAlso WebPreview_wv2?.CoreWebView2 IsNot Nothing Then Return True
+            Dim closingToken = _webViewInitializationCancellation.Token
 
             If _webViewInitializationTask Is Nothing OrElse
                (_webViewInitializationTask.IsCompleted AndAlso Not _webViewInitialized) Then
                 _webViewInitializationTask = InitializeWebView2CoreAsync()
             End If
 
-            Return Await _webViewInitializationTask
+            Try
+                Return Await _webViewInitializationTask.WaitAsync(closingToken)
+            Catch ex As OperationCanceledException When closingToken.IsCancellationRequested
+                Return False
+            End Try
         End Function
 
         Private Async Function InitializeWebView2CoreAsync() As Task(Of Boolean)
@@ -724,8 +730,8 @@ Namespace Beacon
         Friend Property ApplicationExitForChecks As Action
 
         ''' <summary>
-        ''' Handles window closing event - cleanup temp files and attempt quick WebView2 folder cleanup
-        ''' Does NOT block application exit - leftover folders are cleaned on next startup
+        ''' Cancels and drains owned work before closing, without waiting for optional browser startup.
+        ''' Locked temporary folders can be cleaned up on the next startup.
         ''' </summary>
         Private Async Sub MainWindow_Closing(sender As Object, e As ComponentModel.CancelEventArgs)
             ' Repeated close requests must not interrupt resource cleanup.
@@ -741,6 +747,7 @@ Namespace Beacon
             _updateCheckCancellation.Cancel()
 
             Try
+                _webViewInitializationCancellation.Cancel()
                 UpdateButtonsState()
                 _scanCts?.Cancel()
                 _htmlExportCancellation?.Cancel()
@@ -754,7 +761,7 @@ Namespace Beacon
                         Debug.WriteLine($"Export stopped during shutdown: {ex.Message}")
                     End Try
                 End If
-                If _webViewInitializationTask IsNot Nothing Then Await _webViewInitializationTask
+                ' Hidden WebView2 startup may remain pending until shown; it must not gate shutdown.
                 DisposeWebPreview()
 
                 ' Cleanup temp EVTX files
@@ -3533,6 +3540,7 @@ Namespace Beacon
         ''' </summary>
         Protected Overrides Sub OnClosed(e As EventArgs)
             _isClosing = True
+            _webViewInitializationCancellation.Cancel()
             InvalidatePreviewRequests()
             _updateCheckCancellation.Cancel()
             RemoveHandler Microsoft.Win32.SystemEvents.UserPreferenceChanged, AddressOf SystemThemeChanged
@@ -3542,6 +3550,7 @@ Namespace Beacon
                 _scanCts.Cancel()
                 _scanCts.Dispose()
             End If
+            _webViewInitializationCancellation.Dispose()
             MyBase.OnClosed(e)
         End Sub
 

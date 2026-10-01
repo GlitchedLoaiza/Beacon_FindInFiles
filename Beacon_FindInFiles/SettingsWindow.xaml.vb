@@ -40,7 +40,6 @@ Namespace Beacon
 
             SearchMode_cmb.ItemsSource = [Enum].GetValues(Of SearchMode)()
             AccessDenied_cmb.ItemsSource = [Enum].GetValues(Of AccessDeniedAction)()
-            EvtxResourcePolicy_cmb.ItemsSource = {EvtxResourcePolicy.OfflineOnly}
             EvtxResourceHelp_txt.Text = EvtxFilter.ResourceGuidance
             Diagnostics_cmb.ItemsSource = [Enum].GetValues(Of DiagnosticDetail)()
 
@@ -158,7 +157,6 @@ Namespace Beacon
             EvtxDeepSearchTimeout_txt.Text = _workingSettings.EvtxDeepSearchTimeoutSeconds.ToString()
             UpdateEvtxDeepSearchLimitState(Nothing, Nothing)
             RawXmlFallback_chk.IsChecked = _workingSettings.ShowRawXmlWhenMessageUnavailable
-            EvtxResourcePolicy_cmb.SelectedItem = EvtxResourcePolicy.OfflineOnly
             EvtxIds_txt.Text = _workingSettings.EvtxEventIds
             EvtxProvider_cmb.Text = _workingSettings.EvtxProvider
             EvtxLevels_txt.Text = _workingSettings.EvtxLevels
@@ -226,7 +224,7 @@ Namespace Beacon
                 _workingSettings.EvtxFromUtc = EvtxFrom_txt.Text.Trim()
                 _workingSettings.EvtxToUtc = EvtxTo_txt.Text.Trim()
                 _workingSettings.ShowRawXmlWhenMessageUnavailable = RawXmlFallback_chk.IsChecked.GetValueOrDefault()
-                _workingSettings.EvtxMessageResourceBehavior = DirectCast(EvtxResourcePolicy_cmb.SelectedItem, EvtxResourcePolicy)
+                _workingSettings.EvtxMessageResourceBehavior = EvtxResourcePolicy.OfflineOnly
                 _workingSettings.HarMaximumMatches = ParseInteger(HarMatches_txt, "Maximum HAR matches")
                 _harFilters.SaveSettings(_workingSettings)
                 _workingSettings.MaximumHarBodySizeMb = ParseInteger(HarBodySize_txt, "Maximum HAR body size")

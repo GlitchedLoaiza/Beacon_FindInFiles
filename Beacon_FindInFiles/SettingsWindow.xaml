@@ -90,7 +90,7 @@
                     <TextBlock Text="From UTC (inclusive)"/><ContentControl x:Name="EvtxFrom_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
                     <TextBlock Text="To UTC (inclusive)"/><ContentControl x:Name="EvtxTo_host" HorizontalContentAlignment="Stretch" Margin="0,5,0,14"/>
                     <CheckBox x:Name="RawXmlFallback_chk" Content="Show raw XML when a message cannot be rendered"/>
-                    <TextBlock Text="Missing message-resource behavior"/><ComboBox x:Name="EvtxResourcePolicy_cmb"/>
+                    <TextBlock Text="Event message resources" FontWeight="SemiBold" Margin="0,6,0,0"/>
                     <TextBlock x:Name="EvtxResourceHelp_txt" TextWrapping="Wrap" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,12"/>
                     <TextBlock Text="HTTP Archive files" Style="{StaticResource SectionHeader}"/>
                     <TextBlock Text="Pre-scan HAR filters (blank = any)" TextWrapping="Wrap"/>

@@ -103,6 +103,12 @@ Module SettingsThemeChecks
                 Dim themedWindow As New SettingsWindow(saved, dark)
                 Try
                     Require(CStr(DirectCast(themedWindow.FindName("Theme_cmb"), ComboBox).SelectedValue) = choice.ToString(), "Settings did not load the saved theme.")
+                    Require(themedWindow.FindName("EvtxResourcePolicy_cmb") Is Nothing, "Fixed EVTX resource behavior should not appear as an editable dropdown.")
+                    Dim resourceHelp = TryCast(themedWindow.FindName("EvtxResourceHelp_txt"), TextBlock)
+                    Require(resourceHelp IsNot Nothing AndAlso resourceHelp.Text = EvtxFilter.ResourceGuidance, "The offline event-resource explanation is missing.")
+                    Dim xmlFallback = TryCast(themedWindow.FindName("RawXmlFallback_chk"), CheckBox)
+                    Require(xmlFallback IsNot Nothing AndAlso xmlFallback.IsEnabled AndAlso xmlFallback.IsChecked.GetValueOrDefault() = saved.ShowRawXmlWhenMessageUnavailable,
+                            "Removing the fixed resource selector changed the configurable raw-XML fallback.")
                     DirectCast(themedWindow.FindName("RestoreDefaults_btn"), Button).RaiseEvent(New RoutedEventArgs(Button.ClickEvent))
                     Require(CStr(DirectCast(themedWindow.FindName("Theme_cmb"), ComboBox).SelectedValue) = "System", "Restore defaults did not reset the theme.")
                 Finally

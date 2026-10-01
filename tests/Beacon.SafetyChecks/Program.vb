@@ -11,6 +11,7 @@ Module Program
 
     <STAThread>
     Function Main(args As String()) As Integer
+        If args.Length = 2 AndAlso args(0) = "--shutdown-child" Then Return ShutdownChecks.RunChildMode(args)
         If args.Length = 3 AndAlso args(0) = "--measure-production-app" Then Return ApplicationScalingMeasurements.Run(args(1), args(2))
         If args.Length = 3 AndAlso args(0) = "--single-instance-check" Then Return SingleInstanceChecks.RunChildMode(args)
         If args.Length >= 1 AndAlso args(0) = "--beacon-evtx-worker" Then
@@ -50,8 +51,14 @@ Module Program
             Console.WriteLine($"{_passed} passed; {_failed} failed.")
             Return If(_failed = 0, 0, 1)
         End If
+        If args.Length = 1 AndAlso args(0) = "--shutdown-checks" Then
+            CheckShutdown()
+            Check("Search completion alerts, cancellation and shutdown", AddressOf SearchCompletionNotificationChecks.ScanIntegration)
+            Console.WriteLine($"{_passed} passed; {_failed} failed.")
+            Return If(_failed = 0, 0, 1)
+        End If
         If args.Length <> 1 OrElse Not File.Exists(args(0)) Then
-            Console.Error.WriteLine("Usage: dotnet run --project tests/Beacon.SafetyChecks -- <path to bundled 7za.exe> | --theme-checks | --notification-checks | --security-checks")
+            Console.Error.WriteLine("Usage: dotnet run --project tests/Beacon.SafetyChecks -- <path to bundled 7za.exe> | --theme-checks | --notification-checks | --security-checks | --shutdown-checks")
             Return 2
         End If
 
@@ -232,6 +239,7 @@ Module Program
         CheckAeroThemes()
         CheckCompletionNotifications()
         CheckSecurityBoundaries()
+        CheckShutdown()
         Console.WriteLine($"{_passed} passed; {_failed} failed.")
         Return If(_failed = 0, 0, 1)
     End Function
@@ -257,6 +265,13 @@ Module Program
         Check("EVTX worker request bounds and validation", AddressOf SecurityBoundaryChecks.WorkerRequests)
         Check("Production Windows imports resolve from System32", AddressOf SecurityBoundaryChecks.NativeImports)
         Check("Static preview rejects malicious active and network content", AddressOf WebPreviewSecurityChecks.Run)
+    End Sub
+
+    Private Sub CheckShutdown()
+        Check("Native close does not wait for optional browser startup", AddressOf ShutdownChecks.NativeCloseWithPendingBrowser)
+        Check("Aero X does not wait for optional browser startup", AddressOf ShutdownChecks.AeroCloseWithPendingBrowser)
+        Check("Completed and failed browser startup allow closing", AddressOf ShutdownChecks.CompletedBrowserStates)
+        Check("Native and Aero close terminate the WPF application", AddressOf ShutdownChecks.ProcessExit)
     End Sub
 
     Private Function NewBudget(Optional settings As BeaconSettings = Nothing) As ArchiveReadBudget

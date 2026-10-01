@@ -22,6 +22,12 @@ Run `dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -
 
 Interactive sound/taskbar verification should use a normal Beacon window and the desired Windows sound scheme. The configured `Notification.IM` event supplies the sound, with no bundled WAV or added package. Background-only alerts are enabled by default; canceled and failed scans stay silent, and application activation clears taskbar attention.
 
+## Shutdown validation
+
+Run `dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- --shutdown-checks` to exercise native and Aero close commands with the real closing handler attached. Checks cover pending, completed, and failed browser startup, repeated close requests, canceled preview waiters, and scan cancellation during shutdown.
+
+Isolated child processes also start a real hidden WebView2 initialization and verify that closing the window exits the WPF application. Startup update/tour callbacks are excluded, and saved preferences are unchanged. Only timed-out test children are terminated for cleanup; production shutdown has no forced-exit timer. Optional browser startup is canceled/disposed rather than awaited indefinitely, while active scan, text-preview, and export work still drains before exit.
+
 ## Security-boundary validation
 
 Run `dotnet run --project tests/Beacon.SafetyChecks/Beacon.SafetyChecks.vbproj -- --security-checks` for private-directory ACLs, exclusive creation, lifetime locks, stale cleanup, helper-image substitution/replacement, bounded worker requests, Windows DLL import restrictions, and hostile web-preview fixtures. A loopback-only trap detects unexpected page connections; fixture data is synthetic. Directory redirection uses a junction if symlink creation is unavailable; the additional file-symlink case explicitly reports a skip when Windows denies its creation.
@@ -32,9 +38,9 @@ The zero-connection assertion covers imported content and the supported controll
 
 Private temp directories are atomically created with user/System access, reject reparse-point ancestors, and retain handles against path replacement. The CAB helper retains its verified read-only file handle until process exit; worker requests are bounded to 256 KiB/16 JSON levels and retained read-only during the worker phase. These checks do not prove immunity to a compromised account/admin/kernel, encrypt working data, or guarantee zero performance overhead. Security setup stays outside per-record matching; existing scan/preview limits and provider behavior remain in force.
 
-## Current 2.2.1 validation
+## Historical 2.2.1 validation
 
-The current EVTX follow-up covers default normal search using private EVTX-only copies, folder-only **EVTX Deep Search mode**, optional per-file rendering deadlines, isolated cancellation, and XML fallback that preserves collected hits and reports incomplete message coverage. The documentation review left this behavior unchanged and retained the user README's historical layout.
+The 2.2.1 EVTX follow-up covered default normal search using private EVTX-only copies, folder-only **EVTX Deep Search mode**, optional per-file rendering deadlines, isolated cancellation, and XML fallback that preserves collected hits and reports incomplete message coverage. The following validation and package records describe that release, not the current 2.3.0 build.
 
 Fresh local validation on **2026-09-28 UTC** passed **95 safety groups, 0 failures in both Debug and Release**, with both runner exit codes zero. Both solution builds completed with **0 warnings and 0 errors**; the Visual Studio workspace build also passed.
 

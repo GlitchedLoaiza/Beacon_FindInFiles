@@ -1,6 +1,6 @@
-# Beacon: Find in Files v2.2.1 — Your logs, easier to explore
+# Beacon: Find in Files v2.3.0 — Your logs, easier to explore
 
-![Version](https://img.shields.io/badge/version-2.2.1-blue)
+![Version](https://img.shields.io/badge/version-2.3.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey)
 ![Framework](https://img.shields.io/badge/.NET-10-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -9,7 +9,7 @@
 
 Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-> **Beacon 2.2.1** uses **normal EVTX search by default**. For logs supplied with extra message files, choose folder-only **EVTX Deep Search**, with an optional time limit for each file. Clearer warnings explain when some messages may be missing from your results. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. The [2.2.0 release record](docs/releases/2.2.0/PROMOTION.md), earlier [`Beacon2.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.1) source snapshot, and release notes below remain available for older versions.
+> **Beacon 2.3.0** adds an optional **Aero theme**, **search-completion alerts**, and hardened **static, offline previews**. Normal EVTX search remains the default; folder-only **EVTX Deep Search** can use supplied message resources, with an optional per-file time limit. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. The [2.2.0 release record](docs/releases/2.2.0/PROMOTION.md), earlier [`Beacon2.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.1) source snapshot, and release notes below remain available for older versions.
 
 ## 🎯 Features at a glance
 
@@ -45,7 +45,7 @@ Keep the included `LICENSE` and `licenses` folder with the app when sharing it. 
 
 ### 🔐 Verify your download
 
-Use the checksum for the **same file and version** you downloaded. The historical [2.2.0 release checksum list](docs/releases/2.2.0/packages/06b8a89/SHA256SUMS.txt) contains separate values for that ZIP and EXE; it does **not** verify a 2.2.1 download.
+Use the checksum for the **same file and version** you downloaded. The historical [2.2.0 release checksum list](docs/releases/2.2.0/packages/06b8a89/SHA256SUMS.txt) contains separate values for that ZIP and EXE; it does **not** verify a 2.3.0 download.
 
 <details>
 <summary>Show the historical 2.2.0 release hashes and PowerShell verification steps</summary>
@@ -268,14 +268,14 @@ The regression runner is a console application, not a Test Explorer assembly. It
 Create a self-contained release package and fresh checksums with PowerShell 7:
 
 ```powershell
-.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.2.1-Release"
+.\scripts\Publish-Beacon.ps1 -Destination "$PWD\artifacts\Beacon-2.3.0-Release"
 ```
 
 The script creates the EXE/ZIP, includes legal notices, verifies the contents, preserves old artifacts, and writes checksums and a manifest. It does not commit, sign, or upload anything. It defaults to ReadyToRun off; `-ReadyToRun` opts in without a profile, and `-PublishProfilePath` accepts a `.pubxml` path. Raw `dotnet publish` uses the project's ReadyToRun default (on), so its hash may differ. User-specific publish paths are not required.
 
 The development-only [`BenchmarkSuite1`](BenchmarkSuite1/BenchmarkSuite1.csproj) includes [production multicore benchmark instructions](BenchmarkSuite1/PRODUCTION-BENCHMARKS.md) and [measured results](tests/Beacon.SafetyChecks/PerformanceEvidence/multicore-production/REPORT.md), including approximately 200 MiB compressed ZIPs. These are workload- and machine-specific measurements, not a promise for every scan. The earlier [optimization and rollback record](tests/Beacon.SafetyChecks/PERFORMANCE-AUDIT.md) remains available.
 
-For historical 2.2.0 packaging and **Beta → Release** provenance, see the [release record](docs/releases/2.2.0/PROMOTION.md). A 2.2.1 package needs its own validation and checksums. Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+For historical 2.2.0 packaging and **Beta → Release** provenance, see the [release record](docs/releases/2.2.0/PROMOTION.md). A 2.3.0 package needs its own validation and checksums. Keep the original component notices in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 </details>
 
@@ -289,6 +289,21 @@ Ideas, bug reports, and suggestions are welcome—especially if something could 
 Share bugs through [GitHub Issues](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/issues) or talk about features in [GitHub Discussions](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/discussions). Please include your version, what you expected, and what happened. If you attach a sample, remove passwords, credentials, and private data first.
 
 ## 📋 Changelog
+
+### v2.3.0
+
+#### ✨ Added
+
+- Optional **Aero theme** with glossy dark controls, cyan accents, classic-style window controls, and a green progress bar with moving shine. Reduced-motion and high-contrast preferences are respected.
+- Configurable search-completion alerts using the Windows notification sound and taskbar attention, without bundling an audio file or bringing Beacon to the front.
+
+#### 🛠️ Fixed and changed
+
+- HTML/XML/JSON previews are static and offline: imported scripts, external resources, and interactive behavior are restricted while search highlighting remains available. Some web pages may look simplified.
+- Hardened temporary-file handling, CAB-helper verification, event-log worker requests, and Windows library loading.
+- Corrected Aero text-selection readability and replaced the fixed EVTX resource-policy dropdown with explanatory text.
+- Fixed closing through native and Aero window controls while optional browser initialization is still pending.
+- Existing search modes, saved settings, .NET 10 target, and dependency versions remain supported.
 
 ### v2.2.1
 
