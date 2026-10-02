@@ -94,7 +94,8 @@ Module ShutdownChecks
                         Throw New TimeoutException($"{theme} child process did not exit after its close command. " & output.GetAwaiter().GetResult() & errors.GetAwaiter().GetResult())
                     End If
                     Dim trace = output.GetAwaiter().GetResult() & errors.GetAwaiter().GetResult()
-                    Require(child.ExitCode = 0 AndAlso trace.Contains("WINDOW CLOSED") AndAlso trace.Contains("APPLICATION EXITED"),
+                    Require(child.ExitCode = 0 AndAlso trace.Contains("WINDOW CLOSED") AndAlso trace.Contains("APPLICATION EXITED") AndAlso
+                            Not trace.Contains("UNHANDLED_UI_EXCEPTION", StringComparison.Ordinal),
                             $"{theme} close did not terminate the application cleanly: " & trace)
                     Console.WriteLine($"Shutdown child {theme}: " & trace.Trim().Replace(Environment.NewLine, " | "))
                 Finally
@@ -113,13 +114,15 @@ Module ShutdownChecks
         Dim window = CreateWindow(theme)
         Dim requested As Boolean
         Dim closed As Boolean
+        Dim unhandledFailure As Boolean
         AddHandler window.Closed, Sub()
                                      closed = True
                                      Console.WriteLine("WINDOW CLOSED")
                                  End Sub
         AddHandler application.DispatcherUnhandledException,
             Sub(sender, e)
-                Console.Error.WriteLine(e.Exception.ToString())
+                unhandledFailure = True
+                Console.Error.WriteLine("UNHANDLED_UI_EXCEPTION: " & e.Exception.ToString())
                 e.Handled = True
                 application.Shutdown(2)
             End Sub
@@ -140,7 +143,7 @@ Module ShutdownChecks
         Dim result = application.Run(window)
         timer.Stop()
         Console.WriteLine("APPLICATION EXITED")
-        Return If(result = 0 AndAlso requested AndAlso closed, 0, 1)
+        Return If(result = 0 AndAlso requested AndAlso closed AndAlso Not unhandledFailure, 0, 1)
     End Function
 
     Private Function CreateWindow(theme As AppTheme) As MainWindow

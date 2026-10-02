@@ -664,7 +664,7 @@ Namespace Beacon
 
             Try
                 Return Await _webViewInitializationTask.WaitAsync(closingToken)
-            Catch ex As OperationCanceledException When closingToken.IsCancellationRequested
+            Catch ex As OperationCanceledException When _isClosing
                 Return False
             End Try
         End Function
