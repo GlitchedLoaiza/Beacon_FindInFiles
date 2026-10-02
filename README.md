@@ -9,7 +9,7 @@
 
 Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and anyone tired of searching files one by one.
 
-> **Beacon 2.3.0** adds an optional **Aero theme**, **search-completion alerts**, and hardened **static, offline previews**. Normal EVTX search remains the default; folder-only **EVTX Deep Search** can use supplied message resources, with an optional per-file time limit. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. The [2.2.0 release record](docs/releases/2.2.0/PROMOTION.md), earlier [`Beacon2.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.1) source snapshot, and release notes below remain available for older versions.
+> **Beacon 2.3.0** adds an optional **Aero theme**, **search-completion alerts**, and safer **offline previews**. Normal EVTX search remains the default; folder-only **EVTX Deep Search** can use supplied message resources, with an optional per-file time limit. Check [GitHub Releases](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/releases) for available downloads. The [2.2.0 release record](docs/releases/2.2.0/PROMOTION.md), earlier [`Beacon2.1`](https://github.com/GlitchedLoaiza/Beacon_FindInFiles/tree/Beacon2.1) source snapshot, and release notes below remain available for older versions.
 
 ## 🎯 Features at a glance
 
@@ -21,7 +21,7 @@ Built with ❤️ by **GlitchedLoaiza** for troubleshooting, log analysis, and a
 - **Look inside nested archives:** configurable depth and limits, with matching files shown under their original archive paths.
 - **Investigate events and requests:** collapsible EVTX/HAR tools, editable date pickers, and filters that help narrow the view.
 - **Share a readable report:** export matching files and nearby context to a self-contained HTML file.
-- **Make it comfortable:** Light, Dark, System, Beacon Theme, or Aero, with adjustable previews. Standard themes keep native Windows controls; Aero adds a dark glossy palette, cyan accents, and a classic-style frame.
+- **Make it comfortable:** Light, Dark, System theme, Beacon Theme, or Aero, with adjustable previews. Standard themes keep native Windows controls; Aero adds a dark glossy palette, cyan accents, and a classic-style frame.
 - **Know when a search finishes:** a Windows notification sound and taskbar highlight let you know when a background search is done, without bringing Beacon to the front. Change or disable this in **Settings → Preview and diagnostics → Completion alerts**. Your Windows sound scheme is respected; no audio file is bundled.
 - **Get help as you go:** an optional welcome tour you can replay from Help, plus a searchable offline guide and beginner regex lessons.
 
@@ -34,7 +34,7 @@ Whether you're tracking an error across diagnostic bundles, finding a configurat
 3. Verify the download using the instructions below, then extract it to a folder you can write to.
 4. Run **`Beacon.exe`**. That's it—no installer or separate .NET installation is needed.
 
-Keep the included `LICENSE` and `licenses` folder with the app when sharing it. You don't need the source code, benchmarks, or test files to use Beacon.
+Keep the included `LICENSE`, `THIRD-PARTY-NOTICES.md`, and `licenses` folder with the app when sharing it. You don't need the source code, benchmarks, or test files to use Beacon.
 
 ### 🖥️ What you'll need
 
@@ -46,6 +46,8 @@ Keep the included `LICENSE` and `licenses` folder with the app when sharing it. 
 ### 🔐 Verify your download
 
 Use the checksum for the **same file and version** you downloaded. The historical [2.2.0 release checksum list](docs/releases/2.2.0/packages/06b8a89/SHA256SUMS.txt) contains separate values for that ZIP and EXE; it does **not** verify a 2.3.0 download.
+
+For the 2.3.0 ZIP, open PowerShell in your download folder and run `Get-FileHash -LiteralPath '.\Beacon-2.3.0-win-x64.zip' -Algorithm SHA256`. Compare the returned **Hash** with the ZIP's entry in the matching `SHA256SUMS.txt`. If they differ, do not run the app; confirm the version and download it again from the official release.
 
 <details>
 <summary>Show the historical 2.2.0 release hashes and PowerShell verification steps</summary>
@@ -119,9 +121,9 @@ Not sure about regex? Start with **Literal text**, then explore the in-app lesso
 
 Summary uses context captured during the search: it does not search again, reopen the source, or change exports. Long lines can be shortened, and capture limits still apply. A match beyond Full's loaded prefix may still be readable in Summary. Records with no visible highlight are identified as record anchors rather than invented text highlights.
 
-HTML/XML/JSON previews are **static and offline**: active elements and connection hints are removed before display, and document scripts, external resources, navigation, and downloads are blocked while Beacon's search highlighting remains available. Inline styling and embedded raster images are supported; imported controls and external links are inactive, and document-level layout may be simplified. Pages that depend on scripts or remote content may look incomplete. Source files and search results are unchanged. Update checks and links you explicitly open from Help or Feedback are separate from this preview policy.
+**HTML/XML/JSON previews work offline and do not run scripts from your files.** Search highlighting, basic formatting, and supported embedded images remain available. Buttons, forms, external links, and downloads in imported pages are disabled, so some pages may look different from a web browser. Your original files and search results are unchanged. Update checks and links you choose to open from Help or Feedback use the internet separately.
 
-Extracted files and browser profiles use private Windows temporary directories; the CAB helper is verified and protected against replacement while in use. Cleanup is best-effort, so crashes or locked files can leave data until a later cleanup. This is not encrypted storage or protection from a compromised Windows account, administrator, or operating system.
+Beacon uses private Windows temporary folders for extracted files and browser data, and checks its bundled CAB helper before use. It removes temporary data when possible, but a crash or a file still in use can leave data until a later cleanup. These folders are not encrypted and do not protect against a compromised Windows account, administrator, or operating system.
 
 ### Changing, cancelling, and resetting
 
@@ -171,6 +173,7 @@ New settings leave first-match mode, HAR redaction, and EVTX Deep Search off. Up
 - **Choose how long to wait:** Deep Search has no time limit by default; it runs until finished, cancelled, or a match limit is reached. To set a limit, enable **Settings → EVTX and HAR → Limit EVTX Deep Search time before switching to XML**, choose 1–86,400 seconds per file, save, and rescan. The suggested 180 seconds (3 minutes) applies only when you enable this setting.
 - **Reaching a time limit?** If message rendering reaches its limit or fails, Beacon keeps the matches already collected and searches the remaining events as raw XML, with an incomplete-coverage warning. You can also **Cancel** the scan. Normal message search and XML fallback each have a separate 3-minute limit per file.
 - **Still missing a readable message?** Event tools explains how to export logs with their message information. Beacon doesn't download provider DLLs, and neither mode guarantees every message or faster searches on every log.
+- **Event message resources** in Settings is an explanation of this fixed behavior, not a selectable mode. The separate **Show raw XML when a message cannot be rendered** option remains available.
 
 ### HAR: saved HTTP traffic
 
@@ -205,12 +208,16 @@ Set nesting depth in **Settings → Archives**: the default is 1, with values fr
 
 ## 🎨 Make Beacon yours
 
-- Choose **Light**, **Dark**, **System theme**, or **Beacon Theme** under **Settings → Preview and diagnostics → Appearance**, then click **Save**.
-- **Beacon Theme** uses a softer, logo-inspired crimson with off-white button text. Input/preview outlines and selection highlights use coordinated red tones while backgrounds follow Windows' light/dark app preference. Disabled buttons stay neutral. Switch back to another theme whenever you like.
-- Text-preview highlights in Beacon Theme are translucent, so the selected characters stay readable.
-- Adjust fonts, wrapping, formatting, and preview size to suit your reading style.
+- Choose **Light**, **Dark**, **System theme**, **Beacon Theme**, or **Aero** under **Settings → Preview and diagnostics → Appearance → Theme**, then click **Save**. You can change themes again whenever you like.
+- **Light** and **Dark** keep your chosen appearance. **System theme**, the default, follows Windows' light/dark app preference.
+- **Beacon Theme** adds logo-inspired crimson buttons, off-white button text, and red accents while the background follows Windows' light/dark app preference.
+- **Aero** keeps a dark appearance with glossy controls, cyan accents, classic-style window buttons, and a green progress bar with moving shine. The shine respects Windows' animation setting; high-contrast mode uses system colors and native window controls instead.
+- Text-preview highlights in Beacon Theme and Aero are translucent, so selected characters stay readable.
+- Adjust the font, text size, wrapping, JSON/XML formatting, and preview size under **Settings → Preview and diagnostics → Preview**, then **Save**.
+- Control notifications under **Settings → Preview and diagnostics → Completion alerts**. **Notify when a search finishes** is on by default, with **Only notify while Beacon is in the background** also checked. Clear the background-only option to hear completion sounds while Beacon is active, or turn alerts off entirely; then **Save**.
+- Background completion alerts use Windows' **Instant Message Notification** sound and highlight Beacon's taskbar button without bringing the app to the front. Returning to Beacon clears the attention indicator. Finished searches can notify even with no matches or a result limit; canceled and failed searches stay silent. Windows' sound scheme and **System Sounds** volume apply—no audio file is bundled.
 - Expand the side panes when you need extra tools and collapse them when you want more room.
-- Keep familiar Windows title-bar buttons, dragging, and snapping. Supported title-bar colors follow the app's theme.
+- Standard themes keep Windows' title-bar controls; Aero uses its classic-style frame. You can still move, resize, minimize, maximize, and close the window.
 - Launch Beacon again and it asks Windows to bring your existing window forward rather than opening a second copy.
 
 ### 🔄 Stay up to date
@@ -232,13 +239,16 @@ Beacon checks for a newer stable release at startup. A brief notification offers
 | `Ctrl+C` | Copy selected text; in Summary, copy the selected captured block. |
 | `Tab` / `Shift+Tab` | Move between controls. |
 
-Use the visible navigation buttons when a shortcut does not apply to the active preview. Native window buttons, system menu, dragging, and snapping are retained.
+Use the visible navigation buttons when a shortcut does not apply to the active preview. Theme changes do not change these search shortcuts; Aero changes the appearance of the window controls.
 
 ## ❓ Helpful tips and known limitations
 
 - **No matches?** Check the source, search mode, capitalization, and filters. Diagnostics may explain why files were skipped.
 - **A match isn't highlighted?** It may be in a name/path, hidden by HAR redaction, or displayed differently in a formatted document. Regex can also match a position without selecting characters; Help explains this.
 - **A preview is shortened?** Raise the preview limit in Settings if appropriate. Incomplete HTML/XML/JSON is shown as text so you can still read the available content.
+- **An HTML page looks incomplete or its controls do nothing?** Beacon shows a safe, offline preview rather than an interactive website. Scripts, linked content, and external navigation are blocked; the original file is unchanged.
+- **No completion sound?** Alerts default to background searches only. Check **Settings → Preview and diagnostics → Completion alerts**, then Windows' sound scheme and **System Sounds** volume. A muted volume or **No Sounds** scheme stays silent.
+- **Aero's progress bar is not animated?** Windows may have animations disabled or high contrast enabled. Beacon intentionally uses a static bar in those cases; search progress still updates.
 - **Large or unusual files?** HAR documents can use considerable memory. Multipart/ZIP64 edge cases and large solid archives need testing with your representative files; a partial read isn't a full archive integrity check.
 - **An EVTX message is missing?** Check Raw event XML and the offline guidance in Event tools. Logs brought from another computer may need its exported **LocaleMetaData** folder alongside the EVTX. Select the containing folder, enable **EVTX Deep Search mode**, and rescan. Some messages may still be unavailable; raw XML can help you investigate them.
 - **Network or access problems?** Network latency and workplace policies can limit access. Ownership recovery is optional and asks for confirmation; don't try it casually on system or evidence files.
